@@ -12,10 +12,10 @@ image last, plus a stable `prompt_cache_key` per pipeline.
 from __future__ import annotations
 
 import base64
+import io
 from typing import Any
 
 from pydantic import ValidationError
-
 from server.intake.schemas import InputKind, IntakeProposal
 
 TAG = "plan->walls"
@@ -24,6 +24,8 @@ PROMPT_CACHE_KEY = "intake-v1"
 # with finish_reason=length and an empty response (EmptyResponse). Plan intake
 # needs headroom above that.
 MAX_TOKENS = 16384
+# Same cap as the web client: longest side downscaled to fit before sending.
+MAX_SIDE_PX = 2048
 MAX_ATTEMPTS = 2  # initial call + 1 retry carrying the validation error text
 
 SYSTEM_PROMPT = (
@@ -58,6 +60,24 @@ def _sniff_mime(image_bytes: bytes) -> str:
         return "image/png"
     # Phone cameras upload JPEG; the client downscales to JPEG before sending.
     return "image/jpeg"
+
+
+def downscale_image(image_bytes: bytes, max_side: int = MAX_SIDE_PX) -> bytes:
+    """Fit the longest side to `max_side` px (same cap as the web client).
+
+    Small images pass through untouched. Large ones are resized with LANCZOS
+    and re-encoded as JPEG; normalized 0..1 coordinates are unaffected.
+    """
+    from PIL import Image
+
+    with Image.open(io.BytesIO(image_bytes)) as img:
+        img = img.convert("RGB")
+        if max(img.size) <= max_side:
+            return image_bytes
+        img.thumbnail((max_side, max_side), Image.LANCZOS)
+        out = io.BytesIO()
+        img.save(out, format="JPEG", quality=88)
+        return out.getvalue()
 
 
 def _build_messages(
@@ -102,9 +122,10 @@ def _build_messages(
 def read_plan(image_bytes: bytes, input_kind: InputKind) -> IntakeProposal:
     """Run the vision call and return the validated proposal.
 
-    The caller owns `input_kind` (it knows what was uploaded), so the returned
-    proposal carries the requested kind; the model echo only satisfies the
-    strict JSON schema. Raises ReadPlanError on empty input or when both
+    Downscales the image to MAX_SIDE_PX before sending (same cap as the web
+    client). The caller owns `input_kind` (it knows what was uploaded), so the
+    returned proposal carries the requested kind; the model echo only satisfies
+    the strict JSON schema. Raises ReadPlanError on empty input or when both
     attempts fail validation.
     """
     if input_kind not in ("plan", "sketch"):
@@ -118,8 +139,9 @@ def read_plan(image_bytes: bytes, input_kind: InputKind) -> IntakeProposal:
     # the harness installed; only the live call needs mme.client.
     from mme.client import client
 
-    image_b64 = base64.b64encode(image_bytes).decode("ascii")
-    mime = _sniff_mime(image_bytes)
+    resized = downscale_image(image_bytes)
+    mime = _sniff_mime(resized)
+    image_b64 = base64.b64encode(resized).decode("ascii")
     validation_error: str | None = None
     for _ in range(MAX_ATTEMPTS):
         data = client().chat_json(

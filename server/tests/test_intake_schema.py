@@ -20,6 +20,7 @@ from server.intake.read_plan import (
     PROMPT_CACHE_KEY,
     TAG,
     ReadPlanError,
+    downscale_image,
     read_plan,
 )
 from server.intake.schemas import IntakeProposal
@@ -138,7 +139,7 @@ def test_strict_schema_forbids_additional_properties() -> None:
 def test_read_plan_success_pins_call_contract(
     monkeypatch: pytest.MonkeyPatch, _fake_transport: FakeClient
 ) -> None:
-    image = b"\xff\xd8\xff" + b"\x00" * 64  # minimal JPEG magic
+    image = _make_image_bytes(800, 600)  # real PNG, passes downscale through
     proposal = read_plan(image, "plan")
 
     assert proposal.input_kind == "plan"
@@ -154,8 +155,30 @@ def test_read_plan_success_pins_call_contract(
     user_parts = call["messages"][1]["content"]
     image_part = next(p for p in user_parts if p["type"] == "image_url")
     assert image_part["image_url"]["url"] == (
-        "data:image/jpeg;base64," + base64.b64encode(image).decode("ascii")
+        "data:image/png;base64," + base64.b64encode(image).decode("ascii")
     )
+
+
+def test_read_plan_downscales_before_sending(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import io
+
+    from PIL import Image
+
+    fake = FakeClient([_valid_payload()])
+    _install(fake, monkeypatch)
+
+    read_plan(_make_image_bytes(3000, 1500), "plan")
+
+    assert len(fake.calls) == 1
+    user_parts = fake.calls[0]["messages"][1]["content"]
+    image_part = next(p for p in user_parts if p["type"] == "image_url")
+    url = image_part["image_url"]["url"]
+    assert url.startswith("data:image/jpeg;base64,")
+    sent = base64.b64decode(url.split(",", 1)[1])
+    with Image.open(io.BytesIO(sent)) as img:
+        assert max(img.size) <= 2048
 
 
 def test_read_plan_retries_once_with_validation_error(
@@ -166,7 +189,7 @@ def test_read_plan_retries_once_with_validation_error(
     fake = FakeClient([bad, _valid_payload(kind="sketch")])
     _install(fake, monkeypatch)
 
-    proposal = read_plan(b"\x89PNG\r\n\x1a\n" + b"\x00" * 64, "sketch")
+    proposal = read_plan(_make_image_bytes(400, 300), "sketch")
 
     assert proposal.input_kind == "sketch"
     assert len(fake.calls) == 2
@@ -183,7 +206,7 @@ def test_read_plan_fails_loudly_after_two_bad_responses(
     _install(fake, monkeypatch)
 
     with pytest.raises(ReadPlanError, match="failed validation"):
-        read_plan(b"\xff\xd8\xff" + b"\x00" * 16, "plan")
+        read_plan(_make_image_bytes(400, 300), "plan")
     assert len(fake.calls) == 2
 
 
@@ -199,5 +222,33 @@ def test_read_plan_rejects_unknown_kind(
     monkeypatch: pytest.MonkeyPatch, _fake_transport: FakeClient
 ) -> None:
     with pytest.raises(ReadPlanError, match="input_kind"):
-        read_plan(b"\xff\xd8\xff" + b"\x00" * 16, "photo")  # type: ignore[arg-type]
+        read_plan(_make_image_bytes(100, 100), "photo")  # type: ignore[arg-type]
     assert _fake_transport.calls == []
+
+
+def _make_image_bytes(width: int, height: int) -> bytes:
+    import io
+
+    from PIL import Image
+
+    img = Image.new("RGB", (width, height), color=(250, 247, 240))
+    out = io.BytesIO()
+    img.save(out, format="PNG")
+    return out.getvalue()
+
+
+def test_downscale_caps_long_side_at_2048() -> None:
+    import io
+
+    from PIL import Image
+
+    big = _make_image_bytes(3000, 1500)
+    small = downscale_image(big)
+    with Image.open(io.BytesIO(small)) as img:
+        assert max(img.size) <= 2048
+        assert img.size == (2048, 1024)
+
+
+def test_downscale_leaves_small_images_untouched() -> None:
+    small = _make_image_bytes(800, 600)
+    assert downscale_image(small) == small
