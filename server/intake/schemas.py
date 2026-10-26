@@ -23,15 +23,15 @@ class IntakeWall(BaseModel):
 
     a: NormPoint
     b: NormPoint
-    kind: Literal["exterior", "interior"] | None = None
+    kind: Literal["exterior", "interior"] | None
 
 
 class IntakeOpening(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     wall_index: int = Field(ge=0)
-    t0: UnitFloat = 0.0
-    t1: UnitFloat = 1.0
+    t0: UnitFloat
+    t1: UnitFloat
     kind: Literal["door", "window"]
 
     @model_validator(mode="after")
@@ -63,10 +63,10 @@ class IntakeProposal(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     input_kind: InputKind
-    walls: list[IntakeWall] = Field(default_factory=list)
-    openings: list[IntakeOpening] = Field(default_factory=list)
-    labels: list[IntakeLabel] = Field(default_factory=list)
-    dimensions: list[IntakeDimension] = Field(default_factory=list)
+    walls: list[IntakeWall]
+    openings: list[IntakeOpening]
+    labels: list[IntakeLabel]
+    dimensions: list[IntakeDimension]
 
     @model_validator(mode="after")
     def _openings_reference_walls(self) -> IntakeProposal:

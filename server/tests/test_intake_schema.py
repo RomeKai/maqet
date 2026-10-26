@@ -117,12 +117,26 @@ def test_opening_reversed_span_fails() -> None:
         IntakeProposal.model_validate(bad)
 
 
-def test_wall_kind_optional_and_empty_lists_pass() -> None:
+def test_wall_kind_nullable_and_empty_lists_explicit() -> None:
     proposal = IntakeProposal.model_validate(
-        {"input_kind": "sketch", "walls": [{"a": [0.0, 0.0], "b": [1.0, 0.0]}]}
+        {
+            "input_kind": "sketch",
+            "walls": [{"a": [0.0, 0.0], "b": [1.0, 0.0], "kind": None}],
+            "openings": [],
+            "labels": [],
+            "dimensions": [],
+        }
     )
     assert proposal.walls[0].kind is None
-    empty = IntakeProposal.model_validate({"input_kind": "plan"})
+    empty = IntakeProposal.model_validate(
+        {
+            "input_kind": "plan",
+            "walls": [],
+            "openings": [],
+            "labels": [],
+            "dimensions": [],
+        }
+    )
     assert empty.walls == [] and empty.dimensions == []
 
 
@@ -131,6 +145,30 @@ def test_strict_schema_forbids_additional_properties() -> None:
     assert schema.get("additionalProperties") is False
     for name in ("IntakeWall", "IntakeOpening", "IntakeLabel", "IntakeDimension"):
         assert schema["$defs"][name].get("additionalProperties") is False
+
+
+def _all_object_schemas(node: Any) -> Any:
+    if isinstance(node, dict):
+        if "properties" in node:
+            yield node
+        for value in node.values():
+            yield from _all_object_schemas(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from _all_object_schemas(value)
+
+
+def test_strict_schema_requires_every_property() -> None:
+    schema = IntakeProposal.model_json_schema()
+    objects = list(_all_object_schemas(schema))
+    assert objects, "no object schemas found"
+    for subschema in objects:
+        properties = set(subschema.get("properties", {}).keys())
+        required = set(subschema.get("required", []))
+        assert required == properties, (
+            f"strict mode needs required == properties, got required={sorted(required)} "
+            f"properties={sorted(properties)}"
+        )
 
 
 # --- read_plan via fake transport --------------------------------------------

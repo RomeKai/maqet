@@ -35,8 +35,8 @@ SYSTEM_PROMPT = (
     "y grows DOWN from the top-left corner of the image.\n"
     "Return a JSON object with exactly these keys:\n"
     '- input_kind: "plan" for a clean drawn plan, "sketch" for a hand-drawn croquis.\n'
-    "- walls: [{a:[x,y], b:[x,y], kind}] wall segment endpoints. "
-    'kind is "exterior" or "interior" only when evident, else omit it.\n'
+    '- walls: [{a:[x,y], b:[x,y], kind}] wall segment endpoints. '
+    'kind is "exterior" or "interior" when evident, else null (always include the key).\n'
     "- openings: [{wall_index, t0, t1, kind}] doors and windows as fractions "
     't0..t1 along the wall from a to b. kind is "door" or "window".\n'
     "- labels: [{text, at:[x,y]}] room names or notes with their position.\n"
