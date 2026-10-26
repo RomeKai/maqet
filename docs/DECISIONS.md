@@ -41,6 +41,7 @@ Short records: context → decision → consequences. Change a decision by addin
 - **Consequences:** works on messy real plans. Measurements are trusted because the professional confirmed them.
 
 ## ADR-008 Assets: curated CC0 catalog + generative on demand
+> Superseded in part by ADR-022: construction materials with recipes are now the P0 catalog; design furniture shrinks to a small basic set.
 - **Decision:** ~30 PBR materials (ambientCG, Poly Haven, CC0) and ~25 furniture GLBs (Kenney, Poly Pizza, CC0, scaled to
   real dimensions), declared in `assets/catalog.json` with license and source. Imagined materials: Muse Image generates a
   seamless texture ($0.01). Imagined furniture: a concept piece (image + real-size footprint), labelled as such.
@@ -52,6 +53,7 @@ Short records: context → decision → consequences. Change a decision by addin
 - **Consequences:** fast to build, demo-friendly. Accounts and teams are roadmap. Tokens can be revoked.
 
 ## ADR-010 English UI, bilingual agent
+> Superseded in part by ADR-022: UI is Spanish (es-AR) first, with English strings in the same dictionary.
 - **Decision:** UI copy in English (global judges). The agent understands and answers in Spanish or English (it follows the
   user's language). Voice transcription in both.
 
@@ -69,6 +71,7 @@ Short records: context → decision → consequences. Change a decision by addin
 - **Consequences:** comparing, voting and choosing come almost for free from the op history. Storage stays small.
 
 ## ADR-014 Stage-scoped toolsets for the agent
+> Re-scoped by ADR-022: the five stages stay; Reform becomes the main agent stage, Design is light, Deliver is the staged takeoff.
 - **Decision:** the five stages (Capture, Reform, Design, Present, Deliver) each expose only their own tools to the model.
   Reform and Design can be skipped. The stage is part of the request, and the server enforces the toolset (the model
   can't call a tool outside it even if it hallucinates one).
@@ -82,6 +85,7 @@ Short records: context → decision → consequences. Change a decision by addin
   as a toggle.
 
 ## ADR-016 Plans are badges, not code, in the hackathon
+> Superseded in part by ADR-022: tiers change to free for families and per-seat licences for programs; still badges only, no billing code.
 - **Decision:** a single `entitlements` map (free/pro_designer/pro_architect/agency) drives "Pro" badges in the UI.
   Everything stays enabled; no billing, no auth.
 - **Consequences:** the business model is visible in the demo at zero engineering cost. Real gating comes later.
@@ -97,6 +101,7 @@ Short records: context → decision → consequences. Change a decision by addin
 - **Consequences:** one palette serves both audiences; technical precision is visible exactly where it matters.
 
 ## ADR-019 Demo and test plans are generated with known ground truth
+> Superseded in part by ADR-022: inputs are regenerated during the event and must include hand-drawn sketches with ground truth; the generator script is not in the repo.
 - **Decision:** `samples/tools/make_plans.py` generates 3 original plans (CC0): a clean 48 m² flat, a 70 m² 2-bedroom flat
   and a hand-sketch-style loft. Each comes with a phone-photo-like version (perspective, paper, blur, noise) and a
   `*.truth.json` with walls/openings/rooms in meters.
@@ -105,6 +110,7 @@ Short records: context → decision → consequences. Change a decision by addin
   Library of Congress HABS drawing) is added for realism; licenses go in `samples/plans/SOURCES.md`.
 
 ## ADR-020 Positioning: the measured meeting-to-CAD workflow, not consumer decorating
+> Superseded in part by ADR-022: the "measured, not decorative" filter stays; the audience and the handoff change (assisted self-build, staged takeoff).
 - **Context:** consumer apps (ArchAI, RoomGPT, Planner 5D) already cover plan → 3D → AR → AI photo restyling. Feature parity
   there is a losing race (LiDAR, catalog size, polish).
 - **Decision:** every scope decision is judged by the three proofs in PRODUCT.md (fidelity, handoff, collaboration). Features
@@ -113,8 +119,56 @@ Short records: context → decision → consequences. Change a decision by addin
   fidelity, the DXF, the takeoff and variants.
 
 ## ADR-021 Quantity takeoff is derived from the Scene, deterministically
+> Extended by ADR-024 (construction materials, split by stage).
 - **Decision:** `server/export/takeoff.py` computes, for a chosen variant: floor/ceiling m² per material and room; wall paint
   m² per material (net of openings, using ceiling height); metres of wall demolished and built (op history vs. the
   captured base); new/removed openings; furniture list with dimensions and `concept` flags. Output as JSON for the app
   and CSV (Pro: XLSX later). No AI involved, so the numbers are exact and testable.
 - **Consequences:** a contractor-ready handoff that consumer apps don't have; costs stay with the professional.
+
+## ADR-022 Pivot: assisted self-build for families building progressively
+- **Context:** the v1 audience (architects, interior designers, real-estate agents) is well served by consumer and
+  professional tools and has a weak "Build for Your World" story. About 4 million people in Argentina self-build their
+  homes in stages as they save (RENABAP, cited by Habitat for Humanity, 2022). Self-managed construction often yields
+  structural deficiencies and functional errors that end in demolition and lost savings. Technical assistance helps, but
+  there are too few professionals. Sources are listed in `docs/PRODUCT.md`.
+- **Decision:** Maqet becomes measured technical assistance for self-builders. A technical assistant (architect, master
+  builder or social-housing technician working for an NGO, municipality or cooperative) visits a family with a phone,
+  surveys the existing home, designs the expansion with the family and leaves with a staged material list and drawings.
+  The family sees the proposal in AR on its own table and through a read-only link, and can speak to it in Spanish.
+  - The five stages of ADR-014 stay, re-scoped: Capture accepts plan photos and hand-drawn sketches (croquis) with a few
+    written measurements; Reform is the main agent stage (expansion/improvement); Design is light (usability checks);
+    Present is AR + Muse Image render; Deliver is the staged takeoff + DXF.
+  - Catalog: construction materials with recipes are P0; design furniture is a small basic set.
+  - UI: Spanish (es-AR) first, English strings in the same dictionary. Demo video in Spanish with English subtitles.
+  - Business hypothesis: free for families; per-seat licence for programs; later hardware-store partnerships.
+- **Why:** real, documented need; fits "Build for Your World" and Impact (30%); the staged takeoff is a differentiator no
+  competitor found offers; sketch reading and voice show Meta tooling beyond a basic integration.
+- **Consequences:** the three proofs of ADR-020 become fidelity, a staged material list the family can buy against, and
+  family collaboration. ADR-001, 002, 003, 004, 005, 006, 009, 011, 012, 013, 015, 017 and 018 are unchanged.
+- **Supersedes in part:** ADR-008 (catalog scope), ADR-010 (UI language), ADR-016 (tiers), ADR-019 (inputs), ADR-020
+  (positioning and audience). Style presets, real-estate flow and consumer decorating move to CUTLIST.
+- **Not claimed:** Maqet is not medical advice, not a plan generator, not a structural certification tool.
+
+## ADR-023 Construction rules and professional-required flags
+- **Decision:** `server/scene/rules.py` holds a small, documented rule set of Argentine building rules of thumb: minimum
+  habitable room area and minimum side, ventilation and natural light (window area as a fraction of floor area), minimum
+  ceiling height, door widths, masonry wall thicknesses, and the maximum unsupported span before a beam or bond beam is
+  needed. Each value cites its source in the code. Rules are deterministic and never live in prompts.
+  Every agent tool validates against these rules; violations return as tool errors or warnings.
+- **Professional-required flags:** the agent and the UI must surface **"needs a licensed professional"** for any second
+  floor, removal of a load-bearing wall, a span over the limit, and foundations on unknown soil. The flag is part of the
+  Scene validation output, so it appears in the app, the share link, the takeoff and the DXF notes.
+- **Consequences:** Maqet never certifies structural safety; all outputs are labelled preliminary. Wrong or outdated
+  rules are a content risk: the rule table is small, reviewable and unit-tested, and the source of each value is recorded.
+  Extends ADR-002 (the agent's bounds now include construction rules, not only geometry).
+
+## ADR-024 Staged construction takeoff
+- **Decision:** extends ADR-021. `server/export/takeoff.py` also derives construction material quantities from Scene
+  geometry using per-material recipes in `assets/catalog.json` (for example bricks per m² of wall by brick type and wall
+  thickness, mortar, cement bags, sand and gravel in m³, steel bars for bond beams, roofing sheets, openings). Quantities
+  are split by construction stage: foundations, walls, bond beams and roof, openings, finishes. Output: JSON for the
+  app and CSV. P1: the user types unit prices to get a per-stage total; Maqet never ships prices.
+- **Why:** families buy materials as they save, stage by stage. A per-stage list turns a drawing into a purchase plan.
+- **Consequences:** still deterministic and AI-free, so numbers are testable. Recipe values are labelled estimates with a
+  source and a waste factor; they do not replace a professional's bill of quantities.

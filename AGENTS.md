@@ -1,7 +1,9 @@
 # Maqet — project instructions
 
-Snap a floor plan, redesign the space live with an AI agent, show the client the result in AR on the table, and hand
-AutoCAD the exact same design as a measured DXF. Mobile-first PWA. Meta Global AI Developer Hackathon (Indie track).
+Assisted self-build: a technical assistant photographs a family's plan or hand-drawn sketch, designs the home expansion
+with them by voice through an AI agent, shows it in AR on their table, and delivers a staged construction takeoff plus a
+measured DXF (ADR-022). Preliminary outputs only; never a structural certification. Mobile-first PWA, Spanish (es-AR)
+first. Meta Global AI Developer Hackathon (Indie track).
 Deadline Wed 2026-11-04 21:00 GMT-5 (23:00 Buenos Aires); internal deadline 18:00 Buenos Aires. Status: `mme today`.
 Product: `docs/PRODUCT.md`. Decisions: `docs/DECISIONS.md`. Ops: `docs/RUNBOOK.md` (follow them; propose a new ADR to change one).
 
@@ -11,8 +13,8 @@ Product: `docs/PRODUCT.md`. Decisions: `docs/DECISIONS.md`. Ops: `docs/RUNBOOK.m
 2. **The AI proposes, deterministic code disposes** (ADR-002). The reform agent changes the Scene only through validated
    tools. Plan reading returns JSON that the human corrects and scales. Models never write coordinates into outputs.
 3. **Every P0 feature works on iPhone and Android** (ADR-012). Phone-first UI per the `mobile-ui` skill; desktop is a bonus.
-4. **Differentiate, don't decorate** (ADR-020): every feature must strengthen fidelity, professional handoff (DXF + takeoff)
-   or client collaboration. Consumer polish goes to CUTLIST.
+4. **Differentiate, don't decorate** (ADR-020, ADR-022): every feature must strengthen fidelity (measured + construction
+   rules), the staged takeoff and DXF handoff, or family collaboration. Decorating and consumer polish go to CUTLIST.
 5. **Five stages, scoped tools** (ADR-014): Capture → Reform* → Design* → Present → Deliver (*skippable). The agent only
    gets the current stage's tools.
 6. **Demo-able `main`.** `mme gate` defines done. Off the critical path -> `docs/CUTLIST.md`.
@@ -22,23 +24,26 @@ Product: `docs/PRODUCT.md`. Decisions: `docs/DECISIONS.md`. Ops: `docs/RUNBOOK.m
   shadcn/ui, `<model-viewer>` for AR, vitest. Types generated from the API schema (`npm run gen:types`).
 - `server/`: FastAPI + pydantic v2, ezdxf, shapely, SQLModel/SQLite, pytest.
 - AI (Meta only, via `mme.client`):
-  - plan reading: Muse Spark 1.3 vision;
+  - plan and hand-sketch reading: Muse Spark 1.3 vision;
   - reform agent: Spark 1.3 tool calling over the Responses API;
-  - push-to-talk: Muse Voice Transcribe;
-  - renders, imagined textures and concept pieces: Muse Image;
-  - reference photos: SAM 3.1 (P1/P2).
-- Assets: CC0 only, each declared in `assets/catalog.json` with source + license.
+  - push-to-talk (Spanish first): Muse Voice Transcribe;
+  - render of the finished room (and imagined textures/concept pieces, P1): Muse Image;
+  - site photos, to cross-check the sketch: SAM 3.1 (P1).
+- Assets: CC0 only, each declared in `assets/catalog.json` with source + license. P0 catalog = construction materials
+  with recipes (ADR-024) plus a small basic furniture set for usability checks.
 
 ## Repo map (keep it current; read this instead of scanning the tree)
-- `server/scene/` Scene models (pydantic), ops (pure functions Scene -> Scene), validation (`rules.py`), `variants.py` (branches A/B/C)
-- `server/intake/` plan photo -> proposed walls (Spark vision), scale from a known dimension
+- `server/scene/` Scene models (pydantic), ops (pure functions Scene -> Scene), validation and construction rules
+  (`rules.py`, ADR-023), `variants.py` (branches A/B/C)
+- `server/intake/` plan photo or hand sketch -> proposed walls (Spark vision), scale from a known dimension
 - `server/agent/` tools, executor, `stages.py` (stage-scoped toolsets, ADR-014), Responses loop, prompts (`prompts/` versioned)
-- `server/export/` DXF from Scene (ezdxf), `takeoff.py` quantity takeoff (ADR-021) · `server/render/` snapshot + Muse Image · `server/api.py` routes · `server/db.py`
+- `server/export/` DXF from Scene (ezdxf), `takeoff.py` quantity takeoff, staged by construction stage with catalog
+  recipes (ADR-021, ADR-024) · `server/render/` snapshot + Muse Image · `server/api.py` routes · `server/db.py`
 - `server/tests/` pytest, offline (replay fixtures in `samples/replay`)
-- `web/src/scene/` store, op history, types · `web/src/view3d/` r3f scene from Scene · `web/src/intake/` plan photo +
+- `web/src/scene/` store, op history, types · `web/src/view3d/` r3f scene from Scene · `web/src/intake/` plan/sketch photo +
   corner editor + scale tool · `web/src/agent/` chat + push-to-talk · `web/src/ar/` GLB/USDZ export + model-viewer ·
-  `web/src/share/` client read-only view
-- `assets/` catalog.json, materials/, furniture/, styles/ (CC0) · `samples/` demo plans + replay · `docs/` product, decisions, plan
+  `web/src/share/` family read-only view · `web/src/i18n/` single es-AR/en dictionary
+- `assets/` catalog.json, materials/ (construction recipes), furniture/ (basic set) (CC0) · `samples/` demo plans, sketches + replay · `docs/` product, decisions, plan
 - `mme/` harness config (budget, policy, milestones, night missions)
 
 ## Domain rules
@@ -47,7 +52,17 @@ Product: `docs/PRODUCT.md`. Decisions: `docs/DECISIONS.md`. Ops: `docs/RUNBOOK.m
 - Defaults: exterior wall 0.20 m, interior 0.10 m, door 0.90 m (min 0.80), corridor ≥ 1.00 m, ceiling 2.60 m.
   Furniture keeps real dimensions from the catalog; the agent may only scale within ±20% of them.
   These live in `server/scene/rules.py`, never in prompts.
+- Construction rules (ADR-023), also in `server/scene/rules.py`, each value citing its source in the code: minimum
+  habitable room area and side, ventilation and natural light (window area / floor area), minimum ceiling height, door
+  widths, masonry wall thicknesses, maximum unsupported span before a beam or bond beam. Argentine building-code rules of
+  thumb; keep the rule set small and unit-tested.
+- The agent and the UI must surface **"needs a licensed professional"** for any second floor, removing a load-bearing
+  wall, spans over the limit, and foundations on unknown soil. Maqet never certifies structural safety; every output
+  (UI, takeoff, DXF notes) is labelled preliminary.
+- Takeoff (ADR-024) is deterministic: geometry x catalog recipes, split by stage (foundations, walls, bond beams/roof,
+  openings, finishes). Maqet never ships prices; user-typed unit prices are P1.
 - Imagined items are labelled `concept` in the Scene and in every output. Never present them as real products.
+- UI strings live in one dictionary, Spanish (es-AR) first, English available.
 
 ## Workflow (ECC)
 `/ecc:plan` for anything over ~1 hour · `tdd-workflow` for `server/scene`, `server/export`, `server/agent` tools ·

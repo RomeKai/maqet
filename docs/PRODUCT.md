@@ -1,141 +1,147 @@
-# Maqet — Product definition (v1, 2026-10-22)
+# Maqet — Product definition (v2, 2026-10-26)
 
 ## Name
-**Maqet** (from *maqueta*: the AR model on the table). Tagline: *from plan to AR to CAD*. A quick app-store and web check
-found no design/architecture app with this exact name; "Maquete AI" (a different product) exists, so always write the
-name with the tagline. Run a trademark search (INPI / USPTO) before any public launch.
+**Maqet** (from *maqueta*: the AR model on the table). Tagline: *from sketch to AR to staged materials*. A quick app-store
+and web check found no design/architecture app with this exact name; "Maquete AI" (a different product) exists, so
+always write the name with the tagline. Run a trademark search (INPI / USPTO) before any public launch.
 
 ## One line
-**Snap a floor plan, redesign the space live with an AI agent, show the client the result in AR on the table, and
-hand AutoCAD the exact same design as a measured DXF.**
+**Assisted self-build: a technical assistant photographs a family's hand-drawn sketch, designs the expansion with them
+by voice, and leaves with a measured plan, an AR maquette and a material list split by construction stage.**
 
 ## Positioning
-> **AI apps redesign photos. Maqet redesigns the measured space, and hands it to AutoCAD.**
+> **AI apps redesign photos. Maqet designs the measured expansion, and tells a family what to buy at each stage.**
 
-Maqet is **not** a consumer decorating app. It's the professional's tool for the client meeting: what the client
-approves in AR is, to the centimeter, what the architect gets in CAD and what the contractor can quote.
-Three proofs we show in every demo:
-1. **Fidelity:** the agent edits a measured model through validated tools; it never repaints a photo. `DIST` in AutoCAD
-   measures what the plan said.
-2. **Handoff:** the chosen variant becomes a DXF with layers **plus a quantity takeoff** (m² per finish, metres of wall
-   demolished/built, furniture list): something a contractor can price.
-3. **Collaboration:** variants A/B/C and a client link with votes, on any phone, no install.
+Maqet is **not** a consumer decorating app and **not** a structural engineering tool. It is measured technical
+assistance for families who build and expand their own homes progressively. Three proofs in every demo:
+1. **Fidelity:** the agent edits a measured model through validated tools; it never repaints a photo. Construction rules
+   are deterministic code, and anything that needs a licensed professional is flagged.
+2. **Staged takeoff:** the design becomes a material list per construction stage (foundations, walls, bond beams/roof,
+   openings, finishes) plus a DXF, so the family buys stage by stage as they save.
+3. **Family collaboration:** the family sees the proposal in AR on its own table, talks to it in Spanish, and keeps a
+   read-only link, on any phone, no install.
 
 ## The problem
-Showing a client a reform takes days today. Someone measures, someone drafts, someone renders, and then each
-change round trip takes days too. Real-estate agents can't show a buyer "what this flat could become" at
-all. AI room-redesign apps make pretty pictures, but those pictures aren't measurable and never reach production drawings.
+- About **4 million people in Argentina** self-build their homes progressively, in stages as they save (RENABAP, the
+  national registry of informal neighborhoods; cited in Habitat for Humanity's 2022 study).
+- The same study reports that self-managed construction often produces structural deficiencies that are hard to fix, and
+  functional changes that lead to demolition and rebuilding: lost savings.
+- Region: a commonly cited estimate is that over 60% of Latin America's population builds its own home without technical
+  assistance (secondary source; treat as indicative). Non-engineered self-built housing carries structural risk.
+- Technical assistance improves quality and resident satisfaction, but there are too few professionals. Public programs
+  already fund improvements and expansions in registered neighborhoods (e.g. Argentina's "Mi Pieza"); the IDB has
+  evaluated the impact of self-build improvement programs.
+- Most families have no plans: only a sketch and a few tape measurements.
+
+**Sources**
+- Habitat for Humanity, *Vivienda autoconstruida en Argentina* (2022): https://www.habitat.org/sites/default/files/documents/Vivienda_autoconstruida_Argentina_resumen.pdf
+- MIT Solve (regional estimate, secondary): https://solve.mit.edu/solutions/58706
+- Structural risk of non-engineered housing (Frontiers in Built Environment, 2025): https://public-pages-files-2025.frontiersin.org/journals/built-environment/articles/10.3389/fbuil.2025.1711028/pdf
+- IDB, impact of self-build improvement programs in Argentina's popular neighborhoods: https://publications.iadb.org/publications/spanish/document/Impacto-de-los-programas-de-mejoramiento-de-vivienda-por-autoconstruccion-evidencia-para-barrios-populares-de-Argentina.pdf
 
 ## Users
 | User | Moment | Job |
 |---|---|---|
-| **Architect / interior designer** (primary) | On site or in the client meeting, phone in hand | Capture the existing space, explore changes with the client live, leave with an approved concept and a DXF to finish at the desk |
-| **Real-estate agent** (secondary) | Showing an empty or dated property | Let the buyer see it furnished or reformed, on the spot, to sell faster |
-| **Client** (viewer) | During or after the meeting | Sees options in 3D/AR from a share link, gives feedback |
+| **Technical assistant** (primary): architect, master builder or social-housing technician at an NGO (TECHO, Habitat for Humanity), a municipality or a cooperative | Visiting a family, phone in hand | Survey the existing home, design the expansion with the family, leave with a staged material list and drawings. Value: serve many more families per day |
+| **Family** (viewer) | During and after the visit | Sees the proposal in AR on their own table and via a read-only link; talks to it by voice in Spanish |
+| **Downstream** | After the visit | The licensed professional who signs and permits; the hardware store or contractor who quotes materials |
 
-It's a professional tool: the agent works *with the professional*, who drives the conversation. The client watches,
-asks for things, and later opens a read-only link.
+The technical assistant drives the session. The family watches, asks for things and keeps the link.
 
 ## Core flow: 5 stages (Reform and Design can be skipped)
 | Stage | What happens | Agent tools in this stage |
 |---|---|---|
-| **1. Capture** | Photo of the plan → Spark vision proposes walls/openings/labels/dimensions → drag corners → set the scale with one known dimension | none (deterministic editor) |
-| **2. Reform** *(skippable)* | Change the architecture: remove a partition, add one, open the kitchen. Rooms are recomputed automatically | `remove_wall`, `add_wall`, `undo` (P1: `move_opening`, `resize_opening`, `split_room`) |
-| **3. Design** *(skippable)* | Finishes, furniture and styles: *"light oak floor, white walls, a 3-seat sofa facing the window, make it japandi"* | `set_material`, `place/move/rotate/remove_item`, `apply_style`, `list_catalog`, `undo` (P1: `generate_material`, `concept_piece`, `apply_brand_kit`) |
-| **4. Present** | Variants A/B/C side by side, AR maquette on the table, photoreal render of a view, share link where the client votes | `create_variant`, `render_view` |
-| **5. Deliver** | **Quantity takeoff** of the chosen variant (in-app table + CSV), DXF with real measurements and AIA layers, share link | none |
+| **1. Capture** | Photo of an existing plan **or a hand-drawn sketch (croquis)** with a few tape measurements written on it → Spark vision proposes walls/openings/labels/dimensions → drag corners → scale from one known dimension | none (deterministic editor) |
+| **2. Reform** *(skippable)* | The agent proposes the expansion or improvement ("add a bedroom for the daughter", "move the bathroom", "add a kitchen window") only through validated tools. Rooms are recomputed; rule violations and professional-required flags come back as tool results | `add_room`, `add_wall`, `remove_wall`, `add_opening`, `move_opening`, `undo` (exact toolset defined in `server/agent/stages.py`) |
+| **3. Design** *(skippable, light)* | Basic furniture only, to check a room is usable (a bed fits, doors swing) | `place/move/rotate/remove_item`, `list_catalog`, `undo` |
+| **4. Present** | AR maquette on the family's table; Muse Image render of the finished room; share link | `create_variant`, `render_view` |
+| **5. Deliver** | **Staged construction takeoff** (in-app table + JSON + CSV) and DXF with real measurements and AIA layers | none |
 
-Stage-scoped tools keep the model accurate and cheap: in Design it can't knock down a wall by accident.
-Any stage can be reopened. Every change is a Scene op, with undo.
+Stage-scoped tools keep the model accurate and cheap (ADR-014). Any stage can be reopened. Every change is a Scene op,
+with undo. Variants A/B/C (ADR-013) remain available for comparing options with the family.
 
-## Variants
-A variant is a **branch of the Scene** (copy-on-write of its op history): *"make a warmer version"* creates B from A.
-Present shows A/B/C with a swipe in 3D and in AR. The client's share link shows the variants and lets them vote and
-comment (one line of text, no account). The chosen variant is the one exported to DXF.
+## Construction rules and honesty
+- Rules are deterministic code in `server/scene/rules.py`, with the source cited next to each value (ADR-023): minimum
+  habitable area and side, ventilation and natural light, ceiling height, door widths, wall thicknesses, maximum span
+  before a beam or bond beam.
+- The agent surfaces **"needs a licensed professional"** for: any second floor, removing a load-bearing wall, spans over
+  the limit, foundations on unknown soil.
+- Maqet never certifies structural safety. Every output is labelled **preliminary**. Imagined items stay labelled `concept`.
+
+## Staged takeoff
+Derived from Scene geometry plus per-material recipes in the catalog (ADR-024). No AI, so numbers are testable.
+Quantities: bricks per m² of wall by brick type and thickness, mortar, cement bags, sand and gravel (m³), steel bars for
+bond beams, roofing sheets, openings. Split by stage so the family buys as they save.
+P1: the user types unit prices to get a per-stage total. Maqet never ships prices.
 
 ## Main screen (phone)
 3D full screen (orbit; tap an object or surface to select it and target the next request), with a bottom sheet:
-chat + push-to-talk mic + stage chips. Top bar: back, room name, variant switcher A|B|C, AR button.
-Selection plus voice is the core interaction: tap the sofa, then say *"in green velvet"*.
-
-## Priority of capabilities
-1. **Finishes and materials** (P0, Design). CC0 PBR catalog + style presets. *Imagined* materials (Muse Image seamless
-   textures) are P1.
-2. **Furnishing / staging** (P0, Design). CC0 furniture scaled to real dimensions. *Imagined* pieces are "concept pieces"
-   (P1), honestly labelled.
-3. **Redistribution** (P0-lite, Reform: remove/add partition, rooms recomputed; the rest is P1).
-4. **Brand fit-out** (P1): BrandProfile applied to finishes and details.
+chat + push-to-talk mic + stage chips. Top bar: back, room name, variant switcher, AR button.
+Selection plus voice is the core interaction. UI is Spanish (es-AR) first, English strings in the same dictionary (ADR-022).
 
 ## Scope tiers
 - **P0 (the demo):**
-  - Capture: plan photo → correct + scale → Scene.
-  - Reform-lite: remove/add partition.
-  - Design: materials, furniture, styles, text + push-to-talk.
-  - Present: variants A/B/C, AR maquette, photoreal render, share link with votes.
-  - Deliver: quantity takeoff (table + CSV) and DXF.
-  - Fidelity visible: a "Measured" badge once the scale is confirmed; every `concept` item in violet.
-- **P1 (if gates are green):** imagined materials, concept pieces, move/resize openings, brand kit.
-- **P2 (post-freeze only if trivial, otherwise roadmap):**
-  - WebXR measuring (Android Chrome);
-  - 1:1 AR in place;
-  - SAM 3.1 finish detection on room photos;
-  - realtime voice.
-- **Out (roadmap):**
-  - iPhone AR measuring / LiDAR scanning (native app: Capacitor + ARKit/RoomPlan);
-  - generative 3D furniture;
-  - multi-floor; accounts and teams; DWG export.
+  - Capture: plan photo or hand sketch → correct + scale → Scene.
+  - Reform: add/remove walls and openings, add a room, validated against construction rules, professional-required flags.
+  - Design (light): basic furniture to check usability.
+  - Present: AR maquette, Muse Image render of the finished room, share link.
+  - Deliver: staged takeoff (table + JSON + CSV) and DXF.
+  - Catalog: construction materials with recipes.
+  - Voice in Spanish (push-to-talk). Fidelity visible: a "Measured" badge once the scale is confirmed; every `concept` item in violet; "Preliminary" label on outputs.
+- **P1 (if gates are green):** unit prices and per-stage totals; SAM 3.1 on site photos to cross-check the sketch; variants
+  A/B/C with family votes; move/resize openings.
+- **P2 (post-freeze only if trivial, otherwise roadmap):** WebXR measuring (Android Chrome); 1:1 AR in place; realtime voice.
+- **Out (roadmap):** LiDAR scanning (native app); structural calculation or certification; multi-floor design; accounts and
+  teams; DWG export; style presets and decorating (see CUTLIST).
 
-## Business model (pitch hypothesis, prices to validate)
-| Plan | For | Includes |
-|---|---|---|
-| **Free** | anyone | Capture, Design mode, AR maquette, in-app takeoff summary, 3 projects, share link with watermark, 5 renders/month |
-| **Pro Designer** (~US$15/mo) | interior designers, stagers | Extended catalog + style packs, imagined materials and concept pieces, brand kits, HD renders, unlimited variants and client voting |
-| **Pro Architect** (~US$29/mo) | architects, studios | DXF export with layer templates (AIA/ISO/custom), quantity takeoff export (CSV/XLSX, later PDF), Reform mode advanced, field measurement (native app with LiDAR/ARKit), revision history; DWG on the roadmap |
-| **Agency** (per property, ~US$5) | real-estate agencies | Branded share pages, staging packs, bulk properties |
+## Business model (pitch hypothesis, to validate)
+| Who | Offer |
+|---|---|
+| **Families** | Free |
+| **NGOs, municipalities, cooperatives** running technical-assistance programs | Per-seat licence for technical assistants; program dashboards later |
+| **Hardware stores** (later) | Partnerships around staged material lists |
 
-Growth loop: every client share link (free tier, watermarked) is an ad for Maqet.
-In the hackathon build everything is unlocked, and "Pro" badges show where the paywall would go (no billing code).
+In the hackathon build everything is unlocked and badges show where licensing would apply (no billing code, ADR-016).
 
-## Competition (checked 2026-10-23)
+## Competition (checked 2026-10-26)
 | Product | What it does | Where Maqet differs |
 |---|---|---|
-| **ArchAI** (iOS, consumer) | LiDAR scan, AR measure, plan photo → plan, 3D, AR furniture, AI *photo* restyle, chat, cost estimate, PDF | Edits the measured model (no hallucinated geometry); DXF + takeoff; variants + client votes; Android/web; pro users |
-| **Maket.ai** | Chat edits of floor plans in real time, plan generation, DXF export | Existing-plan intake (their announced *next* feature), 3D + AR, mobile, finishes and furniture, client collaboration |
-| **Homestyler Agent Mode** | Chat + live 3D (desktop, not released yet) | Phone-first for the meeting, DXF + takeoff, measured intake from a plan photo |
-| **RoomGPT / Interior AI / ReimagineHome / Collov** | Photo restyling and virtual staging | Not measurable or editable; no CAD; we keep the geometry true |
-| **Planner 5D / Foyr Neo** | Plan editors with AI helpers, VR, rendering | Conversational agent with stage-scoped tools, AR on any phone, DXF + takeoff |
+| **Decide y Construye / #PorMiRumbo** (Mexico) | Marketplace of materials and technical assistants for self-production of housing; no measured design (https://elceo.com/politica/pormirumbo-herramienta-que-ayudara-a-la-autoproduccion-de-viviendas/) | Measured design from the family's own sketch; staged material list generated from geometry |
+| **Academic prototypes** (e.g. a PUCP thesis on a platform for professional intervention in informal housing) | Research on connecting professionals with informal housing | A working, phone-first tool with agent, AR and takeoff |
+| **Maket.ai, Planner 5D, Foyr Neo** and similar professional tools | Plan editors and generators for formal design | Target formal design, not self-builders; no sketch intake, no staged takeoff |
+| **RoomGPT / Interior AI / ReimagineHome** | Photo restyling | Not measurable, no construction rules, no quantities |
 
-**What we don't compete on (in the hackathon):** LiDAR scanning and AR measuring (native, on the roadmap), catalog size,
-multi-floor, cost estimates in currency (we give *quantities*, which are exact; prices come from the contractor).
-**Watch:** Maket adding existing-plan import, and Homestyler's Agent Mode release. Our window is the
-*meeting-to-CAD* workflow on a phone.
+Honest summary: among the products found, none does sketch → measured design → staged takeoff.
+**What we don't compete on:** LiDAR scanning, catalog size, structural calculation, prices (Maqet gives quantities;
+prices come from the store).
 
 ## Why Meta models (relevance for judges)
 | Model | Role |
 |---|---|
-| Muse Spark 1.3 (vision) | Reads the plan photo into walls/openings/labels/dimensions |
-| Muse Spark 1.3 (tool calling, Responses API) | The live reform agent: plans and applies scene edits |
-| Muse Voice Transcribe | Push-to-talk requests in the meeting, in Spanish or English |
-| Muse Image | Photoreal client render; seamless textures for imagined materials; concept pieces |
-| SAM 3.1 (P1/P2) | Segmenting reference photos (materials, objects) |
+| Muse Spark 1.3 (vision) | Reads messy hand sketches, not only clean plans, into proposed walls/openings/dimensions |
+| Muse Spark 1.3 (tool calling, Responses API) | The reform agent: proposes and applies expansions through validated tools |
+| Muse Voice Transcribe | Spanish push-to-talk for families and technicians on site |
+| Muse Image | Render of the finished room |
+| SAM 3.1 (P1) | Segments site photos (existing walls, openings) to cross-check the sketch |
+
+Bonus prizes this fits: **Best Agentic Use-Case** (a tool-calling agent bounded by deterministic rules) and **Best
+Creative Build** (sketch to staged material list).
 
 ## Differentiator
-**What the client sees in AR is exactly what goes into AutoCAD.** One measured Scene, four outputs (3D, AR, render, DXF).
-The AI never invents coordinates: it calls validated tools.
+**From a family's hand sketch to a measured design and a material list per stage, with the AI bounded by deterministic
+construction rules.** One measured Scene, derived outputs (3D, AR, render, DXF, takeoff). The AI never invents coordinates.
 
-## Demo (3 minutes): one empty flat, the whole journey
-1. **0:00** Problem in one sentence. An empty, dated flat and a photo of its plan.
-2. **0:20 Capture**: snap the plan → walls appear → fix one corner → "this wall is 3.50" → measured.
-3. **0:45 Reform**: *"open the kitchen to the living room"* → the partition goes, rooms recompute.
-4. **1:05 Design**: *"light oak floor, white walls, japandi style"*, then tap the sofa → *"in green velvet"*. Live 3D.
-   *"Make a warmer version"* → variant B.
-5. **1:45 Present**: swipe A/B, phone on the table → AR maquette; photoreal render of the living room; share link →
-   the client votes B on a second phone.
-6. **2:20 Deliver**: the takeoff of variant B appears (*"32.4 m² light oak, 3.4 m of wall demolished, 41 m² of paint"*),
-   then export → the DXF opens in AutoCAD and `DIST` measures 3.50. Line: *"what the client approved is what gets built."*
-7. **2:45** Honest limitation + roadmap (native LiDAR measuring, DWG).
+## Demo (3 minutes): the story of Rosa
+0. **0:00** Required one-liner, spoken and on screen: *"Planning docs and agent tooling were prepared before kickoff; all code you'll see was built this week."*
+1. **0:10** Rosa saved for two years to add a room. A technician visits her home and photographs her hand sketch, with tape measures written on it.
+2. **0:35 Capture:** walls appear → fix one corner → "this wall is [known length]" → measured plan.
+3. **1:00 Reform:** by voice, in Spanish: *"agregá un dormitorio para mi hija al lado de la cocina"*. The agent proposes it and flags what needs a licensed professional (placeholder: [flag shown]).
+4. **1:45 Present:** Rosa sees the room in AR on her own table, plus the Muse Image render of the finished room.
+5. **2:15 Deliver:** staged material list (*"stage 1: [N] bricks, [M] cement bags…"*, placeholders until real outputs exist) and the DXF.
+6. **2:45** Honest limitation (preliminary, not a structural certification) + roadmap. Video in Spanish with English subtitles.
 
 ## Open questions (decide by Day 3)
-- Validate the price hypotheses (2-3 conversations with architects or agents, if possible before Day 9).
-- Which 3 sample plans to use in the demo (own flat? public plans with a permissive license?).
-- One BrandProfile for P1 (an invented brand, not a real one).
+- Which master-builder or NGO contact can sanity-check the rules table and recipe values (ideally before Day 5).
+- Final list of brick types, wall thicknesses and the rule-value sources to cite in `rules.py`.
+- Hand-drawn sketches for the demo: who draws them, with what ground truth (see PLAN Day 1).
+- Validate the licensing hypothesis with 1-2 conversations with programs (low priority, pitch only).
