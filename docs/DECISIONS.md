@@ -217,3 +217,13 @@ Short records: context → decision → consequences. Change a decision by addin
   regression fails a test. AR precision depends on lighting and floor texture (see HARDENING).
 - **Supersedes in part:** ADR-007 (scale from one dimension), ADR-012 (WebXR was P2), ADR-022's capture description (one
   known dimension). **Extends:** ADR-022, ADR-019.
+
+## ADR-026 Demo default locale is English; es-AR is the product locale, switchable
+- **Context:** the jury reads English; the product serves Spanish-speaking families in Argentina (ADR-022). The UI already
+  ships one es-AR/en dictionary with the same keys and a locale switch, but the default was es-AR.
+- **Decision:** the demo default locale is English (`DEFAULT_LOCALE = "en"`); es-AR remains the product locale and stays
+  one tap away via the existing switch. Server warnings stay in English (jury-readable); voice input stays Spanish-first.
+- **Why:** the jury cannot be expected to read Spanish warnings; the family product cannot lose es-AR.
+- **Consequences:** `web/src/i18n/index.ts` defaults to `en`; both dictionaries keep identical keys. Demo video and screenshots
+  read English; the es-AR path must still render (switch test, no missing keys).
+- **Supersedes in part:** ADR-022 (UI language default: es-AR first -> en default for demo).

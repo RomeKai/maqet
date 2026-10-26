@@ -1,11 +1,11 @@
 {
   "name": "Maqet",
   "short_name": "Maqet",
-  "description": "Diseñá la ampliación de tu casa con asistencia técnica.",
+  "description": "Design your home expansion with technical assistance.",
   "display": "standalone",
   "start_url": "/",
   "scope": "/",
-  "lang": "es-AR",
+  "lang": "en",
   "theme_color": "#F6F4F0",
   "background_color": "#F6F4F0",
   "icons": [

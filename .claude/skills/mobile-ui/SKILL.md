@@ -1,13 +1,13 @@
 ---
 name: mobile-ui
-description: The app's phone-first UI spec for assisted self-build - Spanish (es-AR) first via one i18n dictionary, full-screen 3D with a bottom sheet, stage chips, selection plus voice, staged-takeoff Deliver screen with licensed-professional flags, touch and performance rules for iPhone/Android PWAs. Use when building any screen in web/src.
+description: The app's phone-first UI spec for assisted self-build - demo default English with es-AR as the switchable product locale via one i18n dictionary, full-screen 3D with a bottom sheet, stage chips, selection plus voice, staged-takeoff Deliver screen with licensed-professional flags, touch and performance rules for iPhone/Android PWAs. Use when building any screen in web/src.
 ---
 
-# Audience and language (ADR-022)
+# Audience and language (ADR-022, ADR-026)
 - Primary user: a technical assistant (NGO, municipality or cooperative) on site with a family; the family watches, talks
   to the app and keeps a read-only link. Plain, non-technical wording; no CAD jargon on family-facing screens.
-- **Spanish (es-AR) first, English available.** Every UI string comes from one dictionary in `web/src/i18n/` (`es-AR` and
-  `en`, same keys); no string literals in components. Default locale is es-AR; the user can switch. Numbers use the locale
+- **Demo default English; es-AR is the product locale, switchable (ADR-026).** Every UI string comes from one dictionary in `web/src/i18n/` (`es-AR` and
+  `en`, same keys); no string literals in components. Default locale is en (demo); the user can switch to es-AR. Numbers use the locale
   (`3,50 m`). The agent answers in the user's language.
 
 # Layout (ADR-015)
@@ -73,5 +73,5 @@ Not a cold CAD tool, not a lifestyle app: precise where it matters (measurements
 - Camera: `<input type=file accept=image/* capture=environment>` (works everywhere). Mic: MediaRecorder, with a
   permission prompt on first hold. Remember: iOS needs a user gesture to start audio.
 - 3D: `dpr={[1, 2]}`, `frameloop="demand"`, merged static meshes, textures ≤ 1024 px, KTX2 if time allows. Target 60 fps on a 3-year-old phone.
-- Text comes from `web/src/i18n/` (es-AR first, English available; ADR-010 is superseded in part by ADR-022); the agent answers in the user's language.
+- Text comes from `web/src/i18n/` (demo default English, es-AR switchable; ADR-022 superseded in part by ADR-026); the agent answers in the user's language.
 - Accessibility: tap targets ≥ 44 px, contrast AA, captions for the agent receipts.

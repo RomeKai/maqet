@@ -2,8 +2,8 @@
 
 Assisted self-build: a technical assistant photographs a family's plan or hand-drawn sketch, designs the home expansion
 with them by voice through an AI agent, shows it in AR on their table, and delivers a staged construction takeoff plus a
-measured DXF (ADR-022). Preliminary outputs only; never a structural certification. Mobile-first PWA, Spanish (es-AR)
-first. Meta Global AI Developer Hackathon (Indie track).
+measured DXF (ADR-022). Preliminary outputs only; never a structural certification. Mobile-first PWA, demo default
+English with es-AR one tap away (ADR-026). Meta Global AI Developer Hackathon (Indie track).
 Deadline Wed 2026-11-04 21:00 GMT-5 (23:00 Buenos Aires); internal deadline 18:00 Buenos Aires. Status: `mme today`.
 Product: `docs/PRODUCT.md`. Decisions: `docs/DECISIONS.md`. Ops: `docs/RUNBOOK.md` (follow them; propose a new ADR to change one).
 
@@ -66,7 +66,7 @@ Product: `docs/PRODUCT.md`. Decisions: `docs/DECISIONS.md`. Ops: `docs/RUNBOOK.m
 - Takeoff (ADR-024) is deterministic: geometry x catalog recipes, split by stage (foundations, walls, bond beams/roof,
   openings, finishes). Maqet never ships prices; user-typed unit prices are P1.
 - Imagined items are labelled `concept` in the Scene and in every output. Never present them as real products.
-- UI strings live in one dictionary, Spanish (es-AR) first, English available.
+- UI strings live in one dictionary, demo default English, es-AR product locale switchable (ADR-026).
 
 ## Workflow (ECC)
 `/ecc:plan` for anything over ~1 hour · `tdd-workflow` for `server/scene`, `server/export`, `server/agent` tools ·
