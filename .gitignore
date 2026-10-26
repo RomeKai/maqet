@@ -11,3 +11,5 @@ NIGHT_REPORT.md
 .atl/
 web/dist/
 web/node_modules/
+__pycache__/
+*.pyc
