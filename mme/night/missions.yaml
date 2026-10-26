@@ -1,56 +1,66 @@
-# Maqet night missions, aligned with mme/milestones.yaml. Each one moves the NEXT day's work forward.
+# Maqet night missions (assisted self-build, ADR-022), aligned with mme/milestones.yaml and docs/PLAN.md. Each one moves the NEXT day's work forward.
 # The evening before: refine the goal if needed, commit, `mme night prep` (answer the agent), `mme night run --until 07:30`.
 # Total ≈ $14 of the $15 night pool; none exceeds the $4 per-night cap.
+# Demo inputs (plans, hand-drawn sketches, site photo + `*.truth.json`) are regenerated on Day 1 under `samples/` (docs/PLAN.md).
 defaults:
   harness: gateway
   base: main
   timeout_min: 120
 
 missions:
-  # Mon 26 night -> Tue (intake)
+  # Mon 26 night -> Tue (Capture: plan and sketch intake)
   - id: intake-cleanup
     status: draft
     template: feature
     budget_usd: 2.0
     goal: |
-      Implement server/intake/cleanup.py: given proposed walls in normalized image coordinates, snap endpoints within 2%,
-      merge collinear segments, close loops, polygonize rooms (shapely), attach labels to rooms, and convert to a Scene
-      once a scale (px per meter) is given. Pure functions, no model calls.
+      Implement server/intake/cleanup.py: given proposed walls in normalized image coordinates (from a drawn plan OR a
+      hand-drawn sketch, which is noisier: wobbly lines, corners not square), snap endpoints within a tolerance (default 2%,
+      looser configurable value for sketches), merge near-collinear segments, close loops, polygonize rooms (shapely), attach
+      labels to rooms, and convert to a Scene once a scale (px per meter) is given. Pure functions, no model calls. Tests
+      cover a clean plan-like input and a noisy sketch-like input (synthetic perturbations of the same layout).
     context: [AGENTS.md, .claude/skills/scene-model/SKILL.md, .claude/skills/meta-ingest/SKILL.md, server/scene/models.py]
     scope: ["server/intake/cleanup.py", "server/tests/test_intake_cleanup.py"]
     verify: "cd server && MME_MODE=replay python -m pytest -q tests/test_intake_cleanup.py"
 
-  # Tue 27 night -> Wed (3D + catalog + styles)
+  # Tue 27 night -> Wed (construction rules + catalog, ADR-023/024)
   - id: asset-catalog
     status: draft
     template: single
     budget_usd: 1.0
     goal: |
-      Create assets/catalog.json with 15 PBR materials and 15 furniture items (CC0 only: ambientCG, Poly Haven, Kenney,
-      Poly Pizza): id, name (EN), kind, real dimensions for furniture, tiling for materials, source URL, license, local
-      path. Create assets/styles/{japandi,industrial,nordic,mediterranean,classic}.json, each mapping surface roles and
-      furniture roles to catalog ids. Add server/tests/test_catalog.py, which asserts that every entry is CC0 with a
-      source, dims are sane, ids are unique, and every style references existing ids. Don't download files: list paths only.
-    context: [AGENTS.md, docs/DECISIONS.md, .claude/skills/reform-agent/SKILL.md]
-    scope: ["assets/catalog.json", "assets/styles/**", "server/tests/test_catalog.py"]
+      Create assets/catalog.json as the construction-material catalog with recipes (ADR-024): ~12 construction materials
+      (e.g. solid brick, hollow ceramic brick, mortar, cement bag, sand, gravel, steel bar by diameter, roofing sheet, door,
+      window), each with id, name (es-AR) + name_en, kind, unit, recipe (quantity per m2 of wall, or per m3 or per piece, by
+      brick type and wall thickness where relevant), waste_factor, recipe_source (citation or "estimate, to be reviewed by a
+      master builder"), source URL and license (CC0 for any file asset), local path (list paths only, don't download files).
+      Add a small basic furniture set (about 6 items: bed, table, chair, stove, wardrobe, door swing arc) with real
+      dimensions, CC0 only (Kenney, Poly Pizza). Add server/tests/test_catalog.py asserting: every file asset is CC0 with a
+      source, ids are unique, every material has unit + recipe + waste factor + recipe_source, recipe values are positive and
+      sane, furniture dims are sane. No style presets (CUTLIST, ADR-022).
+    context: [AGENTS.md, docs/DECISIONS.md, docs/PRODUCT.md, .claude/skills/scene-model/SKILL.md]
+    scope: ["assets/catalog.json", "server/tests/test_catalog.py"]
     verify: "cd server && MME_MODE=replay python -m pytest -q tests/test_catalog.py"
 
-  # Wed 28 night -> Thu (agent, Design stage)
+  # Wed 28 night -> Thu (Reform: agent tools)
   - id: agent-tools
     status: draft
     template: feature
     budget_usd: 2.5
     goal: |
-      Implement server/agent/tools.py and executor.py for the Design-stage P0 tools (list_catalog, set_material,
-      place_furniture, move_item, rotate_item, remove_item, apply_style, undo) per the reform-agent skill: pydantic
-      inputs, semantic anchors resolved deterministically, every tool calling a pure op in server/scene/ops.py and
-      validated by rules.py, structured errors, and stage-scoped toolsets (a tool outside the current stage gets a
-      structured refusal). No model calls: tests call the executor directly.
+      Implement server/agent/tools.py, executor.py and stages.py for the stage-scoped toolsets (ADR-014, ADR-022). Reform
+      (main stage): add_room, add_wall, remove_wall, add_opening, move_opening, undo. Design (light): list_catalog,
+      place_furniture, move_item, rotate_item, remove_item, undo. Present: create_variant, render_view (stubs that return a
+      structured result; no model calls). Per the reform-agent skill: pydantic inputs, semantic anchors resolved
+      deterministically, every tool calling a pure op in server/scene/ops.py and validated by server/scene/rules.py, structured
+      errors for rule violations, and professional-required flags (second floor, load-bearing wall removal, span over the
+      limit, unknown soil) returned in the tool result. A tool outside the current stage gets a structured refusal. Ops that
+      do not exist yet in ops.py are reported in the result, not invented here. No model calls: tests call the executor directly.
     context: [AGENTS.md, .claude/skills/reform-agent/SKILL.md, .claude/skills/scene-model/SKILL.md, server/scene/ops.py, server/scene/rules.py]
     scope: ["server/agent/tools.py", "server/agent/executor.py", "server/agent/stages.py", "server/tests/test_agent_tools.py"]
     verify: "cd server && MME_MODE=replay python -m pytest -q tests/test_agent_tools.py"
 
-  # Thu 29 night -> Fri (variants + share)
+  # Thu 29 night -> Fri (variants; P1 for the demo, PLAN Day 7 "variantes A/B si hay tiempo"). Set status: skip if Day 4 is behind.
   - id: variants-model
     status: draft
     template: feature
@@ -58,55 +68,62 @@ missions:
     goal: |
       Implement variants as Scene branches (ADR-013) in server/scene/variants.py: Project with branches A/B/C,
       create_variant(from, label) forking at the current version, materialize(branch) = base + parent ops up to the fork
-      + own ops (cached by version), undo within a branch, choose(label). Persist through server/db.py (SQLModel).
+      + own ops (cached by version), undo within a branch, choose(label). A project with no extra variants behaves as a single
+      proposal (the P0 default). Persist through server/db.py (SQLModel).
     context: [AGENTS.md, docs/DECISIONS.md, .claude/skills/scene-model/SKILL.md, server/scene/ops.py, server/db.py]
     scope: ["server/scene/variants.py", "server/db.py", "server/tests/test_variants.py"]
     verify: "cd server && MME_MODE=replay python -m pytest -q tests/test_variants.py"
 
-  # Fri 30 night -> Sun (full DXF ready before the reform day)
+  # Fri 30 night -> Sat (full DXF ready before the Present day)
   - id: dxf-full-export
     status: draft
     template: feature
     budget_usd: 2.5
     goal: |
       Extend server/export/ so a Scene (chosen variant) produces a complete DXF per the dxf-export skill: wall polygons
-      with door/window openings cut and swing arcs, furniture footprints with labels (CONCEPT suffix when concept),
-      area text per room, dimension entities from measured lengths, variant name in the title block. Deterministic;
-      export blocked when scale_confirmed is false.
+      with door/window openings cut and swing arcs, basic furniture footprints with labels (CONCEPT suffix when concept),
+      area text per room, dimension entities from measured lengths, and a title block (A-ANNO-TEXT) with project name, units,
+      scale, the "Preliminary: not a structural certification" label and one line per active professional-required flag.
+      Deterministic; export blocked when scale_confirmed is false. AIA layers and explicit units as in AGENTS.md.
     context: [AGENTS.md, .claude/skills/dxf-export/SKILL.md, .claude/skills/scene-model/SKILL.md, server/export/dxf.py]
     scope: ["server/export/**", "server/tests/test_dxf_full.py"]
     verify: "cd server && MME_MODE=replay python -m pytest -q tests/test_dxf_full.py tests/test_dxf.py"
 
-  # Sat 31 night -> Sun (Reform stage lite)
+  # Sat 31 night -> Sun (Reform hardening)
   - id: reform-ops
     status: draft
     template: feature
     budget_usd: 2.5
     goal: |
-      Implement remove_wall (interior only) and add_wall (straight partition between two existing walls) as pure ops in
-      server/scene/ops.py, plus their Reform-stage tools: re-polygonize rooms, keep surface/furniture assignments where
-      the room survives, re-validate furniture (move it out of the way or report a conflict), and keep undo exact.
-      Add property tests: 30 random remove/add sequences on the sample scenes never break rules.py.
+      Harden the Reform ops in server/scene/ops.py (add_room, add_wall, remove_wall, add_opening, move_opening): re-polygonize
+      and recompute rooms after every op, keep surface/furniture assignments where the room survives, re-validate furniture
+      (move it out of the way or report a conflict), keep undo exact, flag removal of a load-bearing wall as
+      professional-required, and run rules.py construction rules on every result. Add property tests: 30 random Reform op
+      sequences on the demo scenes never crash, never leave a Scene that violates the geometry rules, and undo back to the
+      start restores the original Scene exactly.
     context: [AGENTS.md, .claude/skills/scene-model/SKILL.md, .claude/skills/reform-agent/SKILL.md, server/scene/ops.py, server/scene/rules.py, server/agent/tools.py]
     scope: ["server/scene/ops.py", "server/scene/rooms.py", "server/agent/tools.py", "server/tests/test_reform.py"]
     verify: "cd server && MME_MODE=replay python -m pytest -q tests/test_reform.py tests/test_ops.py"
 
-  # Sun 1 night -> Mon freeze (P0 differentiator: contractor-ready handoff)
+  # Sun 1 night -> Mon freeze (P0 differentiator: staged takeoff, ADR-021 + ADR-024)
   - id: quantities-takeoff
     status: draft
     template: feature
     budget_usd: 2.0
     goal: |
-      Implement server/export/takeoff.py per ADR-021 and the scene-model skill: for a chosen variant vs the captured base,
-      compute floor/ceiling m² per material and room, wall finish m² per side and material (net of openings, ceiling
-      height), metres and m² of wall demolished and built, openings added/removed, and the furniture list with dimensions
-      and concept flags. Return a pydantic Takeoff (JSON) plus a CSV export, and add GET /projects/{id}/variants/{label}/takeoff
-      (+ .csv) in server/api.py. Tests use samples/plans/*.truth.json with hand-computed expected values.
-    context: [AGENTS.md, docs/DECISIONS.md, .claude/skills/scene-model/SKILL.md, server/scene/models.py, server/scene/variants.py, server/api.py]
+      Refine server/export/takeoff.py into the staged construction takeoff (ADR-021, ADR-024). Deterministic, no model calls,
+      no prices. From the chosen variant vs the captured base and the per-material recipes in assets/catalog.json, compute
+      quantities by stage in this order: foundations, walls, bond_beams_roof, openings, finishes (e.g. bricks per m2 of wall by
+      brick type and thickness, mortar, cement bags, sand and gravel in m3, steel bars for bond beams, roofing sheets, doors
+      and windows; floor/wall finish m2 net of openings; metres demolished and built). Apply each recipe's waste factor and
+      carry its source. Return a pydantic Takeoff (JSON) with the active professional-required flags and a "preliminary"
+      label, plus a CSV export, and add GET /projects/{id}/takeoff (+ .csv, optional variant parameter) in server/api.py.
+      Tests use the demo inputs' *.truth.json under samples/ with hand-computed expected values per stage.
+    context: [AGENTS.md, docs/DECISIONS.md, .claude/skills/scene-model/SKILL.md, assets/catalog.json, server/scene/models.py, server/scene/rules.py, server/api.py]
     scope: ["server/export/takeoff.py", "server/api.py", "server/tests/test_takeoff.py"]
     verify: "cd server && MME_MODE=replay python -m pytest -q tests/test_takeoff.py"
 
-  # P1, only on a spare night (consumer polish, ADR-020): keep as skip unless everything is green
+  # P1, only on a spare night (consumer polish, ADR-020; imagined materials are in CUTLIST): keep as skip unless everything is green
   - id: imagined-materials
     status: skip
     template: single

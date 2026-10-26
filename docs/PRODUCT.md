@@ -76,7 +76,7 @@ P1: the user types unit prices to get a per-stage total. Maqet never ships price
 
 ## Main screen (phone)
 3D full screen (orbit; tap an object or surface to select it and target the next request), with a bottom sheet:
-chat + push-to-talk mic + stage chips. Top bar: back, room name, variant switcher, AR button.
+chat + push-to-talk mic + stage chips. Top bar: back, room name, AR button (variant switcher is P1).
 Selection plus voice is the core interaction. UI is Spanish (es-AR) first, English strings in the same dictionary (ADR-022).
 
 ## Scope tiers

@@ -32,6 +32,12 @@ description: Verified facts about the Meta Model API (endpoints, model IDs, pric
 
 _Prices checked 2026-10-22. Sources: https://dev.meta.ai/products/meta-model-api, https://dev.meta.ai/docs/pricing-rate-limits, https://dev.meta.ai/docs/coding-agents_
 
+**Reasoning tokens (verified live 2026-10-26, Chat Completions + `json_schema`):** Spark 1.3 reasons before answering,
+even on trivial structured outputs (~250 reasoning tokens for a two-field JSON). Reasoning counts against `max_tokens`
+and is billed as output (`usage.completion_tokens_details.reasoning_tokens`). With `max_tokens=200` the call ends with
+`finish_reason=length` and `content=None`. Use `max_tokens >= 1024` for JSON calls, more for plan intake; `mme.client`
+raises `EmptyResponse` when this happens. Structured output with `strict: true` works.
+
 # Not verified yet: read the API reference before coding these
 Exact `response_format` json_schema behavior, request bodies for SAM 3.1 and Voice Transcribe, and whether
 `/v1/images/edits` preserves the layout of a reference image. Fetch `dev.meta.ai/docs/api-reference` first.

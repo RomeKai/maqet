@@ -5,7 +5,7 @@ description: How Maqet writes AutoCAD-compatible DXF with ezdxf - units, layers,
 
 # DXF export conventions (input: the Scene, see `scene-model`)
 
-- Furniture: footprint rectangles (size_m w x d, rotated) on `A-FLOR-FURN`, with a text label; `concept` items get a
+- Furniture (basic set only): footprint rectangles (size_m w x d, rotated) on `A-FLOR-FURN`, with a text label; `concept` items get a
   `CONCEPT` suffix. Materials go out as room/surface annotations (`A-ANNO-TEXT`), not hatches, in P0.
 - Export is blocked while `scene.scale_confirmed` is false.
 
@@ -16,7 +16,10 @@ description: How Maqet writes AutoCAD-compatible DXF with ezdxf - units, layers,
 - Text: height scaled to plot scale (e.g. 0.25 m for 1:100). Center on room `representative_point()`, not centroid (concave rooms).
 - Dimensions: use ezdxf dimension entities fed by measured distances, then `.render()`. Never type a number by hand.
 - Doors/windows: openings are cut from walls (boolean difference) and a swing arc is added on `A-DOOR`.
-- Brand/guideline data affects layers' colors, text style, title block and furniture blocks - never the geometry rules.
+- Title block (text on `A-ANNO-TEXT`): project name, date, units, scale, and notes that always include the
+  **"Preliminary: not a structural certification"** label and one line per active professional-required flag
+  ("Requires a licensed professional: <flag>", from the Scene validation output, ADR-023). Layer colors follow the AIA
+  table, not any brand or guideline.
 
 # Verify before declaring done
 1. `doc.audit()` returns no errors.
