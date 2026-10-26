@@ -227,7 +227,7 @@ def build_scaled_plan(
     ]
     fused, members = _fuse_walls(norm_walls, tol)
     if any(norm_walls[k][2] is None for group in members for k in group):
-        warnings.append("kind_defaulted: null kind -> exterior, confirmar con humano")
+        warnings.append("kind_defaulted: null kind -> exterior, confirm with human")
     old_to_new = {old: new for new, group in enumerate(members) for old in group}
 
     def to_meters(px: float, py: float) -> tuple[float, float]:
