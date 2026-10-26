@@ -1,5 +1,5 @@
 /**
- * es-AR dictionary (default locale). Plain, non-technical wording.
+ * es-AR dictionary. Plain, non-technical wording.
  * Every key here MUST exist in en.ts with the same key (enforced by type).
  */
 export const esAR = {
@@ -37,6 +37,8 @@ export const esAR = {
   "intake.upload.cta": "Sacar foto del plano",
   "intake.upload.busy": "Procesando foto…",
   "intake.upload.error": "No se pudo leer la foto. Probá de nuevo.",
+  "intake.kind.plan": "Plano",
+  "intake.kind.sketch": "Croquis",
   "intake.scale.cta": "Confirmar escala",
   "intake.scale.title": "Confirmar escala",
   "intake.scale.hint": "Tocá dos puntos con distancia conocida y escribí la medida, o elegí una medida leída.",
@@ -46,4 +48,5 @@ export const esAR = {
   "intake.scale.orPick": "O elegí una medida leída del plano:",
   "intake.scale.later": "Más tarde",
   "intake.scale.invalid": "Esa medida no es válida. Usá un número como 3,50 m.",
+  "intake.warnings.title": "Avisos de la lectura",
 } as const;

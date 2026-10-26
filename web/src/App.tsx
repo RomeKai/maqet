@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { DEFAULT_LOCALE, getStrings, type Locale, type StringKey } from "./i18n";
+import { IntakeScreen } from "./intake/IntakeScreen";
 
 const STAGES: StringKey[] = [
   "stage.capture",
@@ -48,6 +49,7 @@ export function App({ initialLocale = DEFAULT_LOCALE }: AppProps) {
       </main>
 
       <section className="sheet" aria-label={t["app.name"]}>
+        {stage === "stage.capture" && <IntakeScreen locale={locale} />}
         <div className="chips" role="tablist">
           {STAGES.map((key) => (
             <button

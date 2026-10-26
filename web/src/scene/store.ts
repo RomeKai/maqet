@@ -115,6 +115,13 @@ export class SceneHistory {
     return next;
   }
 
+  /** Replace the draft (e.g. with the Scene returned by POST /intake). */
+  reset(next: Scene): Scene {
+    this.past = [];
+    this.current = next;
+    return next;
+  }
+
   undo(): Scene {
     const previous = this.past.pop();
     if (previous !== undefined) this.current = previous;

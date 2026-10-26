@@ -38,6 +38,8 @@ export const en: Record<keyof typeof esAR, string> = {
   "intake.upload.cta": "Take plan photo",
   "intake.upload.busy": "Processing photo…",
   "intake.upload.error": "Couldn't read the photo. Try again.",
+  "intake.kind.plan": "Plan",
+  "intake.kind.sketch": "Sketch",
   "intake.scale.cta": "Confirm scale",
   "intake.scale.title": "Confirm scale",
   "intake.scale.hint": "Tap two points with a known distance and type the length, or pick a read measurement.",
@@ -47,4 +49,5 @@ export const en: Record<keyof typeof esAR, string> = {
   "intake.scale.orPick": "Or pick a measurement read from the plan:",
   "intake.scale.later": "Later",
   "intake.scale.invalid": "That measurement isn't valid. Use a number like 3.50 m.",
+  "intake.warnings.title": "Reading notices",
 };
