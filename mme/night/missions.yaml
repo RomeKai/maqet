@@ -1,0 +1,120 @@
+# Maqet night missions, aligned with mme/milestones.yaml. Each one moves the NEXT day's work forward.
+# The evening before: refine the goal if needed, commit, `mme night prep` (answer the agent), `mme night run --until 07:30`.
+# Total ≈ $14 of the $15 night pool; none exceeds the $4 per-night cap.
+defaults:
+  harness: gateway
+  base: main
+  timeout_min: 120
+
+missions:
+  # Mon 26 night -> Tue (intake)
+  - id: intake-cleanup
+    status: draft
+    template: feature
+    budget_usd: 2.0
+    goal: |
+      Implement server/intake/cleanup.py: given proposed walls in normalized image coordinates, snap endpoints within 2%,
+      merge collinear segments, close loops, polygonize rooms (shapely), attach labels to rooms, and convert to a Scene
+      once a scale (px per meter) is given. Pure functions, no model calls.
+    context: [AGENTS.md, .claude/skills/scene-model/SKILL.md, .claude/skills/meta-ingest/SKILL.md, server/scene/models.py]
+    scope: ["server/intake/cleanup.py", "server/tests/test_intake_cleanup.py"]
+    verify: "cd server && MME_MODE=replay python -m pytest -q tests/test_intake_cleanup.py"
+
+  # Tue 27 night -> Wed (3D + catalog + styles)
+  - id: asset-catalog
+    status: draft
+    template: single
+    budget_usd: 1.0
+    goal: |
+      Create assets/catalog.json with 15 PBR materials and 15 furniture items (CC0 only: ambientCG, Poly Haven, Kenney,
+      Poly Pizza): id, name (EN), kind, real dimensions for furniture, tiling for materials, source URL, license, local
+      path. Create assets/styles/{japandi,industrial,nordic,mediterranean,classic}.json, each mapping surface roles and
+      furniture roles to catalog ids. Add server/tests/test_catalog.py, which asserts that every entry is CC0 with a
+      source, dims are sane, ids are unique, and every style references existing ids. Don't download files: list paths only.
+    context: [AGENTS.md, docs/DECISIONS.md, .claude/skills/reform-agent/SKILL.md]
+    scope: ["assets/catalog.json", "assets/styles/**", "server/tests/test_catalog.py"]
+    verify: "cd server && MME_MODE=replay python -m pytest -q tests/test_catalog.py"
+
+  # Wed 28 night -> Thu (agent, Design stage)
+  - id: agent-tools
+    status: draft
+    template: feature
+    budget_usd: 2.5
+    goal: |
+      Implement server/agent/tools.py and executor.py for the Design-stage P0 tools (list_catalog, set_material,
+      place_furniture, move_item, rotate_item, remove_item, apply_style, undo) per the reform-agent skill: pydantic
+      inputs, semantic anchors resolved deterministically, every tool calling a pure op in server/scene/ops.py and
+      validated by rules.py, structured errors, and stage-scoped toolsets (a tool outside the current stage gets a
+      structured refusal). No model calls: tests call the executor directly.
+    context: [AGENTS.md, .claude/skills/reform-agent/SKILL.md, .claude/skills/scene-model/SKILL.md, server/scene/ops.py, server/scene/rules.py]
+    scope: ["server/agent/tools.py", "server/agent/executor.py", "server/agent/stages.py", "server/tests/test_agent_tools.py"]
+    verify: "cd server && MME_MODE=replay python -m pytest -q tests/test_agent_tools.py"
+
+  # Thu 29 night -> Fri (variants + share)
+  - id: variants-model
+    status: draft
+    template: feature
+    budget_usd: 2.0
+    goal: |
+      Implement variants as Scene branches (ADR-013) in server/scene/variants.py: Project with branches A/B/C,
+      create_variant(from, label) forking at the current version, materialize(branch) = base + parent ops up to the fork
+      + own ops (cached by version), undo within a branch, choose(label). Persist through server/db.py (SQLModel).
+    context: [AGENTS.md, docs/DECISIONS.md, .claude/skills/scene-model/SKILL.md, server/scene/ops.py, server/db.py]
+    scope: ["server/scene/variants.py", "server/db.py", "server/tests/test_variants.py"]
+    verify: "cd server && MME_MODE=replay python -m pytest -q tests/test_variants.py"
+
+  # Fri 30 night -> Sun (full DXF ready before the reform day)
+  - id: dxf-full-export
+    status: draft
+    template: feature
+    budget_usd: 2.5
+    goal: |
+      Extend server/export/ so a Scene (chosen variant) produces a complete DXF per the dxf-export skill: wall polygons
+      with door/window openings cut and swing arcs, furniture footprints with labels (CONCEPT suffix when concept),
+      area text per room, dimension entities from measured lengths, variant name in the title block. Deterministic;
+      export blocked when scale_confirmed is false.
+    context: [AGENTS.md, .claude/skills/dxf-export/SKILL.md, .claude/skills/scene-model/SKILL.md, server/export/dxf.py]
+    scope: ["server/export/**", "server/tests/test_dxf_full.py"]
+    verify: "cd server && MME_MODE=replay python -m pytest -q tests/test_dxf_full.py tests/test_dxf.py"
+
+  # Sat 31 night -> Sun (Reform stage lite)
+  - id: reform-ops
+    status: draft
+    template: feature
+    budget_usd: 2.5
+    goal: |
+      Implement remove_wall (interior only) and add_wall (straight partition between two existing walls) as pure ops in
+      server/scene/ops.py, plus their Reform-stage tools: re-polygonize rooms, keep surface/furniture assignments where
+      the room survives, re-validate furniture (move it out of the way or report a conflict), and keep undo exact.
+      Add property tests: 30 random remove/add sequences on the sample scenes never break rules.py.
+    context: [AGENTS.md, .claude/skills/scene-model/SKILL.md, .claude/skills/reform-agent/SKILL.md, server/scene/ops.py, server/scene/rules.py, server/agent/tools.py]
+    scope: ["server/scene/ops.py", "server/scene/rooms.py", "server/agent/tools.py", "server/tests/test_reform.py"]
+    verify: "cd server && MME_MODE=replay python -m pytest -q tests/test_reform.py tests/test_ops.py"
+
+  # Sun 1 night -> Mon freeze (P0 differentiator: contractor-ready handoff)
+  - id: quantities-takeoff
+    status: draft
+    template: feature
+    budget_usd: 2.0
+    goal: |
+      Implement server/export/takeoff.py per ADR-021 and the scene-model skill: for a chosen variant vs the captured base,
+      compute floor/ceiling m² per material and room, wall finish m² per side and material (net of openings, ceiling
+      height), metres and m² of wall demolished and built, openings added/removed, and the furniture list with dimensions
+      and concept flags. Return a pydantic Takeoff (JSON) plus a CSV export, and add GET /projects/{id}/variants/{label}/takeoff
+      (+ .csv) in server/api.py. Tests use samples/plans/*.truth.json with hand-computed expected values.
+    context: [AGENTS.md, docs/DECISIONS.md, .claude/skills/scene-model/SKILL.md, server/scene/models.py, server/scene/variants.py, server/api.py]
+    scope: ["server/export/takeoff.py", "server/api.py", "server/tests/test_takeoff.py"]
+    verify: "cd server && MME_MODE=replay python -m pytest -q tests/test_takeoff.py"
+
+  # P1, only on a spare night (consumer polish, ADR-020): keep as skip unless everything is green
+  - id: imagined-materials
+    status: skip
+    template: single
+    budget_usd: 1.5
+    goal: |
+      Implement the generate_material Design tool (P1): description -> Muse Image seamless texture via mme.client
+      (tag "material", tier draft, cached by prompt hash), stored as a Scene material with concept=true, tiling 1x1 m.
+      Tests in replay with a recorded fixture; the tool refuses without an explicit user request flag.
+    context: [AGENTS.md, .claude/skills/reform-agent/SKILL.md, .claude/skills/meta-model-api/SKILL.md, server/agent/tools.py]
+    scope: ["server/agent/tools.py", "server/render/textures.py", "server/tests/test_generate_material.py"]
+    verify: "cd server && MME_MODE=replay python -m pytest -q tests/test_generate_material.py"

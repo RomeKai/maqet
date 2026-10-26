@@ -1,0 +1,11 @@
+# mme:start
+.env
+.env.*
+!.env.example
+.mme/
+HANDOFF.md
+NIGHT_REPORT.md
+.mission/
+# mme:end
+.cache/
+.atl/

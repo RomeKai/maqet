@@ -1,0 +1,85 @@
+# Maqet milestones (product v1, docs/PRODUCT.md). Each gate is the definition of done for that day.
+# `mme gate` runs today + anything late. `mme today` shows countdown, behind, and what to cut.
+deadline: "2026-11-04T21:00:00-05:00"
+internal_deadline: "2026-11-04T18:00:00-03:00"
+freeze: "2026-11-02"
+test_cmd: "cd server && MME_MODE=replay python -m pytest -q && cd ../web && npm test -- --run"
+
+milestones:
+  - day: "2026-10-26"
+    goal: "Walking skeleton: Scene schema + ops + undo, FastAPI, PWA shell (full-screen 3D + bottom sheet + stage chips) deployed, DXF walls"
+    gates:
+      - { name: "scene + ops + dxf tests", run: "cd server && MME_MODE=replay python -m pytest -q tests/test_scene.py tests/test_ops.py tests/test_dxf.py" }
+      - { name: "TS types generated + web builds", run: "cd web && npm run gen:types && npm run build" }
+    cut_if_late: ["mm export (meters only)", "PWA install prompt"]
+
+  - day: "2026-10-27"
+    goal: "Plan intake: photo -> Spark vision walls (replay) -> corner editor -> scale from a known dimension"
+    gates:
+      - { name: "intake tests in replay (3 sample plans)", run: "cd server && MME_MODE=replay python -m pytest -q tests/test_intake.py" }
+      - { name: "corner editor tests", run: "cd web && npm test -- --run src/intake" }
+    cut_if_late: ["perspective correction (assume a flat scan)", "reading printed dimensions (manual scale only)"]
+
+  - day: "2026-10-28"
+    goal: "3D view from the Scene on both phones + CC0 materials, furniture GLBs and 5 style presets applied manually"
+    gates:
+      - { name: "scene->mesh tests", run: "cd web && npm test -- --run src/view3d" }
+      - { name: "asset catalog + styles valid (licenses, budgets)", run: "cd server && MME_MODE=replay python -m pytest -q tests/test_catalog.py" }
+    cut_if_late: ["ceiling rendering", "material thumbnails (use names)", "styles beyond 3"]
+
+  - day: "2026-10-29"
+    goal: "Agent v1 in Design stage: Responses tool loop, stage-scoped toolset, tap selection as context, chat sheet + push-to-talk"
+    gates:
+      - { name: "agent tool tests", run: "cd server && MME_MODE=replay python -m pytest -q tests/test_agent_tools.py" }
+      - { name: "agent evals (ES + EN, replay)", run: "cd server && MME_MODE=replay python -m pytest -q tests/agent_evals" }
+      - { name: "voice transcribe in replay", run: "cd server && MME_MODE=replay python -m pytest -q tests/test_voice.py" }
+    cut_if_late: ["rotate_item (place with a default facing)", "transcript editing before sending"]
+
+  - day: "2026-10-30"
+    goal: "Projects saved + variants A/B/C (branches, switcher) + share link where the client votes"
+    gates:
+      - { name: "API: projects, variants, share token, votes", run: "cd server && MME_MODE=replay python -m pytest -q tests/test_api.py tests/test_variants.py" }
+      - { name: "web builds", run: "cd web && npm run build" }
+    cut_if_late: ["client comments (votes only)", "variant C (A/B only)"]
+
+  - day: "2026-10-31"
+    goal: "AR maquette (GLB/USDZ + model-viewer) on iPhone and Android + photoreal render (Muse Image)"
+    gates:
+      - { name: "GLB under phone budget for the samples", run: "cd web && npm test -- --run src/ar" }
+      - { name: "render pipeline in replay", run: "cd server && MME_MODE=replay python -m pytest -q tests/test_render.py" }
+    cut_if_late: ["render via image edits (fallback: labelled mood render)", "camera presets beyond 2"]
+
+  - day: "2026-11-01"
+    goal: "Reform stage lite (remove/add partition) + fidelity badges (Measured / Concept) + full DXF (from the night)"
+    gates:
+      - { name: "full DXF tests", run: "cd server && MME_MODE=replay python -m pytest -q tests/test_dxf_full.py" }
+      - { name: "reform ops + agent Reform stage in replay", run: "cd server && MME_MODE=replay python -m pytest -q tests/test_reform.py" }
+    cut_if_late: ["add_wall (remove only)", "concept pieces", "brand kit"]
+
+  - day: "2026-11-02"
+    goal: "FEATURE FREEZE. Takeoff in Deliver (from the night) + demo recorded (standard tier) into samples/replay; polish"
+    gates:
+      - { name: "takeoff matches hand-computed values", run: "cd server && MME_MODE=replay python -m pytest -q tests/test_takeoff.py" }
+      - { name: "whole suite green", run: "cd server && MME_MODE=replay python -m pytest -q && cd ../web && npm test -- --run" }
+      - { name: "replay cache recorded", run: "test $(find samples/replay -type f ! -name .gitkeep | wc -l) -gt 0" }
+    cut_if_late: ["takeoff CSV (keep the in-app table)", "anything not on the demo path"]
+
+  - day: "2026-11-03"
+    goal: "Deploy (front + back), README, 3-minute video"
+    gates:
+      - { name: "README has demo link + Meta models", run: "grep -qiE 'youtu|loom|vimeo|drive.google' README.md && grep -qi muse README.md" }
+    cut_if_late: ["custom domain", "back deploy (submit with replay-mode front + video)"]
+
+  - day: "2026-11-04"
+    goal: "Buffer. Submit by 18:00 ART"
+    gates:
+      - { name: "ship checklist", run: "mme ship" }
+
+ship:
+  readme: README.md
+  replay_dir: samples/replay
+  deploy_url: ""
+  demo_url_pattern: "youtu|loom|vimeo|drive\\.google"
+  extra:
+    - { name: "3 sample plans present", run: "test $(ls samples/plans/* 2>/dev/null | wc -l) -ge 3" }
+    - { name: "asset licenses declared", run: "cd server && MME_MODE=replay python -m pytest -q tests/test_catalog.py" }
