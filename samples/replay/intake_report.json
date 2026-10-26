@@ -1,0 +1,228 @@
+{
+  "plan": {
+    "files": {
+      "plano_48m_1ambiente": {
+        "walls": 6,
+        "truth_walls": 11,
+        "openings": 8,
+        "truth_openings": 8,
+        "openings_by_kind": {
+          "window": 5,
+          "door": 3
+        },
+        "truth_openings_by_kind": {
+          "door": 3,
+          "window": 5
+        },
+        "segment_iou": 0.1103,
+        "bbox_framing_iou": 0.7122,
+        "rooms_closed": 1,
+        "truth_rooms": 3,
+        "warnings": [],
+        "anchor": {
+          "index": 1,
+          "meters": 8.0,
+          "m_per_unit": 9.122
+        },
+        "dimensions_m_sorted": [
+          2.5,
+          5.0,
+          6.0,
+          8.0
+        ],
+        "segment_matched_m": 7.97,
+        "segment_total_fixture_m": 41.76,
+        "segment_total_truth_m": 38.5,
+        "bbox_iou": 0.8083
+      },
+      "plano_48m_1ambiente_photo": {
+        "walls": 6,
+        "truth_walls": 11,
+        "openings": 8,
+        "truth_openings": 8,
+        "openings_by_kind": {
+          "window": 5,
+          "door": 3
+        },
+        "truth_openings_by_kind": {
+          "door": 3,
+          "window": 5
+        },
+        "segment_iou": 0.0,
+        "bbox_framing_iou": 0.7836,
+        "rooms_closed": 1,
+        "truth_rooms": 3,
+        "warnings": [],
+        "anchor": {
+          "index": 0,
+          "meters": 6.0,
+          "m_per_unit": 7.0588
+        },
+        "dimensions_m_sorted": [
+          2.5,
+          5.0,
+          6.0,
+          8.0
+        ],
+        "segment_matched_m": 0,
+        "segment_total_fixture_m": 33.37,
+        "segment_total_truth_m": 38.5,
+        "bbox_iou": 0.7931
+      },
+      "plano_70m_2dorm": {
+        "walls": 10,
+        "truth_walls": 19,
+        "openings": 12,
+        "truth_openings": 12,
+        "openings_by_kind": {
+          "window": 6,
+          "door": 6
+        },
+        "truth_openings_by_kind": {
+          "door": 6,
+          "window": 6
+        },
+        "segment_iou": 0.1482,
+        "bbox_framing_iou": 0.75,
+        "rooms_closed": 7,
+        "truth_rooms": 6,
+        "warnings": [],
+        "anchor": {
+          "index": 2,
+          "meters": 10.0,
+          "m_per_unit": 11.1111
+        },
+        "dimensions_m_sorted": [
+          3.0,
+          4.0,
+          6.5,
+          7.0,
+          7.7,
+          10.0
+        ],
+        "segment_matched_m": 17.0,
+        "segment_total_fixture_m": 70.72,
+        "segment_total_truth_m": 61.0,
+        "bbox_iou": 0.756
+      },
+      "plano_70m_2dorm_photo": {
+        "walls": 8,
+        "truth_walls": 19,
+        "openings": 12,
+        "truth_openings": 12,
+        "openings_by_kind": {
+          "window": 6,
+          "door": 6
+        },
+        "truth_openings_by_kind": {
+          "door": 6,
+          "window": 6
+        },
+        "segment_iou": 0.0,
+        "bbox_framing_iou": 0.8437,
+        "rooms_closed": 2,
+        "truth_rooms": 6,
+        "warnings": [],
+        "anchor": {
+          "index": 3,
+          "meters": 10.0,
+          "m_per_unit": 10.5595
+        },
+        "dimensions_m_sorted": [
+          3.0,
+          4.0,
+          6.5,
+          7.0,
+          7.7,
+          10.0
+        ],
+        "segment_matched_m": 0,
+        "segment_total_fixture_m": 70.48,
+        "segment_total_truth_m": 61.0,
+        "bbox_iou": 0.7441
+      }
+    },
+    "summary": {
+      "files": 4,
+      "mean_segment_iou": 0.0646,
+      "openings_total": "40/40",
+      "mean_bbox_iou": 0.7754
+    }
+  },
+  "sketch": {
+    "files": {
+      "croquis_ampliacion": {
+        "walls": 5,
+        "truth_walls": 7,
+        "openings": 2,
+        "truth_openings": 5,
+        "openings_by_kind": {
+          "door": 2
+        },
+        "truth_openings_by_kind": {
+          "door": 2,
+          "window": 3
+        },
+        "segment_iou": 0.1346,
+        "bbox_framing_iou": 0.5429,
+        "rooms_closed": 2,
+        "truth_rooms": 2,
+        "warnings": [],
+        "anchor": {
+          "index": 0,
+          "meters": 6.0,
+          "m_per_unit": 7.722
+        },
+        "dimensions_m_sorted": [
+          2.5,
+          3.5,
+          3.5,
+          6.0
+        ],
+        "segment_matched_m": 6.0,
+        "segment_total_fixture_m": 28.09,
+        "segment_total_truth_m": 22.5,
+        "bbox_iou": 0.6487
+      },
+      "croquis_ampliacion_photo": {
+        "walls": 5,
+        "truth_walls": 7,
+        "openings": 2,
+        "truth_openings": 5,
+        "openings_by_kind": {
+          "door": 2
+        },
+        "truth_openings_by_kind": {
+          "door": 2,
+          "window": 3
+        },
+        "segment_iou": 0.0,
+        "bbox_framing_iou": 0.375,
+        "rooms_closed": 1,
+        "truth_rooms": 2,
+        "warnings": [],
+        "anchor": {
+          "index": 0,
+          "meters": 6.0,
+          "m_per_unit": 9.3439
+        },
+        "dimensions_m_sorted": [
+          2.5,
+          3.5,
+          3.5,
+          6.0
+        ],
+        "segment_matched_m": 0,
+        "segment_total_fixture_m": 27.88,
+        "segment_total_truth_m": 22.5,
+        "bbox_iou": 0.6415
+      }
+    },
+    "summary": {
+      "files": 2,
+      "mean_segment_iou": 0.0673,
+      "openings_total": "4/10",
+      "mean_bbox_iou": 0.6451
+    }
+  }
+}
