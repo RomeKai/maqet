@@ -1,0 +1,804 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Maqet API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/scene": {
+      "get": {
+        "summary": "Get Scene",
+        "operationId": "get_scene_scene_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Scene"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Put Scene",
+        "operationId": "put_scene_scene_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Scene"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Scene"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/scene/validate": {
+      "post": {
+        "summary": "Validate",
+        "operationId": "validate_scene_validate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Scene"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationReportOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/export/dxf": {
+      "post": {
+        "summary": "Export Scene Dxf",
+        "operationId": "export_scene_dxf_export_dxf_post",
+        "parameters": [
+          {
+            "name": "project_name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "Maqet",
+              "title": "Project Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Scene"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Furniture": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id"
+          },
+          "catalog_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Catalog Id"
+          },
+          "concept_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Concept Id"
+          },
+          "room_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Room Id"
+          },
+          "position": {
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Position"
+          },
+          "rotation_deg": {
+            "type": "number",
+            "title": "Rotation Deg",
+            "default": 0.0
+          },
+          "size_m": {
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array",
+            "maxItems": 3,
+            "minItems": 3,
+            "title": "Size M"
+          },
+          "concept": {
+            "type": "boolean",
+            "title": "Concept",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "room_id",
+          "position",
+          "size_m"
+        ],
+        "title": "Furniture"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "version"
+        ],
+        "title": "HealthOut"
+      },
+      "Material": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "catalog",
+              "generated"
+            ],
+            "title": "Source"
+          },
+          "catalog_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Catalog Id"
+          },
+          "texture_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Texture Url"
+          },
+          "prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt"
+          },
+          "tiling_m": {
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Tiling M",
+            "default": [
+              1.0,
+              1.0
+            ]
+          },
+          "concept": {
+            "type": "boolean",
+            "title": "Concept",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source"
+        ],
+        "title": "Material"
+      },
+      "Opening": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id"
+          },
+          "wall_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Wall Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "door",
+              "window"
+            ],
+            "title": "Kind"
+          },
+          "offset_m": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Offset M"
+          },
+          "width_m": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Width M"
+          },
+          "height_m": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Height M"
+          },
+          "sill_m": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sill M"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "wall_id",
+          "kind",
+          "offset_m",
+          "width_m",
+          "height_m"
+        ],
+        "title": "Opening"
+      },
+      "Room": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "polygon": {
+            "items": {
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array",
+              "maxItems": 2,
+              "minItems": 2
+            },
+            "type": "array",
+            "minItems": 3,
+            "title": "Polygon"
+          },
+          "function": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Function"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "polygon"
+        ],
+        "title": "Room"
+      },
+      "RoomSurfaceTarget": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "room",
+            "title": "Type",
+            "default": "room"
+          },
+          "room_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Room Id"
+          },
+          "part": {
+            "type": "string",
+            "enum": [
+              "floor",
+              "ceiling"
+            ],
+            "title": "Part"
+          }
+        },
+        "type": "object",
+        "required": [
+          "room_id",
+          "part"
+        ],
+        "title": "RoomSurfaceTarget"
+      },
+      "Scene": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Version",
+            "default": 0
+          },
+          "units": {
+            "type": "string",
+            "const": "m",
+            "title": "Units",
+            "default": "m"
+          },
+          "scale_confirmed": {
+            "type": "boolean",
+            "title": "Scale Confirmed",
+            "default": false
+          },
+          "ceiling_height_m": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Ceiling Height M",
+            "default": 2.6
+          },
+          "walls": {
+            "items": {
+              "$ref": "#/components/schemas/Wall"
+            },
+            "type": "array",
+            "title": "Walls"
+          },
+          "openings": {
+            "items": {
+              "$ref": "#/components/schemas/Opening"
+            },
+            "type": "array",
+            "title": "Openings"
+          },
+          "rooms": {
+            "items": {
+              "$ref": "#/components/schemas/Room"
+            },
+            "type": "array",
+            "title": "Rooms"
+          },
+          "surfaces": {
+            "items": {
+              "$ref": "#/components/schemas/Surface"
+            },
+            "type": "array",
+            "title": "Surfaces"
+          },
+          "furniture": {
+            "items": {
+              "$ref": "#/components/schemas/Furniture"
+            },
+            "type": "array",
+            "title": "Furniture"
+          },
+          "materials": {
+            "items": {
+              "$ref": "#/components/schemas/Material"
+            },
+            "type": "array",
+            "title": "Materials"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "Scene"
+      },
+      "Surface": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id"
+          },
+          "target": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RoomSurfaceTarget"
+              },
+              {
+                "$ref": "#/components/schemas/WallSurfaceTarget"
+              }
+            ],
+            "title": "Target",
+            "discriminator": {
+              "propertyName": "type",
+              "mapping": {
+                "room": "#/components/schemas/RoomSurfaceTarget",
+                "wall": "#/components/schemas/WallSurfaceTarget"
+              }
+            }
+          },
+          "material_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Material Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "target",
+          "material_id"
+        ],
+        "title": "Surface"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "ValidationReportOut": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors",
+            "default": []
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "default": []
+          },
+          "flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Flags",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok"
+        ],
+        "title": "ValidationReportOut"
+      },
+      "Wall": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id"
+          },
+          "a": {
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "A"
+          },
+          "b": {
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "B"
+          },
+          "thickness_m": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Thickness M"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "exterior",
+              "interior"
+            ],
+            "title": "Kind"
+          },
+          "height_m": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height M"
+          },
+          "load_bearing": {
+            "type": "boolean",
+            "title": "Load Bearing",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "a",
+          "b",
+          "thickness_m",
+          "kind"
+        ],
+        "title": "Wall"
+      },
+      "WallSurfaceTarget": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "wall",
+            "title": "Type",
+            "default": "wall"
+          },
+          "wall_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Wall Id"
+          },
+          "side": {
+            "type": "string",
+            "enum": [
+              "left",
+              "right"
+            ],
+            "title": "Side"
+          }
+        },
+        "type": "object",
+        "required": [
+          "wall_id",
+          "side"
+        ],
+        "title": "WallSurfaceTarget"
+      }
+    }
+  }
+}

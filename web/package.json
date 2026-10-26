@@ -1,0 +1,9 @@
+{
+  "name": "maqet-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "gen:types": "node scripts/gen-types.mjs"
+  }
+}
