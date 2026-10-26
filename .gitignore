@@ -9,3 +9,5 @@ NIGHT_REPORT.md
 # mme:end
 .cache/
 .atl/
+web/dist/
+web/node_modules/

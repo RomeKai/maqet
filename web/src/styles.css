@@ -1,0 +1,237 @@
+:root {
+  --bg: #f6f4f0;
+  --surface: #ffffff;
+  --ink: #1e2124;
+  --muted: #6b6f73;
+  --hairline: #d9d5ce;
+  --accent: #c2643a;
+  --accent-2: #2f5d62;
+  --concept: #7a5ac8;
+  --radius: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  overscroll-behavior: none;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.topbar-btn {
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 16px;
+}
+
+.topbar-title {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.topbar-project {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.badge-measured {
+  color: var(--accent-2);
+  border: 1px solid var(--accent-2);
+}
+
+.badge-notoscale {
+  color: #8a5a00;
+  border: 1px solid #d9a400;
+  background: #fdf3d7;
+}
+
+.viewport {
+  flex: 1;
+  min-height: 0;
+  background: linear-gradient(180deg, #eef0f2 0%, #e2e5e8 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.viewport-placeholder {
+  border: 2px dashed var(--accent-2);
+  border-radius: var(--radius);
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.6);
+  max-width: 320px;
+  text-align: center;
+}
+
+.viewport-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.sheet {
+  background: var(--surface);
+  border-top: 1px solid var(--hairline);
+  border-radius: var(--radius) var(--radius) 0 0;
+  box-shadow: 0 -4px 16px rgba(30, 33, 36, 0.08);
+  padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+  min-height: 120px;
+}
+
+.chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.chip {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.chip-active {
+  background: var(--ink);
+  color: var(--surface);
+  border-color: var(--ink);
+}
+
+.receipt {
+  margin: 4px 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inputrow {
+  display: flex;
+  gap: 8px;
+}
+
+.prompt {
+  flex: 1;
+  min-height: 44px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 0 12px;
+  font-size: 16px;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.mic {
+  min-width: 44px;
+  min-height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  font-size: 20px;
+}
+
+.sheet-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.preliminary {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.locale-switch {
+  min-height: 44px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 0 12px;
+  font-size: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15171a;
+    --surface: #1e2124;
+    --ink: #f6f4f0;
+    --muted: #a8adb2;
+    --hairline: #3a3e42;
+  }
+
+  .viewport {
+    background: linear-gradient(180deg, #e8eaec 0%, #dfe2e5 100%);
+  }
+
+  .viewport-placeholder {
+    background: rgba(255, 255, 255, 0.85);
+  }
+
+  .viewport-hint {
+    color: #4a4e52;
+  }
+
+  .prompt {
+    background: var(--bg);
+  }
+
+  .chip-active {
+    background: var(--surface);
+    color: var(--ink);
+    border-color: var(--accent);
+  }
+}
