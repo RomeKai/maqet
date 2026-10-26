@@ -28,20 +28,24 @@ Product: `docs/PRODUCT.md`. Decisions: `docs/DECISIONS.md`. Ops: `docs/RUNBOOK.m
   - reform agent: Spark 1.3 tool calling over the Responses API;
   - push-to-talk (Spanish first): Muse Voice Transcribe;
   - render of the finished room (and imagined textures/concept pieces, P1): Muse Image;
-  - site photos, to cross-check the sketch: SAM 3.1 (P1).
+  - wall photos: SAM 3.1 segments doors/windows; widths computed from the measured wall (P1, ADR-025).
+- Capture has three modes (ADR-025): **A** AR measure (WebXR tap-to-corner, Android, HTTPS only; primary demo path),
+  **B** room photo + tapped lengths (any phone), **C** sketch with written measurements (per-wall lengths, never one
+  global scale factor). Every wall stores its measurement provenance: `measured_ar | measured_tape | written_on_sketch | estimated`.
 - Assets: CC0 only, each declared in `assets/catalog.json` with source + license. P0 catalog = construction materials
   with recipes (ADR-024) plus a small basic furniture set for usability checks.
 
 ## Repo map (keep it current; read this instead of scanning the tree)
 - `server/scene/` Scene models (pydantic), ops (pure functions Scene -> Scene), validation and construction rules
   (`rules.py`, ADR-023), `variants.py` (branches A/B/C)
-- `server/intake/` plan photo or hand sketch -> proposed walls (Spark vision), scale from a known dimension
+- `server/intake/` plan photo or hand sketch -> proposed walls (Spark vision), cleanup, per-wall length solver (mode C);
+  `POST /intake` in `server/api.py`
 - `server/agent/` tools, executor, `stages.py` (stage-scoped toolsets, ADR-014), Responses loop, prompts (`prompts/` versioned)
 - `server/export/` DXF from Scene (ezdxf), `takeoff.py` quantity takeoff, staged by construction stage with catalog
   recipes (ADR-021, ADR-024) · `server/render/` snapshot + Muse Image · `server/api.py` routes · `server/db.py`
 - `server/tests/` pytest, offline (replay fixtures in `samples/replay`)
-- `web/src/scene/` store, op history, types · `web/src/view3d/` r3f scene from Scene · `web/src/intake/` plan/sketch photo +
-  corner editor + scale tool · `web/src/agent/` chat + push-to-talk · `web/src/ar/` GLB/USDZ export + model-viewer ·
+- `web/src/scene/` store, op history, types · `web/src/view3d/` r3f scene from Scene · `web/src/intake/` plan/sketch/room photo +
+  corner editor + tapped lengths · `web/src/measure/` WebXR AR tap-to-corner (mode A) · `web/src/agent/` chat + push-to-talk · `web/src/ar/` GLB/USDZ export + model-viewer ·
   `web/src/share/` family read-only view · `web/src/i18n/` single es-AR/en dictionary
 - `assets/` catalog.json, materials/ (construction recipes), furniture/ (basic set) (CC0) · `samples/` demo plans, sketches + replay · `docs/` product, decisions, plan
 - `mme/` harness config (budget, policy, milestones, night missions)

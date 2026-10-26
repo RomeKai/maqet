@@ -11,12 +11,16 @@ real family's result), **M** (robustness/UX), **L** (polish). Status: open / don
 | I2 | H | Cleanup closes too few rooms (1 of 3 on `plano_48m`) | Room areas drive the minimum-area rules and the takeoff | Split walls at T-junctions before polygonizing; snap labels to the nearest closed polygon; test per sample |
 | I3 | M | Spark returns whole walls; ground truth is split into segments | `segment_iou` reads near 0 even when the plan is right | Keep `segment_iou`, report area IoU of rooms and `wall_length_ratio` as primary metrics |
 | I4 | M | Perspective correction cut (`cut_if_late`): photos assumed taken flat | Oblique phone photos distort lengths | Four-corner homography in the editor before scaling |
-| I5 | M | Scale from written dimensions: the model transcribes text, the technician picks which segment it measures | Wrong pairing scales the whole plan wrong | Cross-check two written dimensions; warn if they disagree beyond 3% |
+| I5 | M | Written dimensions: the model transcribes text, the pairing with a wall can be wrong (global scale superseded by per-wall constraints, see I11) | A wrong pairing gives one wrong wall | Attach each dimension to its wall in cleanup; flag contradictions beyond 3% in the solver |
 | I6 | M | One retry on schema validation, then a hard failure | A flaky response leaves the technician stuck | User-facing message + manual-trace fallback (draw walls by hand) |
 | I7 | M | `max_tokens` 16384; Spark reasons 1k to 8k tokens first | Truncation returns no content (`EmptyResponse`) | Surface it as "try again", log reasoning tokens per call, alert if near the cap |
 | I8 | M | Spark calls take 30 to 60 s (reasoning) | Feels broken on site | Progress state with copy; allow editing while waiting; timeout with retry |
 | I9 | M | Images downscaled to 2048 px, EXIF orientation fixed | Very small text on big plans may become unreadable | Tile large plans or crop to the drawing before sending |
 | I10 | L | Demo inputs are synthetic (generated, CC0) | Real sketches are messier (pencil, shadows, folds) | Collect 5 to 10 real sketches with consent (no personal data) and rerun the report |
+| I11 | H | A single global scale (one known dimension) was the first approach; real hand sketches are not drawn to proportion, and the synthetic demo sketches are proportional so tests missed it | Every wall but the measured one comes out wrong on a real croquis | Per-wall constraints with a deterministic solver (ADR-025); a deliberately non-proportional sketch fixture; provenance per wall, `estimated` where no measurement exists |
+| I12 | M | WebXR (Mode A) is unsupported on iOS Safari; AR precision depends on lighting and floor texture | iPhone users cannot use A; poor tracking gives centimeter errors that reach the takeoff | Feature-detect and offer modes B/C; show tracking state; let the technician re-tap corners and compare with a tape reading; label `measured_ar` precision as indicative |
+| I13 | L | The web editor UI (corner editor, taps, AR view) is tested at logic level, not at component or touch level | Touch regressions only show on a real phone | Component tests with pointer events; a Playwright mobile viewport smoke test; manual pass on both phones before freeze |
+| I14 | M | WebXR `immersive-ar` only runs in a secure context (HTTPS): the dev web over the LAN (`http://192.168.x.x:5173`) fails, and a self-signed certificate must be accepted on the phone | Mode A looks "broken" on the phone for a reason unrelated to our code; the demo host must also be HTTPS | Serve dev with `@vitejs/plugin-basic-ssl` + `vite --host` (or a tunnel); verify the device with the official immersive-web hit-test sample first; if WebXR fails on the demo device, the demo uses Mode B |
 
 ## Product: rules and takeoff
 | # | Pri | Assumption or patch | Why it matters | Hardening |
@@ -31,6 +35,11 @@ real family's result), **M** (robustness/UX), **L** (polish). Status: open / don
 |---|---|---|---|---|
 | P1 | H | Contributor models may train on inputs; the demo uses only synthetic data | Real family homes and sketches are personal data | `MME_PRIVATE=1` (standard models) for any real use; consent notice in the UI |
 | P2 | M | Contributor rate limit is lower (150 vs 3000 in the price table); the gateway falls back to standard | Bursts cost about 19x more on fallback | Queue intake calls; alert when fallback is used |
+
+## Process: gates and integration
+| # | Pri | Assumption or patch | Why it matters | Hardening |
+|---|---|---|---|---|
+| Q1 | M | The Day 1 and 2 gates verified components, not integration: nothing was wired end to end (no `POST /intake`, the web never called the server, `IntakeScreen` not mounted, no `dev` script). Lesson learned 2026-10-26 | A green `mme gate` did not mean the app worked | At least one integration gate per day (route + API test, App renders the stage screen, upload -> Scene); a full-flow replay test (`test_e2e_flow.py`) |
 
 ## Dev tooling (MME, gateway, Claude Code), for reference
 | # | Pri | Assumption or patch | Status |

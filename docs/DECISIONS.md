@@ -36,6 +36,7 @@ Short records: context → decision → consequences. Change a decision by addin
 - **Consequences:** DXF stays first-class. Pydantic → JSON Schema → TS types (`openapi-typescript`) keeps front/back in sync.
 
 ## ADR-007 Plan intake: AI proposes, the human corrects and scales
+> Superseded in part by ADR-025: scale is no longer one global factor from a single dimension; each wall carries its own measurement and provenance.
 - **Decision:** Spark vision returns walls/openings/labels/dimension texts as JSON (schema-validated). The UI shows
   draggable corners. Scale comes from one known dimension (two taps + value) or from a printed dimension Spark read.
 - **Consequences:** works on messy real plans. Measurements are trusted because the professional confirmed them.
@@ -62,6 +63,7 @@ Short records: context → decision → consequences. Change a decision by addin
   with the SQLite volume. `MME_MODE=replay` demo fallback with recorded outputs in `samples/replay`.
 
 ## ADR-012 Devices
+> Extended by ADR-025: WebXR measuring (Android only) moves from P2 to a capture mode with a fallback; iPhone is covered by the photo and sketch modes.
 - **Decision:** develop and demo on both. iPhone for AR Quick Look (best AR polish). Android for WebXR experiments (P2).
   Every P0 feature must work on both.
 
@@ -172,3 +174,46 @@ Short records: context → decision → consequences. Change a decision by addin
 - **Why:** families buy materials as they save, stage by stage. A per-stage list turns a drawing into a purchase plan.
 - **Consequences:** still deterministic and AI-free, so numbers are testable. Recipe values are labelled estimates with a
   source and a waste factor; they do not replace a professional's bill of quantities.
+
+## ADR-025 Three capture modes with per-wall measurements
+- **Context:** the first intake pass (ADR-007) scales the whole plan from one known dimension. Real hand sketches are not
+  drawn to proportion, so one global factor makes every other wall wrong; our synthetic demo sketches are proportional, so
+  the tests missed it. Measured baseline (2026-10-26): openings exact on clean/photo plans (8/8, 12/12) but 2 of 5 on a
+  hand sketch; written dimensions are read correctly everywhere. The product promise is a *measured* Scene (ADR-001), so
+  measuring in the field is worth more than guessing from a drawing. The human has an Android phone, so WebXR is testable.
+- **Decision:** Capture offers three modes. All of them end in the same Scene, with a measurement and a provenance per wall.
+  - **Mode A, AR measure (primary demo path; WebXR, Android Chrome with ARCore):** the technician points the phone at the
+    floor and taps each room corner in an AR view (`immersive-ar` + `hit-test`). Each tap is a 3D point in meters, so walls
+    come out measured with no scale guessing. Ceiling height: one tap at the ceiling, or the 2.60 m default. Precision
+    target: a few centimeters, enough for the takeoff. The UI feature-detects support (`navigator.xr.isSessionSupported`)
+    and offers B/C where it is missing (iPhone Safari has no WebXR).
+  - **Mode B, room photo + tap measurements (any phone, iPhone included; fallback for A):** take a photo of a room or wall,
+    tap two points and type a length (e.g. "3,50"), tap a window or door and type its width. Each annotated length is
+    attached to its wall.
+  - **Mode C, sketch with written measurements (fallback, no site visit):** Spark reads walls and written dimensions;
+    **each wall takes its own written length** (per-wall constraints), never one global factor. A deterministic solver
+    adjusts the geometry so walls match their lengths while keeping topology. Walls without a measurement are flagged
+    `estimated`; contradictions (e.g. opposite sides of a room that do not close) are flagged to the technician.
+  - **Provenance per wall**, stored in the Scene: `measured_ar | measured_tape | written_on_sketch | estimated`. It is shown
+    in the UI and in the takeoff, where estimated quantities are labelled.
+  - **Meta usage:** SAM 3.1 (P1) segments doors and windows in wall photos; with the wall already measured (mode A or B),
+    opening widths are computed from the segmentation. This targets the measured weakness (sketch openings 2 of 5) and
+    deepens the Meta tooling story. Spark vision stays for sketches and labels.
+  - **Real-estate agents are not a P0 user.** One business-model line says Maqet also lets agents show a property's
+    potential with the Muse Image render; the flow itself stays in CUTLIST. Room restyling is crowded, sits close to the
+    "simple image analyzer" anti-project and dilutes the impact story.
+- **Technical constraint (WebXR):** `immersive-ar` only runs in a **secure context (HTTPS)**. Testing from a phone over the
+  LAN (`http://192.168.x.x:5173`) will not work: the dev web must be served over HTTPS (e.g. `@vitejs/plugin-basic-ssl`
+  with `vite --host`, accepting the self-signed certificate on the phone) or through a tunnel. First step of the Mode A
+  day: verify the phone supports WebXR AR (Chrome + Google Play Services for AR) with the official immersive-web hit-test
+  sample, before writing any of our code. The same secure-context rule applies to camera and mic.
+- **Fallback:** if WebXR fails on the demo device, the demo uses Mode B (then C). Modes B and C must therefore be
+  demo-quality on their own, and the hit-test code stays behind feature detection.
+- **Consequences:** the single-scale approach of ADR-007 is superseded in part (a global factor survives only as the
+  solver's initial guess). ADR-012's "every P0 feature works on iPhone and Android" holds for the capability (measuring
+  the home) through B/C; Mode A itself is Android-only. ADR-004's note that Safari has no WebXR still stands. The Scene
+  gains a per-wall provenance field; the takeoff and UI must label estimated values. Tests need a deliberately
+  **non-proportional** sketch fixture with ground truth (regenerated during the event, extending ADR-019) so a global-scale
+  regression fails a test. AR precision depends on lighting and floor texture (see HARDENING).
+- **Supersedes in part:** ADR-007 (scale from one dimension), ADR-012 (WebXR was P2), ADR-022's capture description (one
+  known dimension). **Extends:** ADR-022, ADR-019.

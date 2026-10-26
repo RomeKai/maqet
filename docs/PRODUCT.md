@@ -1,4 +1,4 @@
-# Maqet — Product definition (v2, 2026-10-26)
+# Maqet — Product definition (v2.1, 2026-10-26; capture modes: ADR-025)
 
 ## Name
 **Maqet** (from *maqueta*: the AR model on the table). Tagline: *from sketch to AR to staged materials*. A quick app-store
@@ -6,8 +6,9 @@ and web check found no design/architecture app with this exact name; "Maquete AI
 always write the name with the tagline. Run a trademark search (INPI / USPTO) before any public launch.
 
 ## One line
-**Assisted self-build: a technical assistant photographs a family's hand-drawn sketch, designs the expansion with them
-by voice, and leaves with a measured plan, an AR maquette and a material list split by construction stage.**
+**Assisted self-build: a technical assistant measures the family's home (in AR on the phone, with taps on photos, or from
+their hand-drawn sketch), designs the expansion with them by voice, and leaves with a measured plan, an AR maquette and a
+material list split by construction stage.**
 
 ## Positioning
 > **AI apps redesign photos. Maqet designs the measured expansion, and tells a family what to buy at each stage.**
@@ -51,7 +52,7 @@ The technical assistant drives the session. The family watches, asks for things 
 ## Core flow: 5 stages (Reform and Design can be skipped)
 | Stage | What happens | Agent tools in this stage |
 |---|---|---|
-| **1. Capture** | Photo of an existing plan **or a hand-drawn sketch (croquis)** with a few tape measurements written on it → Spark vision proposes walls/openings/labels/dimensions → drag corners → scale from one known dimension | none (deterministic editor) |
+| **1. Capture** | Three modes (ADR-025), one Scene with a measurement and provenance per wall. **A, AR measure** (Android Chrome, WebXR): tap each room corner on the floor, walls come out in meters. **B, room photo + taps** (any phone): tap two points, type a length; tap a window/door, type its width. **C, sketch with written measurements** (fallback): Spark vision proposes walls/openings/dimensions → each wall takes its own written length via a deterministic solver; walls without one are flagged *estimated*, contradictions are flagged | none (deterministic editor) |
 | **2. Reform** *(skippable)* | The agent proposes the expansion or improvement ("add a bedroom for the daughter", "move the bathroom", "add a kitchen window") only through validated tools. Rooms are recomputed; rule violations and professional-required flags come back as tool results | `add_room`, `add_wall`, `remove_wall`, `add_opening`, `move_opening`, `undo` (exact toolset defined in `server/agent/stages.py`) |
 | **3. Design** *(skippable, light)* | Basic furniture only, to check a room is usable (a bed fits, doors swing) | `place/move/rotate/remove_item`, `list_catalog`, `undo` |
 | **4. Present** | AR maquette on the family's table; Muse Image render of the finished room; share link | `create_variant`, `render_view` |
@@ -59,6 +60,20 @@ The technical assistant drives the session. The family watches, asks for things 
 
 Stage-scoped tools keep the model accurate and cheap (ADR-014). Any stage can be reopened. Every change is a Scene op,
 with undo. Variants A/B/C (ADR-013) remain available for comparing options with the family.
+
+## Capture modes and measurement provenance (ADR-025)
+| Mode | Device | How walls get their length | Provenance |
+|---|---|---|---|
+| **A. AR measure** (primary demo path) | Android Chrome + ARCore (HTTPS required) | Tap corners on the floor in `immersive-ar` + `hit-test`; 3D points in meters. Ceiling: one tap or 2.60 m | `measured_ar` |
+| **B. Room photo + taps** | Any phone, iPhone included | Tap two points on a photo and type the length ("3,50"); tap a window/door and type its width | `measured_tape` |
+| **C. Sketch with written measurements** | Any phone, no site visit | Spark reads walls and written dimensions; each wall takes its own length (per-wall solver, topology kept) | `written_on_sketch` |
+| No measurement | n/a | Geometry as drawn | `estimated` |
+
+- iPhone Safari has no WebXR: the UI detects support and offers B/C instead. If WebXR fails on the demo device, the demo
+  uses B.
+- Real hand sketches are not drawn to proportion, so a single global scale is wrong; lengths are per wall.
+- Provenance is stored per wall in the Scene and shown in the UI and the takeoff (estimated quantities are labelled).
+- SAM 3.1 (P1) segments doors/windows in wall photos; with the wall measured (A or B), opening widths come from the mask.
 
 ## Construction rules and honesty
 - Rules are deterministic code in `server/scene/rules.py`, with the source cited next to each value (ADR-023): minimum
@@ -71,7 +86,8 @@ with undo. Variants A/B/C (ADR-013) remain available for comparing options with 
 ## Staged takeoff
 Derived from Scene geometry plus per-material recipes in the catalog (ADR-024). No AI, so numbers are testable.
 Quantities: bricks per m² of wall by brick type and thickness, mortar, cement bags, sand and gravel (m³), steel bars for
-bond beams, roofing sheets, openings. Split by stage so the family buys as they save.
+bond beams, roofing sheets, openings. Split by stage so the family buys as they save. Quantities that depend on walls
+with `estimated` provenance are labelled as estimated.
 P1: the user types unit prices to get a per-stage total. Maqet never ships prices.
 
 ## Main screen (phone)
@@ -81,16 +97,18 @@ Selection plus voice is the core interaction. UI is Spanish (es-AR) first, Engli
 
 ## Scope tiers
 - **P0 (the demo):**
-  - Capture: plan photo or hand sketch → correct + scale → Scene.
+  - Capture: AR measure (Android, primary demo path) with photo + tap measurements and sketch with per-wall written
+    measurements as fallback and iPhone path → correct → Scene with per-wall provenance.
   - Reform: add/remove walls and openings, add a room, validated against construction rules, professional-required flags.
   - Design (light): basic furniture to check usability.
   - Present: AR maquette, Muse Image render of the finished room, share link.
   - Deliver: staged takeoff (table + JSON + CSV) and DXF.
   - Catalog: construction materials with recipes.
-  - Voice in Spanish (push-to-talk). Fidelity visible: a "Measured" badge once the scale is confirmed; every `concept` item in violet; "Preliminary" label on outputs.
-- **P1 (if gates are green):** unit prices and per-stage totals; SAM 3.1 on site photos to cross-check the sketch; variants
-  A/B/C with family votes; move/resize openings.
-- **P2 (post-freeze only if trivial, otherwise roadmap):** WebXR measuring (Android Chrome); 1:1 AR in place; realtime voice.
+  - Voice in Spanish (push-to-talk). Fidelity visible: a "Measured" badge and per-wall provenance (estimated walls flagged) once the technician confirms; every `concept` item in violet; "Preliminary" label on outputs.
+- **P1 (if gates are green):** SAM 3.1 opening widths from wall photos (measured wall + segmentation); unit prices and
+  per-stage totals; variants A/B/C with family votes; move/resize openings.
+- **P2 (post-freeze only if trivial, otherwise roadmap):** 1:1 AR in place; realtime voice; reference-object scale from a
+  room photo.
 - **Out (roadmap):** LiDAR scanning (native app); structural calculation or certification; multi-floor design; accounts and
   teams; DWG export; style presets and decorating (see CUTLIST).
 
@@ -100,6 +118,7 @@ Selection plus voice is the core interaction. UI is Spanish (es-AR) first, Engli
 | **Families** | Free |
 | **NGOs, municipalities, cooperatives** running technical-assistance programs | Per-seat licence for technical assistants; program dashboards later |
 | **Hardware stores** (later) | Partnerships around staged material lists |
+| **Real-estate agents** (later, not a P0 user) | Also lets agents show a property's potential via the Muse Image render |
 
 In the hackathon build everything is unlocked and badges show where licensing would apply (no billing code, ADR-016).
 
@@ -118,11 +137,11 @@ prices come from the store).
 ## Why Meta models (relevance for judges)
 | Model | Role |
 |---|---|
-| Muse Spark 1.3 (vision) | Reads messy hand sketches, not only clean plans, into proposed walls/openings/dimensions |
+| Muse Spark 1.3 (vision) | Reads messy hand sketches, not only clean plans, into proposed walls/openings and the written measurement of each wall |
 | Muse Spark 1.3 (tool calling, Responses API) | The reform agent: proposes and applies expansions through validated tools |
 | Muse Voice Transcribe | Spanish push-to-talk for families and technicians on site |
 | Muse Image | Render of the finished room |
-| SAM 3.1 (P1) | Segments site photos (existing walls, openings) to cross-check the sketch |
+| SAM 3.1 (P1) | Segments doors/windows in wall photos; on a measured wall, opening widths come from the mask (targets the sketch-openings weakness) |
 
 Bonus prizes this fits: **Best Agentic Use-Case** (a tool-calling agent bounded by deterministic rules) and **Best
 Creative Build** (sketch to staged material list).
@@ -133,8 +152,8 @@ construction rules.** One measured Scene, derived outputs (3D, AR, render, DXF, 
 
 ## Demo (3 minutes): the story of Rosa
 0. **0:00** Required one-liner, spoken and on screen: *"Planning docs and agent tooling were prepared before kickoff; all code you'll see was built this week."*
-1. **0:10** Rosa saved for two years to add a room. A technician visits her home and photographs her hand sketch, with tape measures written on it.
-2. **0:35 Capture:** walls appear → fix one corner → "this wall is [known length]" → measured plan.
+1. **0:10** Rosa saved for two years to add a room. A technician visits her home with an Android phone; Rosa's hand sketch, with tape measures written on it, is the fallback.
+2. **0:35 Capture (AR, on an Android phone):** the technician walks the room and taps each corner on the floor in AR → measured walls → measured plan. (Fallback if AR is unavailable: photo + taps, or the sketch with per-wall written measurements.)
 3. **1:00 Reform:** by voice, in Spanish: *"agregá un dormitorio para mi hija al lado de la cocina"*. The agent proposes it and flags what needs a licensed professional (placeholder: [flag shown]).
 4. **1:45 Present:** Rosa sees the room in AR on her own table, plus the Muse Image render of the finished room.
 5. **2:15 Deliver:** staged material list (*"stage 1: [N] bricks, [M] cement bags…"*, placeholders until real outputs exist) and the DXF.
@@ -143,5 +162,6 @@ construction rules.** One measured Scene, derived outputs (3D, AR, render, DXF, 
 ## Open questions (decide by Day 3)
 - Which master-builder or NGO contact can sanity-check the rules table and recipe values (ideally before Day 5).
 - Final list of brick types, wall thicknesses and the rule-value sources to cite in `rules.py`.
-- Hand-drawn sketches for the demo: who draws them, with what ground truth (see PLAN Day 1).
+- Hand-drawn sketches for the demo: who draws them, with what ground truth (see PLAN Day 1), including one deliberately non-proportional sketch.
+- Android phone for Mode A: available (the human's). Still to verify on Day 3 (first step): Chrome + Google Play Services for AR passes the official immersive-web hit-test sample.
 - Validate the licensing hypothesis with 1-2 conversations with programs (low priority, pitch only).
