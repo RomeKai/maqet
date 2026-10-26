@@ -1,0 +1,61 @@
+"""Measured Scene package: models, pure ops, rules and validation (ADR-001/002/023)."""
+
+from server.scene.models import (
+    Furniture,
+    Material,
+    Opening,
+    Room,
+    RoomSurfaceTarget,
+    Scene,
+    Surface,
+    Wall,
+    WallSurfaceTarget,
+)
+from server.scene.ops import (
+    OpRecord,
+    OpResult,
+    add_opening,
+    add_room,
+    add_wall,
+    move_opening,
+    remove_wall,
+    replay,
+    undo,
+)
+from server.scene.validation import (
+    FLAG_LOAD_BEARING,
+    FLAG_SECOND_FLOOR,
+    FLAG_SOIL,
+    FLAG_SPAN,
+    ValidationContext,
+    ValidationReport,
+    validate_scene,
+)
+
+__all__ = [
+    "FLAG_LOAD_BEARING",
+    "FLAG_SECOND_FLOOR",
+    "FLAG_SOIL",
+    "FLAG_SPAN",
+    "Furniture",
+    "Material",
+    "OpRecord",
+    "OpResult",
+    "Opening",
+    "Room",
+    "RoomSurfaceTarget",
+    "Scene",
+    "Surface",
+    "ValidationContext",
+    "ValidationReport",
+    "Wall",
+    "WallSurfaceTarget",
+    "add_opening",
+    "add_room",
+    "add_wall",
+    "move_opening",
+    "remove_wall",
+    "replay",
+    "undo",
+    "validate_scene",
+]
