@@ -1,0 +1,196 @@
+{
+  "id": "croquis-ampliacion-dorm",
+  "version": 0,
+  "units": "m",
+  "scale_confirmed": true,
+  "ceiling_height_m": 2.6,
+  "walls": [
+    {
+      "id": "w_s1",
+      "a": [
+        0,
+        0
+      ],
+      "b": [
+        3,
+        0
+      ],
+      "thickness_m": 0.2,
+      "kind": "exterior"
+    },
+    {
+      "id": "w_s2",
+      "a": [
+        3,
+        0
+      ],
+      "b": [
+        6,
+        0
+      ],
+      "thickness_m": 0.2,
+      "kind": "exterior"
+    },
+    {
+      "id": "w_n1",
+      "a": [
+        0,
+        3.5
+      ],
+      "b": [
+        3,
+        3.5
+      ],
+      "thickness_m": 0.2,
+      "kind": "exterior"
+    },
+    {
+      "id": "w_n2",
+      "a": [
+        3,
+        3.5
+      ],
+      "b": [
+        6,
+        3.5
+      ],
+      "thickness_m": 0.2,
+      "kind": "exterior"
+    },
+    {
+      "id": "w_w1",
+      "a": [
+        0,
+        0
+      ],
+      "b": [
+        0,
+        3.5
+      ],
+      "thickness_m": 0.2,
+      "kind": "exterior"
+    },
+    {
+      "id": "w_e1",
+      "a": [
+        6,
+        0
+      ],
+      "b": [
+        6,
+        3.5
+      ],
+      "thickness_m": 0.2,
+      "kind": "exterior"
+    },
+    {
+      "id": "w_v1",
+      "a": [
+        3.5,
+        0
+      ],
+      "b": [
+        3.5,
+        3.5
+      ],
+      "thickness_m": 0.1,
+      "kind": "interior"
+    }
+  ],
+  "openings": [
+    {
+      "id": "d_dorm",
+      "wall_id": "w_s1",
+      "kind": "door",
+      "offset_m": 0.8,
+      "width_m": 0.9,
+      "height_m": 2.05
+    },
+    {
+      "id": "d_bath",
+      "wall_id": "w_v1",
+      "kind": "door",
+      "offset_m": 1.2,
+      "width_m": 0.8,
+      "height_m": 2.05
+    },
+    {
+      "id": "v_dorm1",
+      "wall_id": "w_n1",
+      "kind": "window",
+      "offset_m": 0.8,
+      "width_m": 1.5,
+      "height_m": 1.2,
+      "sill_m": 1.0
+    },
+    {
+      "id": "v_dorm2",
+      "wall_id": "w_w1",
+      "kind": "window",
+      "offset_m": 1.0,
+      "width_m": 1.2,
+      "height_m": 1.2,
+      "sill_m": 1.0
+    },
+    {
+      "id": "v_bath",
+      "wall_id": "w_e1",
+      "kind": "window",
+      "offset_m": 1.0,
+      "width_m": 1.0,
+      "height_m": 0.8,
+      "sill_m": 1.4
+    }
+  ],
+  "rooms": [
+    {
+      "id": "r_dorm",
+      "name": "DORM",
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          3.5,
+          0
+        ],
+        [
+          3.5,
+          3.5
+        ],
+        [
+          0,
+          3.5
+        ]
+      ],
+      "function": "bedroom"
+    },
+    {
+      "id": "r_bath",
+      "name": "BAÑO",
+      "polygon": [
+        [
+          3.5,
+          0
+        ],
+        [
+          6,
+          0
+        ],
+        [
+          6,
+          3.5
+        ],
+        [
+          3.5,
+          3.5
+        ]
+      ],
+      "function": "bath"
+    }
+  ],
+  "surfaces": [],
+  "furniture": [],
+  "materials": []
+}

@@ -1,0 +1,503 @@
+{
+  "id": "plano-70m-2dorm",
+  "version": 0,
+  "units": "m",
+  "scale_confirmed": true,
+  "ceiling_height_m": 2.6,
+  "walls": [
+    {
+      "id": "w_s1",
+      "a": [
+        0,
+        0
+      ],
+      "b": [
+        3.5,
+        0
+      ],
+      "thickness_m": 0.2,
+      "kind": "exterior"
+    },
+    {
+      "id": "w_s2",
+      "a": [
+        3.5,
+        0
+      ],
+      "b": [
+        7,
+        0
+      ],
+      "thickness_m": 0.2,
+      "kind": "exterior"
+    },
+    {
+      "id": "w_s3",
+      "a": [
+        7,
+        0
+      ],
+      "b": [
+        10,
+        0
+      ],
+      "thickness_m": 0.2,
+      "kind": "exterior"
+    },
+    {
+      "id": "w_n1",
+      "a": [
+        0,
+        7
+      ],
+      "b": [
+        3.5,
+        7
+      ],
+      "thickness_m": 0.2,
+      "kind": "exterior"
+    },
+    {
+      "id": "w_n2",
+      "a": [
+        3.5,
+        7
+      ],
+      "b": [
+        7,
+        7
+      ],
+      "thickness_m": 0.2,
+      "kind": "exterior"
+    },
+    {
+      "id": "w_n3",
+      "a": [
+        7,
+        7
+      ],
+      "b": [
+        10,
+        7
+      ],
+      "thickness_m": 0.2,
+      "kind": "exterior"
+    },
+    {
+      "id": "w_w1",
+      "a": [
+        0,
+        0
+      ],
+      "b": [
+        0,
+        3.5
+      ],
+      "thickness_m": 0.2,
+      "kind": "exterior"
+    },
+    {
+      "id": "w_w2",
+      "a": [
+        0,
+        3.5
+      ],
+      "b": [
+        0,
+        7
+      ],
+      "thickness_m": 0.2,
+      "kind": "exterior"
+    },
+    {
+      "id": "w_e1",
+      "a": [
+        10,
+        0
+      ],
+      "b": [
+        10,
+        3.5
+      ],
+      "thickness_m": 0.2,
+      "kind": "exterior"
+    },
+    {
+      "id": "w_e2",
+      "a": [
+        10,
+        3.5
+      ],
+      "b": [
+        10,
+        7
+      ],
+      "thickness_m": 0.2,
+      "kind": "exterior"
+    },
+    {
+      "id": "w_va",
+      "a": [
+        6.5,
+        0
+      ],
+      "b": [
+        6.5,
+        3.5
+      ],
+      "thickness_m": 0.1,
+      "kind": "interior"
+    },
+    {
+      "id": "w_vb",
+      "a": [
+        6.5,
+        3.5
+      ],
+      "b": [
+        6.5,
+        7
+      ],
+      "thickness_m": 0.1,
+      "kind": "interior"
+    },
+    {
+      "id": "w_ua",
+      "a": [
+        7.7,
+        0
+      ],
+      "b": [
+        7.7,
+        3.5
+      ],
+      "thickness_m": 0.1,
+      "kind": "interior"
+    },
+    {
+      "id": "w_ub",
+      "a": [
+        7.7,
+        3.5
+      ],
+      "b": [
+        7.7,
+        7
+      ],
+      "thickness_m": 0.1,
+      "kind": "interior"
+    },
+    {
+      "id": "w_h1",
+      "a": [
+        0,
+        3
+      ],
+      "b": [
+        3.25,
+        3
+      ],
+      "thickness_m": 0.1,
+      "kind": "interior"
+    },
+    {
+      "id": "w_h2",
+      "a": [
+        3.25,
+        3
+      ],
+      "b": [
+        6.5,
+        3
+      ],
+      "thickness_m": 0.1,
+      "kind": "interior"
+    },
+    {
+      "id": "w_h3",
+      "a": [
+        6.5,
+        3
+      ],
+      "b": [
+        7.7,
+        3
+      ],
+      "thickness_m": 0.1,
+      "kind": "interior"
+    },
+    {
+      "id": "w_h4",
+      "a": [
+        7.7,
+        3
+      ],
+      "b": [
+        10,
+        3
+      ],
+      "thickness_m": 0.1,
+      "kind": "interior"
+    },
+    {
+      "id": "w_k1",
+      "a": [
+        4,
+        0
+      ],
+      "b": [
+        4,
+        3
+      ],
+      "thickness_m": 0.1,
+      "kind": "interior"
+    }
+  ],
+  "openings": [
+    {
+      "id": "d_entry",
+      "wall_id": "w_s1",
+      "kind": "door",
+      "offset_m": 1.0,
+      "width_m": 0.9,
+      "height_m": 2.05
+    },
+    {
+      "id": "d_kit",
+      "wall_id": "w_h1",
+      "kind": "door",
+      "offset_m": 1.0,
+      "width_m": 0.8,
+      "height_m": 2.05
+    },
+    {
+      "id": "d_hall",
+      "wall_id": "w_vb",
+      "kind": "door",
+      "offset_m": 1.5,
+      "width_m": 0.8,
+      "height_m": 2.05
+    },
+    {
+      "id": "d_bath",
+      "wall_id": "w_va",
+      "kind": "door",
+      "offset_m": 1.0,
+      "width_m": 0.8,
+      "height_m": 2.05
+    },
+    {
+      "id": "d_bed1",
+      "wall_id": "w_ub",
+      "kind": "door",
+      "offset_m": 1.5,
+      "width_m": 0.8,
+      "height_m": 2.05
+    },
+    {
+      "id": "d_bed2",
+      "wall_id": "w_ua",
+      "kind": "door",
+      "offset_m": 1.0,
+      "width_m": 0.8,
+      "height_m": 2.05
+    },
+    {
+      "id": "v_kit",
+      "wall_id": "w_w1",
+      "kind": "window",
+      "offset_m": 1.0,
+      "width_m": 1.2,
+      "height_m": 1.2,
+      "sill_m": 0.9
+    },
+    {
+      "id": "v_bath",
+      "wall_id": "w_s2",
+      "kind": "window",
+      "offset_m": 0.5,
+      "width_m": 0.6,
+      "height_m": 0.8,
+      "sill_m": 1.4
+    },
+    {
+      "id": "v_liv1",
+      "wall_id": "w_n1",
+      "kind": "window",
+      "offset_m": 1.0,
+      "width_m": 1.5,
+      "height_m": 1.4,
+      "sill_m": 0.8
+    },
+    {
+      "id": "v_liv2",
+      "wall_id": "w_n2",
+      "kind": "window",
+      "offset_m": 1.0,
+      "width_m": 1.5,
+      "height_m": 1.4,
+      "sill_m": 0.8
+    },
+    {
+      "id": "v_bed1",
+      "wall_id": "w_e2",
+      "kind": "window",
+      "offset_m": 1.0,
+      "width_m": 1.2,
+      "height_m": 1.4,
+      "sill_m": 0.8
+    },
+    {
+      "id": "v_bed2",
+      "wall_id": "w_e1",
+      "kind": "window",
+      "offset_m": 0.8,
+      "width_m": 1.2,
+      "height_m": 1.4,
+      "sill_m": 0.8
+    }
+  ],
+  "rooms": [
+    {
+      "id": "r_living",
+      "name": "Estar",
+      "polygon": [
+        [
+          0,
+          3
+        ],
+        [
+          6.5,
+          3
+        ],
+        [
+          6.5,
+          7
+        ],
+        [
+          0,
+          7
+        ]
+      ],
+      "function": "living"
+    },
+    {
+      "id": "r_kitchen",
+      "name": "Cocina-comedor",
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          4,
+          0
+        ],
+        [
+          4,
+          3
+        ],
+        [
+          0,
+          3
+        ]
+      ],
+      "function": "kitchen"
+    },
+    {
+      "id": "r_bath",
+      "name": "Baño",
+      "polygon": [
+        [
+          4,
+          0
+        ],
+        [
+          6.5,
+          0
+        ],
+        [
+          6.5,
+          3
+        ],
+        [
+          4,
+          3
+        ]
+      ],
+      "function": "bath"
+    },
+    {
+      "id": "r_hall",
+      "name": "Paso",
+      "polygon": [
+        [
+          6.5,
+          0
+        ],
+        [
+          7.7,
+          0
+        ],
+        [
+          7.7,
+          7
+        ],
+        [
+          6.5,
+          7
+        ]
+      ],
+      "function": "hall"
+    },
+    {
+      "id": "r_bed1",
+      "name": "Dormitorio 1",
+      "polygon": [
+        [
+          7.7,
+          3
+        ],
+        [
+          10,
+          3
+        ],
+        [
+          10,
+          7
+        ],
+        [
+          7.7,
+          7
+        ]
+      ],
+      "function": "bedroom"
+    },
+    {
+      "id": "r_bed2",
+      "name": "Dormitorio 2",
+      "polygon": [
+        [
+          7.7,
+          0
+        ],
+        [
+          10,
+          0
+        ],
+        [
+          10,
+          3
+        ],
+        [
+          7.7,
+          3
+        ]
+      ],
+      "function": "bedroom"
+    }
+  ],
+  "surfaces": [],
+  "furniture": [],
+  "materials": []
+}
