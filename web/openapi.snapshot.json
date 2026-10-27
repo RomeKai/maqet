@@ -33,7 +33,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Scene"
+                  "$ref": "#/components/schemas/Scene-Output"
                 }
               }
             }
@@ -47,7 +47,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Scene"
+                "$ref": "#/components/schemas/Scene-Input"
               }
             }
           },
@@ -59,7 +59,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Scene"
+                  "$ref": "#/components/schemas/Scene-Output"
                 }
               }
             }
@@ -85,7 +85,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Scene"
+                "$ref": "#/components/schemas/Scene-Input"
               }
             }
           },
@@ -98,6 +98,44 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ValidationReportOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/intake": {
+      "post": {
+        "summary": "Post Intake",
+        "operationId": "post_intake_intake_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_post_intake_intake_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeOut"
                 }
               }
             }
@@ -136,7 +174,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Scene"
+                "$ref": "#/components/schemas/Scene-Input"
               }
             }
           }
@@ -166,6 +204,36 @@
   },
   "components": {
     "schemas": {
+      "Body_post_intake_intake_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "anchor_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchor Index"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file",
+          "kind"
+        ],
+        "title": "Body_post_intake_intake_post"
+      },
       "Furniture": {
         "properties": {
           "id": {
@@ -281,6 +349,296 @@
           "version"
         ],
         "title": "HealthOut"
+      },
+      "IntakeDimension": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text"
+          },
+          "a": {
+            "prefixItems": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              }
+            ],
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "A"
+          },
+          "b": {
+            "prefixItems": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              }
+            ],
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "B"
+          },
+          "wall_index": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wall Index"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text",
+          "a",
+          "b",
+          "wall_index"
+        ],
+        "title": "IntakeDimension"
+      },
+      "IntakeLabel": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text"
+          },
+          "at": {
+            "prefixItems": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              }
+            ],
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text",
+          "at"
+        ],
+        "title": "IntakeLabel"
+      },
+      "IntakeOpening": {
+        "properties": {
+          "wall_index": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Wall Index"
+          },
+          "t0": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "T0"
+          },
+          "t1": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "T1"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "door",
+              "window"
+            ],
+            "title": "Kind"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "wall_index",
+          "t0",
+          "t1",
+          "kind"
+        ],
+        "title": "IntakeOpening"
+      },
+      "IntakeOut": {
+        "properties": {
+          "proposal": {
+            "$ref": "#/components/schemas/IntakeProposal"
+          },
+          "scene": {
+            "$ref": "#/components/schemas/Scene-Output"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "default": []
+          },
+          "scale_m_per_px": {
+            "type": "number",
+            "title": "Scale M Per Px"
+          },
+          "anchor_index": {
+            "type": "integer",
+            "title": "Anchor Index"
+          },
+          "anchor_meters": {
+            "type": "number",
+            "title": "Anchor Meters"
+          }
+        },
+        "type": "object",
+        "required": [
+          "proposal",
+          "scene",
+          "scale_m_per_px",
+          "anchor_index",
+          "anchor_meters"
+        ],
+        "title": "IntakeOut"
+      },
+      "IntakeProposal": {
+        "properties": {
+          "input_kind": {
+            "type": "string",
+            "enum": [
+              "plan",
+              "sketch"
+            ],
+            "title": "Input Kind"
+          },
+          "walls": {
+            "items": {
+              "$ref": "#/components/schemas/IntakeWall"
+            },
+            "type": "array",
+            "title": "Walls"
+          },
+          "openings": {
+            "items": {
+              "$ref": "#/components/schemas/IntakeOpening"
+            },
+            "type": "array",
+            "title": "Openings"
+          },
+          "labels": {
+            "items": {
+              "$ref": "#/components/schemas/IntakeLabel"
+            },
+            "type": "array",
+            "title": "Labels"
+          },
+          "dimensions": {
+            "items": {
+              "$ref": "#/components/schemas/IntakeDimension"
+            },
+            "type": "array",
+            "title": "Dimensions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "input_kind",
+          "walls",
+          "openings",
+          "labels",
+          "dimensions"
+        ],
+        "title": "IntakeProposal"
+      },
+      "IntakeWall": {
+        "properties": {
+          "a": {
+            "prefixItems": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              }
+            ],
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "A"
+          },
+          "b": {
+            "prefixItems": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              }
+            ],
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "B"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "exterior",
+                  "interior"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "a",
+          "b",
+          "kind"
+        ],
+        "title": "IntakeWall"
       },
       "Material": {
         "properties": {
@@ -499,7 +857,86 @@
         ],
         "title": "RoomSurfaceTarget"
       },
-      "Scene": {
+      "Scene-Input": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Version",
+            "default": 0
+          },
+          "units": {
+            "type": "string",
+            "const": "m",
+            "title": "Units",
+            "default": "m"
+          },
+          "scale_confirmed": {
+            "type": "boolean",
+            "title": "Scale Confirmed",
+            "default": false
+          },
+          "ceiling_height_m": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Ceiling Height M",
+            "default": 2.6
+          },
+          "walls": {
+            "items": {
+              "$ref": "#/components/schemas/Wall"
+            },
+            "type": "array",
+            "title": "Walls"
+          },
+          "openings": {
+            "items": {
+              "$ref": "#/components/schemas/Opening"
+            },
+            "type": "array",
+            "title": "Openings"
+          },
+          "rooms": {
+            "items": {
+              "$ref": "#/components/schemas/Room"
+            },
+            "type": "array",
+            "title": "Rooms"
+          },
+          "surfaces": {
+            "items": {
+              "$ref": "#/components/schemas/Surface"
+            },
+            "type": "array",
+            "title": "Surfaces"
+          },
+          "furniture": {
+            "items": {
+              "$ref": "#/components/schemas/Furniture"
+            },
+            "type": "array",
+            "title": "Furniture"
+          },
+          "materials": {
+            "items": {
+              "$ref": "#/components/schemas/Material"
+            },
+            "type": "array",
+            "title": "Materials"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "Scene"
+      },
+      "Scene-Output": {
         "properties": {
           "id": {
             "type": "string",
@@ -758,6 +1195,29 @@
             "type": "boolean",
             "title": "Load Bearing",
             "default": false
+          },
+          "provenance": {
+            "type": "string",
+            "enum": [
+              "measured_ar",
+              "measured_tape",
+              "written_on_sketch",
+              "estimated"
+            ],
+            "title": "Provenance",
+            "default": "estimated"
+          },
+          "measured_length_m": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured Length M"
           }
         },
         "type": "object",

@@ -1,8 +1,9 @@
 /**
  * Intake image helpers (web, P0 phone-first).
- * Client-side downscale (longest side ≤ 2048 px) + EXIF orientation fix,
- * plus the px->m scale math that mirrors server/intake/cleanup.py:
- * px->m = typed / pixel_len. Comma and point decimals both work.
+ * Client-side downscale (longest side ≤ 2048 px) + EXIF orientation fix.
+ * Measurement parsing ("3,50" with comma or point) mirrors
+ * server parse_dimension_meters; per-wall lengths arrive from the
+ * server draft (ADR-025 mode C), no client-side scale math remains.
  */
 
 export const MAX_SIDE_PX = 2048;
@@ -41,16 +42,6 @@ export function parseDimensionMeters(text: string): number | null {
   if (match === null || match[1] === undefined) return null;
   const value = Number(match[1].replace(",", "."));
   return Number.isFinite(value) ? value : null;
-}
-
-/**
- * px->m scale factor: typed real length divided by its length in image pixels.
- * Returns null when the pixel length is not usable.
- */
-export function metersPerPixel(typedMeters: number, pixelLength: number): number | null {
-  if (!Number.isFinite(typedMeters) || !Number.isFinite(pixelLength)) return null;
-  if (pixelLength <= 0 || typedMeters <= 0) return null;
-  return typedMeters / pixelLength;
 }
 
 /**

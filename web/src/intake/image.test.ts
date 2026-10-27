@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeDownscale, metersPerPixel, parseDimensionMeters, MAX_SIDE_PX } from "./image";
+import { computeDownscale, parseDimensionMeters, MAX_SIDE_PX } from "./image";
 
 describe("computeDownscale", () => {
   it("leaves small images untouched", () => {
@@ -36,16 +36,5 @@ describe("parseDimensionMeters", () => {
   it("returns null when no number is present", () => {
     expect(parseDimensionMeters("sin medida")).toBeNull();
     expect(parseDimensionMeters("")).toBeNull();
-  });
-});
-
-describe("metersPerPixel", () => {
-  it("computes px->m = typed / pixel_len", () => {
-    expect(metersPerPixel(3.5, 700)).toBeCloseTo(0.005, 9);
-  });
-
-  it("rejects zero or negative pixel lengths", () => {
-    expect(metersPerPixel(3.5, 0)).toBeNull();
-    expect(metersPerPixel(3.5, -10)).toBeNull();
   });
 });

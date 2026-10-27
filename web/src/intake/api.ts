@@ -35,6 +35,7 @@ export interface IntakeProposalDimension {
   text: string;
   a: NormPoint;
   b: NormPoint;
+  wall_index: number | null;
 }
 
 export interface IntakeProposal {

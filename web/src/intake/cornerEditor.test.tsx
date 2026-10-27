@@ -28,7 +28,7 @@ const proposal: IntakeProposal = {
   ],
   openings: [],
   labels: [],
-  dimensions: [{ text: "3,50 m", a: [0.25, 0.25], b: [0.75, 0.25] }],
+  dimensions: [{ text: "3,50 m", a: [0.25, 0.25], b: [0.75, 0.25], wall_index: 0 }],
 };
 
 const scene: Scene = {

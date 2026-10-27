@@ -26,7 +26,11 @@ const flagValue = (name, def) => {
 const LIVE_URL = flagValue("--url", "http://127.0.0.1:8000/openapi.json");
 const OFFLINE = args.includes("--offline");
 
-const refName = (ref) => ref.split("/").at(-1);
+const refName = (ref) => safeName(ref.split("/").at(-1));
+const safeName = (n) =>
+  /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(n)
+    ? n
+    : n.replace(/[^A-Za-z0-9_$]/g, "_").replace(/^([0-9])/, "_$1");
 const safeKey = (k) =>
   /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(k) ? k : JSON.stringify(k);
 const isNull = (s) =>
@@ -76,10 +80,11 @@ function objectBody(schema) {
 }
 
 function emitSchema(name, schema) {
+  const safe = safeName(name);
   if (schema.properties || schema.type === "object") {
-    return [`export interface ${name} {`, ...objectBody(schema), `}`].join("\n");
+    return [`export interface ${safe} {`, ...objectBody(schema), `}`].join("\n");
   }
-  return `export type ${name} = ${tsType(schema)};`;
+  return `export type ${safe} = ${tsType(schema)};`;
 }
 
 async function loadSpec() {
@@ -107,7 +112,37 @@ async function loadSpec() {
 
 const { spec, from } = await loadSpec();
 const schemas = spec.components?.schemas ?? {};
-const blocks = Object.entries(schemas).map(([name, s]) => emitSchema(name, s));
+// Collapse OpenAPI request/response model splits (Scene-Input/Scene-Output)
+// into one interface when their shapes are structurally identical,
+// so the generated types mirror the single pydantic model (ADR-001).
+const INPUT_SUFFIX = "-Input";
+const OUTPUT_SUFFIX = "-Output";
+const names = new Set(Object.keys(schemas));
+const skip = new Set();
+const rename = new Map();
+for (const name of names) {
+  if (!name.endsWith(OUTPUT_SUFFIX)) continue;
+  const base = name.slice(0, -OUTPUT_SUFFIX.length);
+  const input = `${base}${INPUT_SUFFIX}`;
+  if (!names.has(input)) continue;
+  const a = JSON.stringify(schemas[input]);
+  const b = JSON.stringify(schemas[name]);
+  if (a === b) {
+    // Keep one canonical definition under the base name (mirror the
+    // single pydantic model); skip the redundant Input twin.
+    skip.add(input);
+    rename.set(name, base);
+  }
+}
+// Rewire $refs from the dropped twins to the canonical base name.
+let specJson = JSON.stringify(schemas);
+for (const [output, base] of rename) {
+  specJson = specJson.split(`#/components/schemas/${output}`).join(`#/components/schemas/${base}`);
+}
+const resolved = JSON.parse(specJson);
+const blocks = Object.entries(resolved)
+  .filter(([name]) => !skip.has(name))
+  .map(([name, s]) => emitSchema(rename.get(name) ?? name, s));
 const header = `/**\n * GENERATED — do not edit.\n * Source: ${from}\n * Regenerate: npm run gen:types (from web/)\n */\n`;
 mkdirSync(dirname(OUT), { recursive: true });
 writeFileSync(OUT, `${header}\n${blocks.join("\n\n")}\n`);

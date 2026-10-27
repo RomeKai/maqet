@@ -4,6 +4,12 @@
  * Regenerate: npm run gen:types (from web/)
  */
 
+export interface Body_post_intake_intake_post {
+file: string;
+kind: string;
+anchor_index?: number | null;
+}
+
 export interface Furniture {
 id: string;
 catalog_id?: string | null;
@@ -22,6 +28,48 @@ detail?: ValidationError[];
 export interface HealthOut {
 status: string;
 version: string;
+}
+
+export interface IntakeDimension {
+text: string;
+a: [number, number];
+b: [number, number];
+wall_index: number | null;
+}
+
+export interface IntakeLabel {
+text: string;
+at: [number, number];
+}
+
+export interface IntakeOpening {
+wall_index: number;
+t0: number;
+t1: number;
+kind: "door" | "window";
+}
+
+export interface IntakeOut {
+proposal: IntakeProposal;
+scene: Scene;
+warnings?: string[];
+scale_m_per_px: number;
+anchor_index: number;
+anchor_meters: number;
+}
+
+export interface IntakeProposal {
+input_kind: "plan" | "sketch";
+walls: IntakeWall[];
+openings: IntakeOpening[];
+labels: IntakeLabel[];
+dimensions: IntakeDimension[];
+}
+
+export interface IntakeWall {
+a: [number, number];
+b: [number, number];
+kind: "exterior" | "interior" | null;
 }
 
 export interface Material {
@@ -100,6 +148,8 @@ thickness_m: number;
 kind: "exterior" | "interior";
 height_m?: number | null;
 load_bearing?: boolean;
+provenance?: "measured_ar" | "measured_tape" | "written_on_sketch" | "estimated";
+measured_length_m?: number | null;
 }
 
 export interface WallSurfaceTarget {

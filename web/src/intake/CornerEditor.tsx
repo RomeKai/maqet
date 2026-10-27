@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import type { Scene, Wall } from "../scene/types";
-import { applySceneOp, type SceneOp } from "../scene/store";
+import { applySceneOp, isWallEstimated, type SceneOp } from "../scene/store";
 import { getStrings, type Locale } from "../i18n";
 import type { IntakeProposal } from "./api";
 
@@ -321,6 +321,11 @@ export function CornerEditor({
           {walls.map((w) => {
             const a = toDisplay(w.a[0], w.a[1]);
             const b = toDisplay(w.b[0], w.b[1]);
+            const cls = selectedWall === w.id
+              ? "wall wall-selected"
+              : isWallEstimated(w)
+                ? "wall wall-estimated"
+                : "wall";
             return (
               <g key={w.id}>
                 <line
@@ -328,7 +333,7 @@ export function CornerEditor({
                   y1={a.y}
                   x2={b.x}
                   y2={b.y}
-                  className={selectedWall === w.id ? "wall wall-selected" : "wall"}
+                  className={cls}
                   onClick={(e) => {
                     e.stopPropagation();
                     setSelectedWall(w.id);

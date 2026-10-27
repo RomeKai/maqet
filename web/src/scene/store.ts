@@ -6,13 +6,15 @@ import type { Opening, Scene, Wall } from "./types";
  * Mirrors server/scene/ops.py semantics: every edit bumps `version`.
  */
 
+export type WallProvenance = NonNullable<Wall["provenance"]>;
+
 export type SceneOp =
   | { type: "addWall"; wall: Wall }
   | { type: "removeWall"; wallId: string }
   | { type: "moveWallEndpoint"; wallId: string; end: "a" | "b"; point: [number, number] }
   | { type: "markOpening"; opening: Opening }
   | { type: "removeOpening"; openingId: string }
-  | { type: "rescale"; ratio: number }
+  | { type: "setWallLength"; wallId: string; lengthM: number; provenance: WallProvenance }
   | { type: "confirmScale" };
 
 export function createEmptyScene(id = "intake"): Scene {
@@ -28,8 +30,29 @@ export function createEmptyScene(id = "intake"): Scene {
   };
 }
 
-function scalePoint(point: [number, number], ratio: number): [number, number] {
-  return [point[0] * ratio, point[1] * ratio];
+/** Geometric length of a wall in meters (fallback when no measure was confirmed). */
+export function wallGeometryLengthM(wall: Wall): number {
+  return Math.hypot(wall.b[0] - wall.a[0], wall.b[1] - wall.a[1]);
+}
+
+/** Display length: the confirmed measure when present, else the geometry. */
+export function wallDisplayLengthM(wall: Wall): number {
+  const measured = wall.measured_length_m;
+  if (typeof measured === "number" && Number.isFinite(measured) && measured > 0) {
+    return measured;
+  }
+  return wallGeometryLengthM(wall);
+}
+
+/** True when the wall still needs a human-confirmed measure (ADR-025 mode C). */
+export function isWallEstimated(wall: Wall): boolean {
+  return wall.provenance === undefined || wall.provenance === "estimated";
+}
+
+/** True when every wall carries a human-confirmed measure. */
+export function allWallsMeasured(scene: Scene): boolean {
+  const walls = scene.walls ?? [];
+  return walls.length > 0 && walls.every((w) => !isWallEstimated(w));
 }
 
 export function applySceneOp(scene: Scene, op: SceneOp): Scene {
@@ -69,21 +92,21 @@ export function applySceneOp(scene: Scene, op: SceneOp): Scene {
         openings: openings.filter((o) => o.id !== op.openingId),
       };
 
-    case "rescale": {
-      if (!Number.isFinite(op.ratio) || op.ratio <= 0) return scene;
+    case "setWallLength": {
+      if (!Number.isFinite(op.lengthM) || op.lengthM <= 0) return scene;
       return {
         ...scene,
         version,
-        walls: walls.map((w) => ({
-          ...w,
-          a: scalePoint(w.a, op.ratio),
-          b: scalePoint(w.b, op.ratio),
-        })),
-        openings: openings.map((o) => ({
-          ...o,
-          offset_m: o.offset_m * op.ratio,
-          width_m: o.width_m * op.ratio,
-        })),
+        walls: walls.map((w) => {
+          if (w.id !== op.wallId) return w;
+          const geoLen = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]);
+          if (!(geoLen > 0)) {
+            return { ...w, measured_length_m: op.lengthM, provenance: op.provenance };
+          }
+          const dir: [number, number] = [(w.b[0] - w.a[0]) / geoLen, (w.b[1] - w.a[1]) / geoLen];
+          const b: [number, number] = [w.a[0] + dir[0] * op.lengthM, w.a[1] + dir[1] * op.lengthM];
+          return { ...w, b, measured_length_m: op.lengthM, provenance: op.provenance };
+        }),
       };
     }
 

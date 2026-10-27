@@ -321,6 +321,12 @@ body {
   stroke: var(--accent);
 }
 
+/* Estimated walls: amber dashed until the human confirms the measure. */
+.intake-svg .wall-estimated {
+  stroke: #b7791f;
+  stroke-dasharray: 8 5;
+}
+
 .intake-svg .handle {
   fill: var(--accent);
   stroke: #fff;
@@ -385,6 +391,63 @@ body {
 .intake-scale {
   display: flex;
   flex-direction: column;
+  gap: 8px;
+}
+
+/* Per-wall measure rows: tap a wall to confirm its measure. */
+.intake-walls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wall-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 16px;
+  text-align: left;
+  width: 100%;
+}
+
+.wall-row-active {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
+}
+
+.wall-row-estimated {
+  border: 1px dashed #b7791f;
+}
+
+.wall-row-name {
+  font-weight: 600;
+}
+
+.wall-row-measure {
+  flex: 1;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  color: var(--accent-2);
+}
+
+.wall-row-flag {
+  font-size: 12px;
+  color: var(--accent-2);
+}
+
+.wall-row-flag-estimated {
+  color: #b7791f;
+}
+
+.intake-scale-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
 }
 

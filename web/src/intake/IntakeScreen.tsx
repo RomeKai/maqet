@@ -4,23 +4,24 @@ import { SceneHistory, createEmptyScene, type SceneOp } from "../scene/store";
 import { getStrings, type Locale } from "../i18n";
 import { UploadStep } from "./UploadStep";
 import { CornerEditor } from "./CornerEditor";
-import { ScaleTool, type ReadDimension } from "./ScaleTool";
+import { ScaleTool } from "./ScaleTool";
 import type { IntakeProposal, IntakeProposalDimension, IntakeResult } from "./api";
 
 interface IntakeScreenProps {
   locale: Locale;
   initialScene?: Scene;
-  readDimensions?: ReadDimension[];
   onSceneChange?: (scene: Scene) => void;
   onPhotoChange?: (hasPhoto: boolean) => void;
 }
 
 /**
- * Intake screen (P0 Capture): upload -> correct corners -> confirm scale.
+ * Intake screen (P0 Capture): upload -> correct corners -> check wall measures.
  * Edits go through SceneHistory (Scene ops + undo); the parent app owns the
- * confirmed Scene. Localized strings (demo default English), no prices, preliminary label.
+ * confirmed Scene. Per-wall dims carry wall_index straight from the proposal
+ * (ADR-025 mode C); the ScaleTool confirms each wall's measure.
+ * Localized strings (demo default English), no prices, preliminary label.
  */
-export function IntakeScreen({ locale, initialScene, readDimensions = [], onSceneChange, onPhotoChange }: IntakeScreenProps) {
+export function IntakeScreen({ locale, initialScene, onSceneChange, onPhotoChange }: IntakeScreenProps) {
   const t = getStrings(locale);
   const [history] = useState(() => new SceneHistory(initialScene ?? createEmptyScene()));
   const [scene, setScene] = useState<Scene>(history.scene);
@@ -32,24 +33,6 @@ export function IntakeScreen({ locale, initialScene, readDimensions = [], onScen
   const [error, setError] = useState<string | null>(null);
 
   const scaleConfirmed = useMemo(() => scene.scale_confirmed === true, [scene]);
-
-  // Vision dims are normalized (0..1, y-down); ScaleTool needs pixel spans,
-  // resolved against the uploaded photo size once both have arrived.
-  const proposalReadDims = useMemo<ReadDimension[]>(() => {
-    if (photo === null || proposalDims.length === 0) return [];
-    return proposalDims.map((d) => ({
-      text: d.text,
-      spanPx: Math.hypot(
-        (d.b[0] - d.a[0]) * photo.width,
-        (d.b[1] - d.a[1]) * photo.height,
-      ),
-    }));
-  }, [photo, proposalDims]);
-
-  const effectiveDims = useMemo(
-    () => [...readDimensions, ...proposalReadDims],
-    [readDimensions, proposalReadDims],
-  );
 
   function handleSceneDraft(draft: Scene, result: IntakeResult): void {
     history.reset(draft);
@@ -128,8 +111,9 @@ export function IntakeScreen({ locale, initialScene, readDimensions = [], onScen
         <ScaleTool
           locale={locale}
           scene={scene}
-          readDimensions={effectiveDims}
-          onConfirm={(next) => {
+          dimensions={proposalDims}
+          onChange={handleChange}
+          onDone={(next) => {
             setScene(next);
             onSceneChange?.({ ...next });
             setScaling(false);
