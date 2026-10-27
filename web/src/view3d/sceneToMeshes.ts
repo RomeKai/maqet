@@ -191,3 +191,120 @@ export function sceneToMeshes(scene: Scene): SceneMeshes {
   }
   return { walls, floors };
 }
+
+/** Axis-aligned bounding box in meters, Z-up. Null when the scene is empty. */
+export interface SceneBoundingBox {
+  min: WorldPoint;
+  max: WorldPoint;
+}
+
+/**
+ * Bounding box over wall boxes (plan a/b, thickness) and the wall height band
+ * (0..height). Pure geometry in meters, Z-up — the renderer maps it onto its
+ * own up-axis the same way it maps wall centers. Returns null for
+ * empty/degenerate scenes so callers can use a fixed fallback camera.
+ */
+export function sceneBoundingBox(scene: Scene): SceneBoundingBox | null {
+  let minX = Infinity;
+  let minY = Infinity;
+  let minZ = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  let maxZ = -Infinity;
+  let found = false;
+  for (const wall of scene.walls ?? []) {
+    const length = wallRunLengthM(wall);
+    if (!(length > EPS_M)) continue;
+    if (!Number.isFinite(wall.thickness_m) || !(wall.thickness_m > 0)) continue;
+    const height = wallHeightM(wall, scene);
+    const half = wall.thickness_m / 2;
+    const xs = [wall.a[0], wall.b[0]];
+    const ys = [wall.a[1], wall.b[1]];
+    for (const x of xs) {
+      if (!Number.isFinite(x)) continue;
+      minX = Math.min(minX, x - half);
+      maxX = Math.max(maxX, x + half);
+    }
+    for (const y of ys) {
+      if (!Number.isFinite(y)) continue;
+      minY = Math.min(minY, y - half);
+      maxY = Math.max(maxY, y + half);
+    }
+    minZ = Math.min(minZ, 0);
+    maxZ = Math.max(maxZ, height);
+    found = true;
+  }
+  if (!found) return null;
+  if (
+    !(
+      Number.isFinite(minX) &&
+      Number.isFinite(minY) &&
+      Number.isFinite(minZ) &&
+      Number.isFinite(maxX) &&
+      Number.isFinite(maxY) &&
+      Number.isFinite(maxZ)
+    )
+  ) {
+    return null;
+  }
+  return {
+    min: [minX, minY, minZ],
+    max: [maxX, maxY, maxZ],
+  };
+}
+
+/** Default vertical field of view in degrees (matches the <Canvas> camera). */
+export const DEFAULT_FOV_DEG = 50;
+
+/**
+ * Iso camera framing for a bounding box, in meters, Z-up (renderer maps it
+ * the same way as wall centers). Target is the bbox center; the camera sits
+ * on the (1, 1, ~0.7) iso direction, pushed out to fit the bbox sphere at
+ * fov 50 with margin — horizontally too when a (phone-portrait) viewport is
+ * given. Null bbox → fixed fallback [6, 6, 6] on origin.
+ */
+export function cameraForBoundingBox(
+  bbox: SceneBoundingBox | null,
+  viewport?: { width: number; height: number },
+): {
+  position: WorldPoint;
+  target: WorldPoint;
+} {
+  if (bbox === null) {
+    return { position: [6, 6, 6], target: [0, 0, 0] };
+  }
+  const target: WorldPoint = [
+    (bbox.min[0] + bbox.max[0]) / 2,
+    (bbox.min[1] + bbox.max[1]) / 2,
+    (bbox.min[2] + bbox.max[2]) / 2,
+  ];
+  const dx = bbox.max[0] - bbox.min[0];
+  const dy = bbox.max[1] - bbox.min[1];
+  const dz = bbox.max[2] - bbox.min[2];
+  const radius = Math.sqrt(dx * dx + dy * dy + dz * dz) / 2;
+  const halfV = ((DEFAULT_FOV_DEG / 2) * Math.PI) / 180;
+  let halfMin = halfV;
+  const w = viewport?.width;
+  const h = viewport?.height;
+  if (
+    typeof w === "number" &&
+    typeof h === "number" &&
+    Number.isFinite(w) &&
+    Number.isFinite(h) &&
+    w > 0 &&
+    h > 0
+  ) {
+    halfMin = Math.min(halfV, Math.atan(Math.tan(halfV) * (w / h)));
+  }
+  // Fit the bbox sphere with 10% headroom so the whole scene stays in frame
+  // on narrow phone viewports too.
+  const distance = Math.max((radius / Math.sin(halfMin)) * 1.1, 1);
+  const dir: readonly [number, number, number] = [1, 1, 0.75];
+  const dirLen = Math.sqrt(dir[0] ** 2 + dir[1] ** 2 + dir[2] ** 2);
+  const position: WorldPoint = [
+    target[0] + (dir[0] / dirLen) * distance,
+    target[1] + (dir[1] / dirLen) * distance,
+    target[2] + (dir[2] / dirLen) * distance,
+  ];
+  return { position, target };
+}

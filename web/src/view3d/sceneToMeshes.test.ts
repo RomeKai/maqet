@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  cameraForBoundingBox,
   floorMesh,
+  sceneBoundingBox,
   sceneToMeshes,
   solidIntervalsM,
   wallHeightM,
@@ -201,5 +203,90 @@ describe("sceneToMeshes", () => {
         ] as [number, number][],
       }),
     ).toBeNull();
+  });
+});
+
+describe("sceneBoundingBox", () => {
+  it("empty scene yields a null bbox", () => {
+    expect(sceneBoundingBox(scene())).toBeNull();
+    expect(sceneBoundingBox({ id: "bare" })).toBeNull();
+  });
+
+  it("4x3 room: bbox spans walls plan + thickness and ceiling height", () => {
+    const sc = scene({
+      ceiling_height_m: 2.6,
+      walls: [
+        wall({ id: "south", a: [0, 0], b: [4, 0] }),
+        wall({ id: "north", a: [0, 3], b: [4, 3] }),
+        wall({ id: "west", a: [0, 0], b: [0, 3], kind: "interior" }),
+        wall({ id: "east", a: [4, 0], b: [4, 3], kind: "interior" }),
+      ],
+    });
+    const bbox = sceneBoundingBox(sc);
+    expect(bbox).not.toBeNull();
+    // Wall centerlines run 0..4 x 0..3, expanded by half thickness (0.1);
+    // z runs 0..2.6 (scene ceiling).
+    expect(bbox!.min).toEqual([-0.1, -0.1, 0]);
+    expect(bbox!.max).toEqual([4.1, 3.1, 2.6]);
+  });
+});
+
+describe("cameraForBoundingBox", () => {
+  it("empty scene falls back to the default iso view", () => {
+    const cam = cameraForBoundingBox(null);
+    expect(cam.target).toEqual([0, 0, 0]);
+    expect(cam.position).toEqual([6, 6, 6]);
+  });
+
+  it("4x3 room: target is the bbox center, camera is iso and elevated", () => {
+    const bbox = {
+      min: [-0.1, -0.1, 0] as [number, number, number],
+      max: [4.1, 3.1, 2.6] as [number, number, number],
+    };
+    const cam = cameraForBoundingBox(bbox);
+    // Target = bbox center.
+    expect(cam.target[0]).toBeCloseTo(2, 9);
+    expect(cam.target[1]).toBeCloseTo(1.5, 9);
+    expect(cam.target[2]).toBeCloseTo(1.3, 9);
+    // Iso direction: equal x/y offsets, camera above the target.
+    expect(cam.position[0] - cam.target[0]).toBeCloseTo(
+      cam.position[1] - cam.target[1],
+      9,
+    );
+    expect(cam.position[2]).toBeGreaterThan(cam.target[2]);
+    // Fits the bbox sphere at fov 50 with headroom: distance from target is
+    // at least radius / sin(25°), so every corner is inside the frustum.
+    const dx = bbox.max[0] - bbox.min[0];
+    const dy = bbox.max[1] - bbox.min[1];
+    const dz = bbox.max[2] - bbox.min[2];
+    const radius = Math.sqrt(dx * dx + dy * dy + dz * dz) / 2;
+    const dist = Math.hypot(
+      cam.position[0] - cam.target[0],
+      cam.position[1] - cam.target[1],
+      cam.position[2] - cam.target[2],
+    );
+    expect(dist).toBeGreaterThan(radius / Math.sin((25 * Math.PI) / 180));
+  });
+
+  it("narrow phone viewport pushes the camera further out", () => {
+    const bbox = {
+      min: [-0.1, -0.1, 0] as [number, number, number],
+      max: [4.1, 3.1, 2.6] as [number, number, number],
+    };
+    const square = cameraForBoundingBox(bbox);
+    const portrait = cameraForBoundingBox(bbox, { width: 390, height: 844 });
+    const distOf = (cam: {
+      position: readonly [number, number, number];
+      target: readonly [number, number, number];
+    }): number =>
+      Math.hypot(
+        cam.position[0] - cam.target[0],
+        cam.position[1] - cam.target[1],
+        cam.position[2] - cam.target[2],
+      );
+    // Portrait horizontal fov is tighter, so the fit distance must grow.
+    expect(distOf(portrait)).toBeGreaterThan(distOf(square));
+    // Target is unchanged — only the distance adapts.
+    expect(portrait.target).toEqual(square.target);
   });
 });

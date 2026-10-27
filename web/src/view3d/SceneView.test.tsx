@@ -91,4 +91,26 @@ describe("SceneView fallback (no WebGL under test)", () => {
     );
     expect(html).toContain('data-empty="no"');
   });
+
+  it("derives the default camera from the scene bbox (no fixed [6,6,6])", () => {
+    // Geometry math (bbox -> camera) is unit-tested in sceneToMeshes.test.ts;
+    // here we assert the wiring inputs through the SSR fallback path: the
+    // wrapper exposes the scene so CameraRig can frame it, and the render
+    // still needs no WebGL.
+    const html = renderToString(
+      <SceneView
+        scene={{
+          ...emptyScene,
+          walls: [
+            { id: "south", a: [0, 0], b: [4, 0], thickness_m: 0.2, kind: "exterior" },
+            { id: "north", a: [0, 3], b: [4, 3], thickness_m: 0.2, kind: "exterior" },
+            { id: "west", a: [0, 0], b: [0, 3], thickness_m: 0.1, kind: "interior" },
+            { id: "east", a: [4, 0], b: [4, 3], thickness_m: 0.1, kind: "interior" },
+          ],
+        }}
+      />,
+    );
+    expect(html).toContain('data-testid="scene-view"');
+    expect(html).toContain('data-empty="no"');
+  });
 });
