@@ -13,13 +13,15 @@ import io
 import logging
 from typing import cast
 
-from fastapi import FastAPI, File, Form, HTTPException, Response, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from server.export.dxf import ScaleNotConfirmedError, export_dxf
 from server.intake.cleanup import ScaleError, build_scaled_plan, to_scene
 from server.intake.read_plan import ReadPlanError, read_plan
+from server.intake.replay import ReplayMiss, load_sample
 from server.intake.schemas import InputKind, IntakeProposal
 from server.scene.models import Scene
 from server.scene.validation import ValidationReport, validate_scene
@@ -34,6 +36,28 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(Exception)
+async def _unhandled(request: Request, exc: Exception) -> JSONResponse:
+    """Last-resort 500: preliminary label, CORS preserved explicitly.
+
+    CORSMiddleware skips `allow_origins=["*"]` when the handler raises before
+    `send` completes, so the header is set here too: an unhandled error must
+    still reach the phone webview as JSON, not as an opaque CORS failure.
+    """
+    logger.exception("unhandled error on %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": (
+                "Preliminary: something unexpected failed on the server; "
+                "no scene was stored. Try again or pick a recorded sample."
+            )
+        },
+        headers={"Access-Control-Allow-Origin": "*"},
+    )
+
 
 # Day-2: 15 MB upload cap (client downscales to <=2048 px; advisory accept only).
 _MAX_IMAGE_BYTES = 15 * 1024 * 1024
@@ -99,14 +123,30 @@ class IntakeOut(BaseModel):
 
 @app.post("/intake", response_model=IntakeOut)
 def post_intake(
-    file: UploadFile = File(...),
+    file: UploadFile | None = File(default=None),
     kind: str = Form(...),
     anchor_index: int | None = Form(default=None),
+    sample: str | None = Form(default=None),
 ) -> IntakeOut:
     if kind not in ("plan", "sketch"):
         raise HTTPException(
             status_code=400,
             detail="kind must be 'plan' or 'sketch': ask the human to fix the type",
+        )
+    if sample:
+        # Replay path: no vision call, no upload bytes needed. Same downstream
+        # path (build_scaled_plan -> to_scene) as the upload path.
+        try:
+            proposal, image_w, image_h = load_sample(sample)
+        except ReplayMiss as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return _finish_intake(proposal, image_w, image_h, kind)
+    if file is None:
+        raise HTTPException(
+            status_code=400,
+            detail="upload a photo of the plan or sketch, or pick a recorded sample",
         )
     image_bytes = file.file.read()
     if not image_bytes:
@@ -134,6 +174,16 @@ def post_intake(
         proposal = read_plan(image_bytes, cast(InputKind, kind))
     except ReadPlanError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return _finish_intake(proposal, image_w, image_h, kind, anchor_index)
+
+
+def _finish_intake(
+    proposal: IntakeProposal,
+    image_w: int,
+    image_h: int,
+    kind: str,
+    anchor_index: int | None = None,
+) -> IntakeOut:
     try:
         plan = build_scaled_plan(
             proposal, image_w, image_h, anchor_index=anchor_index

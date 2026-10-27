@@ -1,7 +1,13 @@
 import { useRef, useState } from "react";
 import { getStrings, type Locale } from "../i18n";
 import { downscaleImage } from "./image";
-import { postIntake, type IntakeKind, type IntakeProposal, type IntakeResult } from "./api";
+import {
+  postIntake,
+  postSampleIntake,
+  type IntakeKind,
+  type IntakeProposal,
+  type IntakeResult,
+} from "./api";
 import type { Scene } from "../scene/types";
 
 export type UploadPhase = "idle" | "preparing" | "reading";
@@ -31,11 +37,16 @@ interface UploadStepProps {
   locale: Locale;
   kind?: IntakeKind;
   onPhaseChange?: (phase: UploadPhase) => void;
-  onPhoto: (url: string, width: number, height: number) => void;
+  onPhoto: (url: string | null, width: number, height: number) => void;
   onError: (message: string) => void;
   onScene?: (scene: Scene, result: IntakeResult) => void;
   onProposal?: (proposal: IntakeProposal) => void;
 }
+
+/** Recorded fixture replayed without upload or vision (I16, offline demo). */
+const SAMPLE_NAME = "croquis_nonproportional";
+/** The fixture above is a sketch: replay posts its true kind, not the toggle. */
+const SAMPLE_KIND: IntakeKind = "sketch";
 
 /**
  * Capture step (P0): phone camera / file upload.
@@ -62,6 +73,23 @@ export function UploadStep({
   function setUploadPhase(next: UploadPhase): void {
     setPhase(next);
     onPhaseChange?.(next);
+  }
+
+  async function handleSample(): Promise<void> {
+    if (busy) return;
+    setUploadPhase("reading");
+    try {
+      const result = await postSampleIntake(SAMPLE_KIND, SAMPLE_NAME);
+      // No photo on the replay path: the editor renders the SVG draft on its
+      // fallback canvas (imageUrl null), same onScene seeding as uploads.
+      onPhoto(null, 0, 0);
+      onProposal?.(result.proposal);
+      onScene?.(result.scene, result);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : t["intake.upload.error"]);
+    } finally {
+      setUploadPhase("idle");
+    }
   }
 
   async function handleFile(file: File | undefined): Promise<void> {
@@ -126,6 +154,15 @@ export function UploadStep({
         onClick={() => inputRef.current?.click()}
       >
         {t["intake.upload.cta"]}
+      </button>
+      <button
+        type="button"
+        className="btn-secondary"
+        disabled={busy}
+        aria-label={t["intake.sample.label"]}
+        onClick={() => void handleSample()}
+      >
+        {t["intake.sample.try"]}
       </button>
       {busy && <UploadStatus locale={locale} phase={phase === "reading" ? "reading" : "preparing"} />}
       <p className="preliminary">{t["notice.preliminary"]}</p>

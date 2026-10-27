@@ -120,7 +120,22 @@ export async function postIntake(image: Blob, kind: IntakeKind): Promise<IntakeR
   const form = new FormData();
   form.append("file", image, kind === "sketch" ? "sketch.jpg" : "plan.jpg");
   form.append("kind", kind);
+  return postForm(form);
+}
 
+/**
+ * Offline replay (I16): no upload, no vision call. The server replays a
+ * recorded fixture by name through the same path as uploads, with the same
+ * response shape. Unknown names come back as 409 with a "pick one of" hint.
+ */
+export async function postSampleIntake(kind: IntakeKind, sample: string): Promise<IntakeResult> {
+  const form = new FormData();
+  form.append("kind", kind);
+  form.append("sample", sample);
+  return postForm(form);
+}
+
+async function postForm(form: FormData): Promise<IntakeResult> {
   let res: Response;
   try {
     res = await fetch(intakeUrl(), { method: "POST", body: form });

@@ -38,6 +38,8 @@ export const esAR = {
   "intake.upload.busy": "Procesando foto…",
   "intake.upload.reading": "Leyendo tu plano… puede tardar hasta un minuto",
   "intake.upload.error": "No se pudo leer la foto. Probá de nuevo.",
+  "intake.sample.try": "Probar con un ejemplo",
+  "intake.sample.label": "Croquis de ejemplo (sin foto)",
   "intake.kind.plan": "Plano",
   "intake.kind.sketch": "Croquis",
   "intake.scale.cta": "Revisar medidas",

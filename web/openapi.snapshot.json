@@ -207,8 +207,15 @@
       "Body_post_intake_intake_post": {
         "properties": {
           "file": {
-            "type": "string",
-            "contentMediaType": "application/octet-stream",
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "File"
           },
           "kind": {
@@ -225,11 +232,21 @@
               }
             ],
             "title": "Anchor Index"
+          },
+          "sample": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sample"
           }
         },
         "type": "object",
         "required": [
-          "file",
           "kind"
         ],
         "title": "Body_post_intake_intake_post"
@@ -285,7 +302,7 @@
           "rotation_deg": {
             "type": "number",
             "title": "Rotation Deg",
-            "default": 0.0
+            "default": 0
           },
           "size_m": {
             "prefixItems": [
@@ -361,13 +378,13 @@
             "prefixItems": [
               {
                 "type": "number",
-                "maximum": 1.0,
-                "minimum": 0.0
+                "maximum": 1,
+                "minimum": 0
               },
               {
                 "type": "number",
-                "maximum": 1.0,
-                "minimum": 0.0
+                "maximum": 1,
+                "minimum": 0
               }
             ],
             "type": "array",
@@ -379,13 +396,13 @@
             "prefixItems": [
               {
                 "type": "number",
-                "maximum": 1.0,
-                "minimum": 0.0
+                "maximum": 1,
+                "minimum": 0
               },
               {
                 "type": "number",
-                "maximum": 1.0,
-                "minimum": 0.0
+                "maximum": 1,
+                "minimum": 0
               }
             ],
             "type": "array",
@@ -397,7 +414,7 @@
             "anyOf": [
               {
                 "type": "integer",
-                "minimum": 0.0
+                "minimum": 0
               },
               {
                 "type": "null"
@@ -427,13 +444,13 @@
             "prefixItems": [
               {
                 "type": "number",
-                "maximum": 1.0,
-                "minimum": 0.0
+                "maximum": 1,
+                "minimum": 0
               },
               {
                 "type": "number",
-                "maximum": 1.0,
-                "minimum": 0.0
+                "maximum": 1,
+                "minimum": 0
               }
             ],
             "type": "array",
@@ -454,19 +471,19 @@
         "properties": {
           "wall_index": {
             "type": "integer",
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Wall Index"
           },
           "t0": {
             "type": "number",
-            "maximum": 1.0,
-            "minimum": 0.0,
+            "maximum": 1,
+            "minimum": 0,
             "title": "T0"
           },
           "t1": {
             "type": "number",
-            "maximum": 1.0,
-            "minimum": 0.0,
+            "maximum": 1,
+            "minimum": 0,
             "title": "T1"
           },
           "kind": {
@@ -583,13 +600,13 @@
             "prefixItems": [
               {
                 "type": "number",
-                "maximum": 1.0,
-                "minimum": 0.0
+                "maximum": 1,
+                "minimum": 0
               },
               {
                 "type": "number",
-                "maximum": 1.0,
-                "minimum": 0.0
+                "maximum": 1,
+                "minimum": 0
               }
             ],
             "type": "array",
@@ -601,13 +618,13 @@
             "prefixItems": [
               {
                 "type": "number",
-                "maximum": 1.0,
-                "minimum": 0.0
+                "maximum": 1,
+                "minimum": 0
               },
               {
                 "type": "number",
-                "maximum": 1.0,
-                "minimum": 0.0
+                "maximum": 1,
+                "minimum": 0
               }
             ],
             "type": "array",
@@ -702,8 +719,8 @@
             "minItems": 2,
             "title": "Tiling M",
             "default": [
-              1.0,
-              1.0
+              1,
+              1
             ]
           },
           "concept": {
@@ -741,24 +758,24 @@
           },
           "offset_m": {
             "type": "number",
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Offset M"
           },
           "width_m": {
             "type": "number",
-            "exclusiveMinimum": 0.0,
+            "exclusiveMinimum": 0,
             "title": "Width M"
           },
           "height_m": {
             "type": "number",
-            "exclusiveMinimum": 0.0,
+            "exclusiveMinimum": 0,
             "title": "Height M"
           },
           "sill_m": {
             "anyOf": [
               {
                 "type": "number",
-                "minimum": 0.0
+                "minimum": 0
               },
               {
                 "type": "null"
@@ -866,7 +883,7 @@
           },
           "version": {
             "type": "integer",
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Version",
             "default": 0
           },
@@ -883,7 +900,7 @@
           },
           "ceiling_height_m": {
             "type": "number",
-            "exclusiveMinimum": 0.0,
+            "exclusiveMinimum": 0,
             "title": "Ceiling Height M",
             "default": 2.6
           },
@@ -945,7 +962,7 @@
           },
           "version": {
             "type": "integer",
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Version",
             "default": 0
           },
@@ -962,7 +979,7 @@
           },
           "ceiling_height_m": {
             "type": "number",
-            "exclusiveMinimum": 0.0,
+            "exclusiveMinimum": 0,
             "title": "Ceiling Height M",
             "default": 2.6
           },
@@ -1168,7 +1185,7 @@
           },
           "thickness_m": {
             "type": "number",
-            "exclusiveMinimum": 0.0,
+            "exclusiveMinimum": 0,
             "title": "Thickness M"
           },
           "kind": {
@@ -1183,7 +1200,7 @@
             "anyOf": [
               {
                 "type": "number",
-                "exclusiveMinimum": 0.0
+                "exclusiveMinimum": 0
               },
               {
                 "type": "null"
@@ -1211,7 +1228,7 @@
             "anyOf": [
               {
                 "type": "number",
-                "exclusiveMinimum": 0.0
+                "exclusiveMinimum": 0
               },
               {
                 "type": "null"

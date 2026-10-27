@@ -5,9 +5,10 @@
  */
 
 export interface Body_post_intake_intake_post {
-file: string;
+file?: string | null;
 kind: string;
 anchor_index?: number | null;
+sample?: string | null;
 }
 
 export interface Furniture {

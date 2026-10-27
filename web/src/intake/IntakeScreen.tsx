@@ -25,7 +25,7 @@ export function IntakeScreen({ locale, initialScene, onSceneChange, onPhotoChang
   const t = getStrings(locale);
   const [history] = useState(() => new SceneHistory(initialScene ?? createEmptyScene()));
   const [scene, setScene] = useState<Scene>(history.scene);
-  const [photo, setPhoto] = useState<{ url: string; width: number; height: number } | null>(null);
+  const [photo, setPhoto] = useState<{ url: string | null; width: number; height: number } | null>(null);
   const [proposalDims, setProposalDims] = useState<IntakeProposalDimension[]>([]);
   const [proposal, setProposal] = useState<IntakeProposal | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -51,7 +51,7 @@ export function IntakeScreen({ locale, initialScene, onSceneChange, onPhotoChang
     onSceneChange?.({ ...next });
   }
 
-  function handlePhoto(url: string, width: number, height: number): void {
+  function handlePhoto(url: string | null, width: number, height: number): void {
     setPhoto({ url, width, height });
     onPhotoChange?.(true);
   }
