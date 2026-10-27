@@ -8,7 +8,13 @@ import {
 } from "../scene/store";
 import { getStrings, type Locale } from "../i18n";
 import { formatMeasureM } from "../intake/ScaleTool";
-import { pairCornersToWallUpdate, type Vec3 } from "./cornerMath";
+import {
+  emptyCornerTrace,
+  traceCornerTap,
+  pairCornersToWallUpdate,
+  type CornerTrace,
+  type Vec3,
+} from "./cornerMath";
 import {
   isARSupported,
   type XrHitTestAdapter,
@@ -62,11 +68,23 @@ export function ArMeasure({
   const [previewM, setPreviewM] = useState<number | null>(null);
   const cornersRef = useRef<Vec3[]>([]);
   cornersRef.current = corners;
+  // Adapter taps arrive through the mount-time subscription: keep a ref to
+  // the latest scene so each tap emits its addWall onto current walls.
+  const sceneRef = useRef<Scene>(scene);
+  sceneRef.current = scene;
+
+  // Empty scene (no photo yet, ADR-025 Mode A entry): trace walls corner by
+  // corner with stable incremental ids (wall-1, wall-2, ...). Each new tap
+  // emits the wall ending at it from the previous corner immediately via
+  // onChange + applySceneOp addWall; a tap within CLOSE_ROOM_M of the
+  // first corner closes the loop.
+  const isEmptyStart = target === null;
+  const traceRef = useRef<CornerTrace>(emptyCornerTrace());
 
   useEffect(() => {
     if (adapter) {
       adapter.start({
-        onTapCorner: (corner) => appendCorner(corner, target?.id),
+        onTapCorner: (corner) => appendCorner(corner, target?.id ?? null),
         onEnd: () => undefined,
       });
       return () => adapter.end();
@@ -82,20 +100,39 @@ export function ArMeasure({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function appendCorner(corner: Vec3, targetId: string | undefined): void {
-    if (targetId === undefined) return;
-    const paired = [...cornersRef.current, corner].slice(-2);
-    setCorners(paired);
-    if (paired.length === 2) {
+  function appendCorner(corner: Vec3, targetId: string | null): void {
+    if (targetId === null && !isEmptyStart) return;
+    if (isEmptyStart) {
+      // Each new tap completes one wall (the segment ending at it), emitted
+      // immediately so the 3D view grows corner by corner. Preview shows the
+      // length of the wall just completed.
+      const nextTrace = traceCornerTap(
+        traceRef.current,
+        corner,
+        (sceneRef.current.walls ?? []).length,
+      );
+      traceRef.current = nextTrace;
+      setCorners(nextTrace.corners);
+      const wall = nextTrace.lastWall;
+      setPreviewM(wall?.measured_length_m ?? null);
+      if (wall !== null) {
+        const op: SceneOp = { type: "addWall", wall };
+        onChange(applySceneOp(sceneRef.current, op), op);
+      }
+      return;
+    }
+    const next = [...cornersRef.current, corner];
+    setCorners(next);
+    if (next.length === 2 && targetId !== null) {
       const update = pairCornersToWallUpdate(
-        [paired[0] as Vec3, paired[1] as Vec3],
+        [next[0] as Vec3, next[1] as Vec3],
         targetId,
       );
       setPreviewM(update?.lengthM ?? null);
     }
   }
 
-  if (target === null) {
+  if (target === null && !isEmptyStart) {
     return (
       <div className="ar-measure" role="dialog" aria-label={t["measure.ar.title"]}>
         <h2 className="intake-title">{t["measure.ar.title"]}</h2>
@@ -109,15 +146,30 @@ export function ArMeasure({
   }
 
   function handleTapCorner(): void {
-    // P0 stand-in until device hit-test lands: the second tap sits 1 m from
-    // the first. The length math is fully tested in cornerMath.
-    const next: Vec3 =
-      corners.length === 0 ? [0, 0, 0] : [corners[0][0] + 1, corners[0][1], 0];
-    appendCorner(next, target.id);
+    // P0 stand-in until device hit-test lands: taps march around a 1 m
+    // square so the chained path (wall-1..wall-4) is tappable by hand.
+    // The length math is fully tested in cornerMath.
+    const square: Vec3[] = [
+      [0, 0, 0],
+      [1, 0, 0],
+      [1, 0, -1],
+      [0, 0, -1],
+    ];
+    const next: Vec3 = square[corners.length] ?? square[0]!;
+    appendCorner(next, isEmptyStart ? null : (target as { id: string }).id);
   }
 
   function handleConfirm(): void {
     if (previewM === null) return;
+    if (isEmptyStart) {
+      // Walls were already emitted per tap; confirm just clears the trace so
+      // the technician can start the next room from a clean state.
+      traceRef.current = emptyCornerTrace();
+      setCorners([]);
+      setPreviewM(null);
+      return;
+    }
+    if (target === null) return;
     const op: SceneOp = {
       type: "setWallLength",
       wallId: target.id,
@@ -134,6 +186,7 @@ export function ArMeasure({
   }
 
   function handleReset(): void {
+    traceRef.current = emptyCornerTrace();
     setCorners([]);
     setPreviewM(null);
   }
@@ -175,7 +228,9 @@ export function ArMeasure({
       <span className="wall-row-measure">
         {previewM !== null
           ? formatMeasureM(locale, previewM)
-          : formatMeasureM(locale, wallDisplayLengthM(target))}
+          : target !== null
+            ? formatMeasureM(locale, wallDisplayLengthM(target))
+            : formatMeasureM(locale, 0)}
       </span>
       {previewM === null && (
         <span className="wall-row-flag wall-row-flag-estimated">
@@ -187,7 +242,7 @@ export function ArMeasure({
         type="button"
         className="btn-primary ar-tap"
         onClick={handleTapCorner}
-        disabled={corners.length >= 2}
+        disabled={isEmptyStart ? traceRef.current.closed : corners.length >= 2}
       >
         {stepLabel}
       </button>
