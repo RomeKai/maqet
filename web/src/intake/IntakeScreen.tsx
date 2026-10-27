@@ -5,6 +5,7 @@ import { getStrings, type Locale } from "../i18n";
 import { UploadStep } from "./UploadStep";
 import { CornerEditor } from "./CornerEditor";
 import { ScaleTool } from "./ScaleTool";
+import { ArMeasure } from "../measure/ArMeasure";
 import type { IntakeProposal, IntakeProposalDimension, IntakeResult } from "./api";
 
 interface IntakeScreenProps {
@@ -30,6 +31,7 @@ export function IntakeScreen({ locale, initialScene, onSceneChange, onPhotoChang
   const [proposal, setProposal] = useState<IntakeProposal | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [scaling, setScaling] = useState(false);
+  const [measuringAR, setMeasuringAR] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const scaleConfirmed = useMemo(() => scene.scale_confirmed === true, [scene]);
@@ -100,9 +102,14 @@ export function IntakeScreen({ locale, initialScene, onSceneChange, onPhotoChang
             canUndo={history.canUndo}
           />
           {!scaleConfirmed && (
-            <button type="button" className="btn-primary" onClick={() => setScaling(true)}>
-              {t["intake.scale.cta"]}
-            </button>
+            <>
+              <button type="button" className="btn-primary" onClick={() => setScaling(true)}>
+                {t["intake.scale.cta"]}
+              </button>
+              <button type="button" className="chip" onClick={() => setMeasuringAR(true)}>
+                {t["measure.ar.title"]}
+              </button>
+            </>
           )}
         </>
       )}
@@ -119,6 +126,28 @@ export function IntakeScreen({ locale, initialScene, onSceneChange, onPhotoChang
             setScaling(false);
           }}
           onCancel={() => setScaling(false)}
+        />
+      )}
+
+      {measuringAR && (
+        <ArMeasure
+          locale={locale}
+          scene={scene}
+          onChange={handleChange}
+          onDone={(next) => {
+            setScene(next);
+            onSceneChange?.({ ...next });
+            setMeasuringAR(false);
+          }}
+          onCancel={() => setMeasuringAR(false)}
+          onFallbackB={() => {
+            setMeasuringAR(false);
+            setScaling(false);
+          }}
+          onFallbackC={() => {
+            setMeasuringAR(false);
+            setScaling(true);
+          }}
         />
       )}
 

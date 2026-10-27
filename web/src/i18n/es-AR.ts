@@ -58,4 +58,13 @@ export const esAR = {
   "intake.scale.noWall": "Tocá una pared primero.",
   "intake.scale.empty": "Todavía no hay paredes. Dibujá o corregí las paredes primero.",
   "intake.warnings.title": "Avisos de la lectura",
+  "measure.ar.title": "Medir con AR",
+  "measure.ar.hint": "Apuntá a una esquina de la pared y tocá para marcarla.",
+  "measure.ar.tapFirst": "Tocá la primera esquina",
+  "measure.ar.tapSecond": "Tocá la otra esquina",
+  "measure.ar.confirm": "Usar esta medida",
+  "measure.ar.fallback": "Tu teléfono no tiene AR. Medí la pared con cinta o escribí la medida del croquis.",
+  "measure.ar.unsupported": "AR no disponible en este dispositivo",
+  "measure.ar.done": "Listo",
+  "measure.ar.cancel": "Cancelar",
 } as const;

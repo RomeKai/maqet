@@ -59,4 +59,13 @@ export const en: Record<keyof typeof esAR, string> = {
   "intake.scale.noWall": "Tap a wall first.",
   "intake.scale.empty": "No walls yet. Draw or correct the walls first.",
   "intake.warnings.title": "Reading notices",
+  "measure.ar.title": "Measure with AR",
+  "measure.ar.hint": "Point at a wall corner and tap to mark it.",
+  "measure.ar.tapFirst": "Tap the first corner",
+  "measure.ar.tapSecond": "Tap the other corner",
+  "measure.ar.confirm": "Use this measure",
+  "measure.ar.fallback": "Your phone has no AR. Measure the wall with tape or type the sketch measure.",
+  "measure.ar.unsupported": "AR not available on this device",
+  "measure.ar.done": "Done",
+  "measure.ar.cancel": "Cancel",
 };
