@@ -11,6 +11,7 @@ import type { XrHitTestAdapter, XrTapCallbacks } from "./xrAdapter";
 import {
   AR_START_WATCHDOG_MS,
   XR_START_STEPS,
+  type XrSessionConfigStep,
   type XrStartStep,
 } from "./xrAdapter";
 import type { Scene } from "../scene/types";
@@ -298,7 +299,7 @@ describe("AR start step trace + watchdog", () => {
 
   it("reports steps through onStep in the documented order", async () => {
     const { adapter } = makeStepAdapter();
-    const seen: XrStartStep[] = [];
+    const seen: Array<XrStartStep | XrSessionConfigStep> = [];
     const handleClick = createArStartHandler(
       adapter,
       noopCallbacks,

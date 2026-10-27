@@ -21,8 +21,13 @@ export interface XrTapCallbacks {
  *  4. session-set — the session is set on the three.js renderer
  *  5. viewer-space — the viewer reference space resolved
  *  6. hit-test-source — the hit-test source resolved
- *  7. local-floor-space — the local-floor reference space resolved
+ *  7. local-space — the local reference space resolved
  *  8. render-loop-running — the animation loop started (taps now emit)
+ *
+ * Which session config succeeded is recorded too, when a retry happens
+ * (see XrSessionConfigStep): Device 1 rejects `dom-overlay` with
+ * NotSupportedError while the plain hit-test config works, so start()
+ * retries once without it.
  */
 export const XR_START_STEPS = [
   "session-requested",
@@ -31,14 +36,29 @@ export const XR_START_STEPS = [
   "session-set",
   "viewer-space",
   "hit-test-source",
-  "local-floor-space",
+  "local-space",
   "render-loop-running",
 ] as const;
 
 export type XrStartStep = (typeof XR_START_STEPS)[number];
 
-/** Progress callback for start(): receives each XrStartStep in order. */
-export type XrStartProgress = (step: XrStartStep) => void;
+/**
+ * Session-config outcome reported in the trace when start() retries:
+ * `session-overlay` = granted with dom-overlay on the first try,
+ * `session-no-overlay` = the overlay config was rejected and the plain
+ * hit-test retry succeeded. Only one of them is ever reported.
+ */
+export const XR_SESSION_CONFIG_STEPS = [
+  "session-overlay",
+  "session-no-overlay",
+] as const;
+
+export type XrSessionConfigStep = (typeof XR_SESSION_CONFIG_STEPS)[number];
+
+/** Progress callback for start(): each start step plus the session-config outcome, in order. */
+export type XrStartProgress = (
+  step: XrStartStep | XrSessionConfigStep,
+) => void;
 
 /**
  * Watchdog for AR session start: if start() neither resolves nor rejects
@@ -46,6 +66,41 @@ export type XrStartProgress = (step: XrStartStep) => void;
  * On the phone a wedged await shows no camera and no error otherwise.
  */
 export const AR_START_WATCHDOG_MS = 10_000;
+
+/**
+ * Request the immersive-ar session, synchronously in the user gesture.
+ * Device 1 rejects the dom-overlay config with NotSupportedError while the
+ * official hit-test sample works there: retry once with plain hit-test
+ * (requiredFeatures only) and report which config succeeded in the trace.
+ * Other rejections propagate without a retry. Corner distances are pure
+ * hit-test poses, so nothing downstream depends on the overlay.
+ * Exported for tests (the full start() needs DOM + WebGL).
+ */
+export async function requestArSession(
+  xr: XRSystem,
+  overlayRoot: HTMLElement,
+  onStep?: XrStartProgress,
+): Promise<XRSession> {
+  onStep?.("session-requested");
+  try {
+    const session = await xr.requestSession("immersive-ar", {
+      requiredFeatures: ["hit-test"],
+      optionalFeatures: ["dom-overlay"],
+      domOverlay: { root: overlayRoot },
+    });
+    onStep?.("session-overlay");
+    return session;
+  } catch (error: unknown) {
+    if (!(error instanceof Error) || error.name !== "NotSupportedError") {
+      throw error;
+    }
+    const session = await xr.requestSession("immersive-ar", {
+      requiredFeatures: ["hit-test"],
+    });
+    onStep?.("session-no-overlay");
+    return session;
+  }
+}
 
 /**
  * Thin seam over WebXR hit-test: start a session, tap corners, end it.
@@ -174,20 +229,20 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
     // (domOverlay.root): End + the step trace stay visible and tappable
     // over the camera feed. The DOM lib types requestSession's options
     // loosely, so the root is cast to the HTMLElement three expects.
+    // Device 1 rejects the overlay config with NotSupportedError: the
+    // helper retries once with plain hit-test (see requestArSession).
     const xr = nav.xr as XRSystem;
     const overlayRoot = (container ?? host) as HTMLElement;
-    const sessionPromise = xr.requestSession("immersive-ar", {
-      requiredFeatures: ["hit-test"],
-      optionalFeatures: ["dom-overlay"],
-      domOverlay: { root: overlayRoot },
-    });
-    onStep?.("session-requested");
+    const sessionPromise = requestArSession(xr, overlayRoot, onStep);
     // three.js stays out of the test bundle: only the phone path loads it.
     const THREE = await import("three");
     onStep?.("three-loaded");
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.xr.enabled = true;
-    renderer.xr.setReferenceSpaceType("local-floor");
+    // Device 2 has no local-floor (requestReferenceSpace rejects): use
+    // local everywhere, like the official immersive-web hit-test sample.
+    // Corner distances are pure hit-test poses, floor height is irrelevant.
+    renderer.xr.setReferenceSpaceType("local");
     host.appendChild(renderer.domElement);
     this.renderer = renderer;
     try {
@@ -206,8 +261,8 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
       this.hitTestSource =
         (await session.requestHitTestSource({ space: viewerSpace })) ?? null;
       onStep?.("hit-test-source");
-      this.refSpace = await session.requestReferenceSpace("local-floor");
-      onStep?.("local-floor-space");
+      this.refSpace = await session.requestReferenceSpace("local");
+      onStep?.("local-space");
 
       const scene = new THREE.Scene();
       const reticle = new THREE.Mesh(

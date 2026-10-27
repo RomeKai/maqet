@@ -21,9 +21,13 @@ import {
   preloadThree,
   WebXrHitTestAdapter,
   type XrHitTestAdapter,
+  type XrSessionConfigStep,
   type XrStartStep,
   type XrTapCallbacks,
 } from "./xrAdapter";
+
+/** A start step or the recorded session-config outcome. */
+type ArTraceStep = XrStartStep | XrSessionConfigStep;
 
 /**
  * Formats an adapter.start() rejection for the UI as "name: message" so the
@@ -46,12 +50,12 @@ export interface ArStartOutcome {
   onStarted: () => void;
   onFailed: (message: string) => void;
   /** Receives each XR start step in order (diagnostic trace). */
-  onStep?: (step: XrStartStep) => void;
+  onStep?: (step: ArTraceStep) => void;
   /** Builds the watchdog message; defaults to English for locale-free tests. */
-  stuckMessage?: (step: XrStartStep | null) => string;
+  stuckMessage?: (step: ArTraceStep | null) => string;
 }
 
-function defaultStuckMessage(step: XrStartStep | null): string {
+function defaultStuckMessage(step: ArTraceStep | null): string {
   return `AR stuck at: ${step ?? "?"}`;
 }
 
@@ -62,8 +66,8 @@ export function createArStartHandler(
   outcome: ArStartOutcome,
 ): () => void {
   return () => {
-    let lastStep: XrStartStep | null = null;
-    const reportStep = (step: XrStartStep): void => {
+    let lastStep: ArTraceStep | null = null;
+    const reportStep = (step: ArTraceStep): void => {
       lastStep = step;
       outcome.onStep?.(step);
     };
@@ -157,9 +161,9 @@ export function ArMeasure({
   >(adapter ? "ar-ready" : "checking");
   const [startError, setStartError] = useState<string | null>(null);
   // Latest XR start step while pending (diagnostic line under the button).
-  const [startStep, setStartStep] = useState<XrStartStep | null>(null);
+  const [startStep, setStartStep] = useState<ArTraceStep | null>(null);
   // Ref mirror: the watchdog message reads the current step outside render.
-  const startStepRef = useRef<XrStartStep | null>(null);
+  const startStepRef = useRef<ArTraceStep | null>(null);
   const [corners, setCorners] = useState<Vec3[]>([]);
   const [previewM, setPreviewM] = useState<number | null>(null);
   const cornersRef = useRef<Vec3[]>([]);
@@ -230,7 +234,7 @@ export function ArMeasure({
       setStartError(message);
       setSupport("failed");
     };
-    const onStep = (step: XrStartStep): void => {
+    const onStep = (step: ArTraceStep): void => {
       startStepRef.current = step;
       setStartStep(step);
     };

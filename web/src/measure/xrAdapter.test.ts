@@ -3,8 +3,12 @@ import {
   hitTestPoseToCorner,
   isARSupported,
   NoopAdapter,
+  requestArSession,
   WebXrHitTestAdapter,
   type XrHitTestAdapter,
+  type XrStartProgress,
+  type XrStartStep,
+  type XrSessionConfigStep,
   type XrTapCallbacks,
 } from "./xrAdapter";
 import type { Vec3 } from "./cornerMath";
@@ -99,5 +103,62 @@ describe("WebXrHitTestAdapter", () => {
     ).rejects.toThrow();
     // Ending a never-started adapter is a safe no-op.
     adapter.end();
+  });
+});
+
+describe("requestArSession", () => {
+  const root = {} as HTMLElement;
+  const session = {} as XRSession;
+
+  function collectSteps() {
+    const seen: Array<XrStartStep | XrSessionConfigStep> = [];
+    const onStep: XrStartProgress = (step) => {
+      seen.push(step);
+    };
+    return { seen, onStep };
+  }
+
+  it("records session-overlay when the first request succeeds", async () => {
+    const xr = {
+      requestSession: vi.fn(async () => session),
+    } as unknown as XRSystem;
+    const { seen, onStep } = collectSteps();
+    await expect(requestArSession(xr, root, onStep)).resolves.toBe(session);
+    expect(xr.requestSession).toHaveBeenCalledTimes(1);
+    expect(seen).toEqual(["session-requested", "session-overlay"]);
+  });
+
+  it("retries without dom-overlay on NotSupportedError (Device 1)", async () => {
+    const rejection = Object.assign(
+      new Error("The specified session configuration is not supported"),
+      { name: "NotSupportedError" },
+    );
+    const xr = {
+      requestSession: vi
+        .fn<(...args: unknown[]) => Promise<XRSession>>()
+        .mockRejectedValueOnce(rejection)
+        .mockResolvedValueOnce(session),
+    } as unknown as XRSystem;
+    const { seen, onStep } = collectSteps();
+    await expect(requestArSession(xr, root, onStep)).resolves.toBe(session);
+    expect(xr.requestSession).toHaveBeenCalledTimes(2);
+    // Second call is plain hit-test: no dom-overlay anywhere in its options.
+    const secondOptions = (xr.requestSession as unknown as { mock: { calls: unknown[][] } })
+      .mock.calls[1]?.[1] as Record<string, unknown>;
+    expect(secondOptions).toEqual({ requiredFeatures: ["hit-test"] });
+    expect(seen).toEqual(["session-requested", "session-no-overlay"]);
+  });
+
+  it("propagates non-NotSupportedError rejections without retrying", async () => {
+    const rejection = Object.assign(new Error("need a user gesture"), {
+      name: "NotAllowedError",
+    });
+    const xr = {
+      requestSession: vi.fn(async () => {
+        throw rejection;
+      }),
+    } as unknown as XRSystem;
+    await expect(requestArSession(xr, root)).rejects.toBe(rejection);
+    expect(xr.requestSession).toHaveBeenCalledTimes(1);
   });
 });
