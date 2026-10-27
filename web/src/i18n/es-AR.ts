@@ -36,6 +36,7 @@ export const esAR = {
   "intake.upload.hint": "Sacá una foto del plano o del croquis con las medidas escritas.",
   "intake.upload.cta": "Sacar foto del plano",
   "intake.upload.busy": "Procesando foto…",
+  "intake.upload.reading": "Leyendo tu plano… puede tardar hasta un minuto",
   "intake.upload.error": "No se pudo leer la foto. Probá de nuevo.",
   "intake.kind.plan": "Plano",
   "intake.kind.sketch": "Croquis",

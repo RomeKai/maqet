@@ -11,6 +11,8 @@ interface IntakeScreenProps {
   locale: Locale;
   initialScene?: Scene;
   readDimensions?: ReadDimension[];
+  onSceneChange?: (scene: Scene) => void;
+  onPhotoChange?: (hasPhoto: boolean) => void;
 }
 
 /**
@@ -18,7 +20,7 @@ interface IntakeScreenProps {
  * Edits go through SceneHistory (Scene ops + undo); the parent app owns the
  * confirmed Scene. Localized strings (demo default English), no prices, preliminary label.
  */
-export function IntakeScreen({ locale, initialScene, readDimensions = [] }: IntakeScreenProps) {
+export function IntakeScreen({ locale, initialScene, readDimensions = [], onSceneChange, onPhotoChange }: IntakeScreenProps) {
   const t = getStrings(locale);
   const [history] = useState(() => new SceneHistory(initialScene ?? createEmptyScene()));
   const [scene, setScene] = useState<Scene>(history.scene);
@@ -56,12 +58,19 @@ export function IntakeScreen({ locale, initialScene, readDimensions = [] }: Inta
     setProposal(result.proposal);
     setWarnings(result.warnings);
     setError(null);
+    onSceneChange?.({ ...draft });
   }
 
   function handleChange(next: Scene, _op: SceneOp): void {
     history.apply(_op);
     setScene(next);
     setError(null);
+    onSceneChange?.({ ...next });
+  }
+
+  function handlePhoto(url: string, width: number, height: number): void {
+    setPhoto({ url, width, height });
+    onPhotoChange?.(true);
   }
 
   function handleUndo(): void {
@@ -88,7 +97,7 @@ export function IntakeScreen({ locale, initialScene, readDimensions = [] }: Inta
       {photo === null && (
         <UploadStep
           locale={locale}
-          onPhoto={(url, width, height) => setPhoto({ url, width, height })}
+          onPhoto={(url, width, height) => handlePhoto(url, width, height)}
           onError={setError}
           onScene={handleSceneDraft}
         />
@@ -122,6 +131,7 @@ export function IntakeScreen({ locale, initialScene, readDimensions = [] }: Inta
           readDimensions={effectiveDims}
           onConfirm={(next) => {
             setScene(next);
+            onSceneChange?.({ ...next });
             setScaling(false);
           }}
           onCancel={() => setScaling(false)}

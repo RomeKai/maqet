@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { DEFAULT_LOCALE, getStrings, type Locale, type StringKey } from "./i18n";
 import { IntakeScreen } from "./intake/IntakeScreen";
+import type { Scene } from "./scene/types";
 
 const STAGES: StringKey[] = [
   "stage.capture",
@@ -19,9 +20,16 @@ interface AppProps {
 export function App({ initialLocale = DEFAULT_LOCALE }: AppProps) {
   const [locale, setLocale] = useState<Locale>(initialLocale);
   const [stage, setStage] = useState<StringKey>("stage.capture");
-  // Day 2+: driven by Scene.scale_confirmed. Starts unconfirmed → export blocked.
-  const [scaleConfirmed] = useState(false);
+  // Driven by the measured Scene (ADR-001): scale_confirmed flips the
+  // topbar badge; hasPhoto hides the start receipt once a photo is set.
+  // IntakeScreen reports both via callbacks; nothing here owns geometry.
+  const [scaleConfirmed, setScaleConfirmed] = useState(false);
+  const [hasPhoto, setHasPhoto] = useState(false);
   const t = getStrings(locale);
+
+  function handleIntakeScene(scene: Scene): void {
+    setScaleConfirmed(scene.scale_confirmed === true);
+  }
 
   const otherLocale: Locale = locale === "es-AR" ? "en" : "es-AR";
 
@@ -49,7 +57,13 @@ export function App({ initialLocale = DEFAULT_LOCALE }: AppProps) {
       </main>
 
       <section className="sheet" aria-label={t["app.name"]}>
-        {stage === "stage.capture" && <IntakeScreen locale={locale} />}
+        {stage === "stage.capture" && (
+          <IntakeScreen
+            locale={locale}
+            onSceneChange={handleIntakeScene}
+            onPhotoChange={setHasPhoto}
+          />
+        )}
         <div className="chips" role="tablist">
           {STAGES.map((key) => (
             <button
@@ -65,7 +79,9 @@ export function App({ initialLocale = DEFAULT_LOCALE }: AppProps) {
             </button>
           ))}
         </div>
-        <p className="receipt">{t["sheet.receipt"]}</p>
+        {stage === "stage.capture" && !hasPhoto && (
+          <p className="receipt">{t["sheet.receipt"]}</p>
+        )}
         <div className="inputrow">
           <input
             className="prompt"

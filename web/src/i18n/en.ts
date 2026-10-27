@@ -37,6 +37,7 @@ export const en: Record<keyof typeof esAR, string> = {
   "intake.upload.hint": "Take a photo of the plan or sketch with written measurements.",
   "intake.upload.cta": "Take plan photo",
   "intake.upload.busy": "Processing photo…",
+  "intake.upload.reading": "Reading your plan… up to a minute",
   "intake.upload.error": "Couldn't read the photo. Try again.",
   "intake.kind.plan": "Plan",
   "intake.kind.sketch": "Sketch",
