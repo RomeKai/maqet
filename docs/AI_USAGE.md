@@ -10,3 +10,8 @@ Rows marked `manual` were added by hand for AI use outside the MME harness.
 | 2026-10-26 15:41 | interactive | gateway | meta | muse-spark-1.3-contributor | meta-first | - |
 | 2026-10-26 19:22 | interactive | gateway | meta | muse-spark-1.3-contributor | meta-first | - |
 | 2026-10-27 10:47 | interactive | gateway | meta | muse-spark-1.3-contributor | meta-first | - |
+| 2026-10-27 11:52 | interactive | gateway | meta | muse-spark-1.3-contributor | meta-first | - |
+| 2026-10-27 13:30 | interactive | gateway | meta | muse-spark-1.3-contributor | meta-first | - |
+| 2026-10-27 14:19 | interactive | gateway | meta | muse-spark-1.3-contributor | meta-first | - |
+| 2026-10-27 14:50 | interactive | gateway | meta | muse-spark-1.3-contributor | meta-first | - |
+| 2026-10-27 14:55 | interactive | gateway | meta | muse-spark-1.3-contributor | meta-first | - |
