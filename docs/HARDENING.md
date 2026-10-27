@@ -53,3 +53,5 @@ real family's result), **M** (robustness/UX), **L** (polish). Status: open / don
 | T6 | L | ECC plugin hooks broken on Windows; disabled by emptying the plugin's `hooks.json` (backup kept) | patched locally |
 | T7 | M | Admin secrets (`LITELLM_MASTER_KEY`, etc.) live in the project `.env`; settings deny `Read(.env)` but not Bash | open ("option B" declined) |
 | T8 | L | Windows: gates/missions now run through Git Bash; scripts expect LF | done |
+| T9 | M | `mme night prep` gives the agent 600 s and 10 turns; on Spark contributor the briefing timed out (2026-10-26 night), so no mission ran. Fixed on the way: npm `claude.cmd` shim not found by Popen, cp1252 I/O, briefing JSON misparsed as "no questions" | open: raise the prep timeout or brief on the standard tier; rehearse `prep` in the afternoon, not at bedtime |
+| T10 | L | `mme today`/`mme gate` crash with `UnicodeEncodeError` when stdout is piped on Windows (cp1252 + emoji) | open: reconfigure stdout to utf-8 in the CLI; workaround `PYTHONIOENCODING=utf-8` |
