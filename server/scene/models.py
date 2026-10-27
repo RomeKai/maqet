@@ -35,6 +35,13 @@ class Wall(BaseModel):
     # Structural role as surveyed by the technician. Drives the
     # load-bearing professional flag on remove_wall (ADR-023).
     load_bearing: bool = False
+    # ADR-025: how this wall length was measured. `estimated` walls render
+    # with the distinct estimated style until the technician confirms them.
+    provenance: Literal[
+        "measured_ar", "measured_tape", "written_on_sketch", "estimated"
+    ] = "estimated"
+    # Real length in meters when provenance != estimated (per-wall measure).
+    measured_length_m: float | None = Field(default=None, gt=0)
 
 
 class Opening(BaseModel):

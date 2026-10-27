@@ -57,6 +57,10 @@ class IntakeDimension(BaseModel):
     text: str = Field(min_length=1)
     a: NormPoint
     b: NormPoint
+    # ADR-025 mode C: the wall this written length annotates, when evident.
+    # Required key, nullable value (strict vision schema: always include the
+    # key, null when unassociated). None = global guess applies, wall estimated.
+    wall_index: int | None = Field(ge=0)
 
 
 class IntakeProposal(BaseModel):
@@ -74,6 +78,12 @@ class IntakeProposal(BaseModel):
             if opening.wall_index >= len(self.walls):
                 raise ValueError(
                     f"openings[{i}].wall_index={opening.wall_index} out of range "
+                    f"for {len(self.walls)} walls"
+                )
+        for i, dim in enumerate(self.dimensions):
+            if dim.wall_index is not None and dim.wall_index >= len(self.walls):
+                raise ValueError(
+                    f"dimensions[{i}].wall_index={dim.wall_index} out of range "
                     f"for {len(self.walls)} walls"
                 )
         return self

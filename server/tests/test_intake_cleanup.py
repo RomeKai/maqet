@@ -6,6 +6,8 @@ comes from ONE parsed anchor dimension; never invented (ADR-002).
 
 from __future__ import annotations
 
+import math
+
 import pytest
 
 from server.intake.schemas import IntakeProposal
@@ -32,8 +34,9 @@ def _wall(ax: float, ay: float, bx: float, by: float, kind: str | None = "exteri
     return {"a": [ax, ay], "b": [bx, by], "kind": kind}
 
 
-def _dim(text: str, ax: float = 0.0, ay: float = 0.05, bx: float = 1.0, by: float = 0.05) -> dict:
-    return {"text": text, "a": [ax, ay], "b": [bx, by]}
+def _dim(text: str, ax: float = 0.0, ay: float = 0.05, bx: float = 1.0, by: float = 0.05,
+         wall_index: int | None = None) -> dict:
+    return {"text": text, "a": [ax, ay], "b": [bx, by], "wall_index": wall_index}
 
 
 # --- dimension parsing -------------------------------------------------------
@@ -191,7 +194,9 @@ def test_closed_loop_gives_one_room() -> None:
     scaled = build_scaled_plan(proposal, 1000, 1000)
     assert len(scaled.rooms) == 1
     assert len(scaled.rooms[0].polygon) >= 4
-    assert scaled.warnings == ()
+    # Unassociated dimension: global guess only, all walls estimated (ADR-025).
+    assert any("estimated" in w for w in scaled.warnings)
+    assert not any("rooms_empty" in w for w in scaled.warnings)
 
 
 def test_open_loop_gives_no_rooms_with_warning() -> None:
@@ -306,6 +311,84 @@ def test_to_scene_window_defaults() -> None:
     (opening,) = scene.openings
     assert opening.height_m == pytest.approx(1.40)
     assert opening.sill_m == pytest.approx(0.80)
+
+
+# --- per-wall measures (ADR-025 mode C) -------------------------------------------
+
+
+def test_associated_dimension_sets_exact_wall_length() -> None:
+    from server.intake.cleanup import build_scaled_plan
+
+    proposal = _proposal(
+        [_wall(0.0, 0.5, 1.0, 0.5)],
+        dimensions=[_dim("3,50", ay=0.02, by=0.02, wall_index=0)],
+    )
+    scaled = build_scaled_plan(proposal, 1000, 800)
+    (wall,) = scaled.walls
+    assert wall.measured_m == pytest.approx(3.5)
+    assert math.dist(wall.a, wall.b) == pytest.approx(3.5)
+
+
+def test_four_associated_measures_give_rectangle_not_square() -> None:
+    """Non-proportional sketch: global scale would keep the drawn square.
+
+    Per-wall solve must produce a 4.0 x 3.0 rectangle instead.
+    """
+    import math
+
+    from server.intake.cleanup import build_scaled_plan
+
+    proposal = _proposal(
+        _square_walls(),
+        dimensions=[
+            _dim("4,00", ax=0.1, ay=0.02, bx=0.9, by=0.02, wall_index=0),
+            _dim("3,00", ax=0.98, ay=0.1, bx=0.98, by=0.9, wall_index=1),
+            _dim("4,00", ax=0.1, ay=0.98, bx=0.9, by=0.98, wall_index=2),
+            _dim("3,00", ax=0.02, ay=0.1, bx=0.02, by=0.9, wall_index=3),
+        ],
+    )
+    scaled = build_scaled_plan(proposal, 1000, 1000)
+    lengths = sorted(math.dist(w.a, w.b) for w in scaled.walls)
+    assert lengths[0] == pytest.approx(3.0, abs=0.05)
+    assert lengths[1] == pytest.approx(3.0, abs=0.05)
+    assert lengths[2] == pytest.approx(4.0, abs=0.05)
+    assert lengths[3] == pytest.approx(4.0, abs=0.05)
+    assert all(w.measured_m is not None for w in scaled.walls)
+    assert not any("estimated" in w for w in scaled.warnings)
+
+
+def test_unmeasured_wall_stays_estimated() -> None:
+    from server.intake.cleanup import build_scaled_plan, to_scene
+
+    proposal = _proposal(
+        [_wall(0.0, 0.2, 1.0, 0.2), _wall(0.0, 0.8, 1.0, 0.8)],
+        dimensions=[_dim("3,50", ay=0.02, by=0.02, wall_index=0)],
+    )
+    scaled = build_scaled_plan(proposal, 1000, 800)
+    assert scaled.walls[0].measured_m == pytest.approx(3.5)
+    assert scaled.walls[1].measured_m is None
+    assert any("estimated" in w for w in scaled.warnings)
+    scene = to_scene(scaled)
+    assert scene.walls[0].provenance == "written_on_sketch"
+    assert scene.walls[0].measured_length_m == pytest.approx(3.5)
+    assert scene.walls[1].provenance == "estimated"
+    assert scene.walls[1].measured_length_m is None
+    assert scene.scale_confirmed is False
+
+
+def test_conflicting_measures_warn_and_keep_min() -> None:
+    from server.intake.cleanup import build_scaled_plan
+
+    proposal = _proposal(
+        [_wall(0.0, 0.5, 1.0, 0.5)],
+        dimensions=[
+            _dim("3,50", ay=0.02, by=0.02, wall_index=0),
+            _dim("4,00", ay=0.1, by=0.1, wall_index=0),
+        ],
+    )
+    scaled = build_scaled_plan(proposal, 1000, 800)
+    assert scaled.walls[0].measured_m == pytest.approx(3.5)
+    assert any("contradiction" in w for w in scaled.warnings)
 
 
 # --- metrics (F3 helpers) ----------------------------------------------------

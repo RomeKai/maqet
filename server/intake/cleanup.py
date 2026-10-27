@@ -2,7 +2,11 @@
 
 Pure functions. Geometry lives in NORMALIZED image coords (0..1, y down)
 until scale; ``ScaledPlan`` is meters with origin at the plan's bottom-left
-(y up). Scale comes from ONE parsed anchor dimension; it is never invented
+(y up). ADR-025 mode C: every wall with an associated written length
+(``IntakeDimension.wall_index``) is scaled to that length directly; walls
+without one keep the global anchor factor as an initial guess and stay
+``estimated``. The global factor is never stored as truth -- each measured
+wall carries its own ``measured_length_m``. Scale is never invented
 (ADR-002): ambiguous or missing anchors raise ScaleError asking the human.
 
 Epsilon convention: TOL_DEFAULT ~ 1e-6 in NORMALIZED units. Two endpoints
@@ -110,6 +114,9 @@ class ScaledWall:
     a: tuple[float, float]
     b: tuple[float, float]
     kind: str  # "exterior" | "interior"
+    # Written length in meters when a dimension annotates this wall
+    # (ADR-025 mode C). None = estimated from the global guess.
+    measured_m: float | None = None
 
 
 @dataclass(frozen=True)
@@ -198,6 +205,91 @@ def _fuse_walls(
     return fused, members
 
 
+def _cluster_vertices(
+    fused: list[tuple[tuple[float, float], tuple[float, float], str]],
+    tol: float,
+) -> tuple[list[tuple[float, float]], list[tuple[int, int]]] :
+    """Shared endpoints within tol + _MERGE_EPS get one vertex id (union-find).
+
+    Returns (vertex positions in normalized coords, per-wall (u, v) ids).
+    Topology (which walls meet) is preserved from the proposal; only vertex
+    positions move during the per-wall solve.
+    """
+    pts = [p for wall in fused for p in (wall[0], wall[1])]
+    parent = list(range(len(pts)))
+
+    def find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    for i in range(len(pts)):
+        for j in range(i + 1, len(pts)):
+            if math.dist(pts[i], pts[j]) <= tol + _MERGE_EPS and find(i) != find(j):
+                parent[find(i)] = find(j)
+    compact: dict[int, int] = {}
+    verts: list[tuple[float, float]] = []
+    vids: list[tuple[int, int]] = []
+    for j in range(len(fused)):
+        pair = []
+        for k in (2 * j, 2 * j + 1):
+            root = find(k)
+            if root not in compact:
+                members = [m for m in range(len(pts)) if find(m) == root]
+                mx = sum(pts[m][0] for m in members) / len(members)
+                my = sum(pts[m][1] for m in members) / len(members)
+                compact[root] = len(verts)
+                verts.append((mx, my))
+            pair.append(compact[root])
+        vids.append((pair[0], pair[1]))
+    return verts, vids
+
+
+def _solve_vertices(
+    verts_m: list[tuple[float, float]],
+    wall_vids: list[tuple[int, int]],
+    targets_m: dict[int, float],
+    warnings: list[str],
+) -> list[tuple[float, float]]:
+    """Move shared vertices so measured walls hit their written lengths.
+
+    Sequential relaxation along each wall axis (500 sweeps max, stops below
+    1e-9 m residual). Walls without a target follow their shared vertices and
+    stay estimated. Large leftover residuals mean contradictory measures and
+    are flagged to the technician via warnings -- never silently averaged.
+    """
+    pos = [list(v) for v in verts_m]
+    if not targets_m:
+        return verts_m
+    for _ in range(500):
+        sweep_max = 0.0
+        for j, target in targets_m.items():
+            u, v = wall_vids[j]
+            dx, dy = pos[v][0] - pos[u][0], pos[v][1] - pos[u][1]
+            dist = math.hypot(dx, dy)
+            if dist <= 0:
+                continue
+            err = target - dist
+            sweep_max = max(sweep_max, abs(err))
+            ux, uy = dx / dist, dy / dist
+            pos[u][0] -= ux * err / 2
+            pos[u][1] -= uy * err / 2
+            pos[v][0] += ux * err / 2
+            pos[v][1] += uy * err / 2
+        if sweep_max < 1e-9:
+            break
+    for j, target in targets_m.items():
+        u, v = wall_vids[j]
+        residual = abs(math.dist(pos[u], pos[v]) - target)
+        if residual > max(0.02, 0.02 * target):
+            warnings.append(
+                f"contradiction: wall {j} measures disagree "
+                f"(residual {residual:.2f} m), verify with human"
+            )
+    return [(p[0], p[1]) for p in pos]
+
+
 def build_scaled_plan(
     proposal: object,
     image_w: int,
@@ -212,6 +304,39 @@ def build_scaled_plan(
     assert isinstance(proposal, IntakeProposal)
     warnings: list[str] = []
 
+    norm_walls: list[tuple[tuple[float, float], tuple[float, float], str | None]] = [
+        ((w.a[0], w.a[1]), (w.b[0], w.b[1]), w.kind) for w in proposal.walls
+    ]
+    fused, members = _fuse_walls(norm_walls, tol)
+    if any(norm_walls[k][2] is None for group in members for k in group):
+        warnings.append("kind_defaulted: null kind -> exterior, confirm with human")
+    old_to_new = {old: new for new, group in enumerate(members) for old in group}
+
+    # Per-wall measures: map each associated dimension (F1 wall_index in
+    # pre-fuse proposal coords) onto its fused wall. Unparseable texts are
+    # dropped with a warning; contradictions between several measures on the
+    # same wall are flagged to the technician, never silently averaged.
+    wall_measures: dict[int, list[float]] = {}
+    for dim in proposal.dimensions:
+        if dim.wall_index is None or dim.wall_index >= len(proposal.walls):
+            continue
+        value = parse_dimension_meters(dim.text)
+        if value is None:
+            continue
+        new_idx = old_to_new[dim.wall_index]
+        wall_measures.setdefault(new_idx, []).append(value)
+    targets_m: dict[int, float] = {}
+    for new_idx, values in wall_measures.items():
+        lo, hi = min(values), max(values)
+        if len(values) > 1 and hi - lo > max(0.02, 0.02 * lo):
+            warnings.append(
+                f"contradiction: wall {new_idx} has conflicting measures "
+                f"{lo:.2f} m vs {hi:.2f} m, keeping {lo:.2f} m, verify with human"
+            )
+        targets_m[new_idx] = lo
+
+    # Global factor survives ONLY as the solver initial guess, never as
+    # stored truth: measured walls override it during relaxation.
     idx, meters = select_anchor(proposal.dimensions, anchor_index)
     anchor = proposal.dimensions[idx]
     anchor_px = _norm_len_px(*anchor.a, *anchor.b, image_w, image_h)
@@ -222,28 +347,33 @@ def build_scaled_plan(
         )
     m_per_px = meters / anchor_px
 
-    norm_walls: list[tuple[tuple[float, float], tuple[float, float], str | None]] = [
-        ((w.a[0], w.a[1]), (w.b[0], w.b[1]), w.kind) for w in proposal.walls
+    verts_norm, wall_vids = _cluster_vertices(fused, tol)
+    verts_guess = [
+        (px * image_w * m_per_px, (1.0 - py) * image_h * m_per_px)
+        for px, py in verts_norm
     ]
-    fused, members = _fuse_walls(norm_walls, tol)
-    if any(norm_walls[k][2] is None for group in members for k in group):
-        warnings.append("kind_defaulted: null kind -> exterior, confirm with human")
-    old_to_new = {old: new for new, group in enumerate(members) for old in group}
-
-    def to_meters(px: float, py: float) -> tuple[float, float]:
-        return (px * image_w * m_per_px, (1.0 - py) * image_h * m_per_px)
-
-    scaled_pts = [to_meters(*p) for wall in fused for p in (wall[0], wall[1])]
-    min_x = min((p[0] for p in scaled_pts), default=0.0)
-    min_y = min((p[1] for p in scaled_pts), default=0.0)
+    solved = _solve_vertices(verts_guess, wall_vids, targets_m, warnings)
+    min_x = min((p[0] for p in solved), default=0.0)
+    min_y = min((p[1] for p in solved), default=0.0)
 
     def shift(p: tuple[float, float]) -> tuple[float, float]:
         return (p[0] - min_x, p[1] - min_y)
 
     walls = tuple(
-        ScaledWall(a=shift(to_meters(*a)), b=shift(to_meters(*b)), kind=kind)
-        for a, b, kind in fused
+        ScaledWall(
+            a=shift(solved[u]),
+            b=shift(solved[v]),
+            kind=kind,
+            measured_m=targets_m.get(j),
+        )
+        for j, ((u, v), (_, _, kind)) in enumerate(zip(wall_vids, fused))
     )
+    estimated = [str(j) for j, w in enumerate(walls) if w.measured_m is None]
+    if estimated:
+        warnings.append(
+            f"estimated: walls {', '.join(estimated)} have no written length, "
+            "confirm with human"
+        )
 
     openings: list[ScaledOpening] = []
     for op in proposal.openings:
@@ -313,7 +443,8 @@ def to_scene(plan: ScaledPlan, scene_id: str = "intake") -> Scene:
     Defaults (server/scene/rules.py): exterior 0.20 m, interior 0.10 m,
     ceiling 2.60 m; door height 2.05 m, window 1.40 m + sill 0.80 m.
     scale_confirmed=False: the anchor was picked automatically, the human
-    confirms (ADR-002).
+    confirms (ADR-002). Per-wall provenance: measured walls carry
+    written_on_sketch + measured_length_m, the rest stay estimated.
     """
     from server.scene import rules
 
@@ -328,6 +459,10 @@ def to_scene(plan: ScaledPlan, scene_id: str = "intake") -> Scene:
                 else rules.INTERIOR_WALL_THICKNESS_M
             ),
             kind=w.kind,  # type: ignore[arg-type]
+            provenance=(
+                "written_on_sketch" if w.measured_m is not None else "estimated"
+            ),
+            measured_length_m=w.measured_m,
         )
         for i, w in enumerate(plan.walls)
     )

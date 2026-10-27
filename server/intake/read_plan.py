@@ -40,9 +40,11 @@ SYSTEM_PROMPT = (
     "- openings: [{wall_index, t0, t1, kind}] doors and windows as fractions "
     't0..t1 along the wall from a to b. kind is "door" or "window".\n'
     "- labels: [{text, at:[x,y]}] room names or notes with their position.\n"
-    '- dimensions: [{text, a:[x,y], b:[x,y]}] WRITTEN measurements: transcribe '
+    '- dimensions: [{text, a:[x,y], b:[x,y], wall_index}] WRITTEN measurements: transcribe '
     'the text VERBATIM, e.g. "3,50" or "2.80 m". Transcribe only measurements '
-    "actually written on the image. NEVER invent one.\n"
+    "actually written on the image. NEVER invent one. When the measurement is "
+    "written alongside one wall, set wall_index to that wall's index; else null "
+    "(always include the key).\n"
     "Rules: every coordinate in 0..1. Every wall_index must exist. t0 <= t1. "
     "Sketches have wobbly lines: follow the drawn segments, "
     "do not straighten them into perfect rectangles."

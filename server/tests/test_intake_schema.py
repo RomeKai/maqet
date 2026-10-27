@@ -36,8 +36,8 @@ def _valid_payload(kind: str = "plan") -> dict[str, Any]:
         "openings": [{"wall_index": 0, "t0": 0.2, "t1": 0.5, "kind": "door"}],
         "labels": [{"text": "DORM", "at": [0.5, 0.4]}],
         "dimensions": [
-            {"text": "3,50", "a": [0.1, 0.05], "b": [0.9, 0.05]},
-            {"text": "2.80 m", "a": [0.95, 0.1], "b": [0.95, 0.7]},
+            {"text": "3,50", "a": [0.1, 0.05], "b": [0.9, 0.05], "wall_index": 0},
+            {"text": "2.80 m", "a": [0.95, 0.1], "b": [0.95, 0.7], "wall_index": 1},
         ],
     }
 

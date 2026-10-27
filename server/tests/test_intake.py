@@ -41,7 +41,7 @@ def _plan_proposal() -> dict:
         ],
         "openings": [{"wall_index": 0, "t0": 0.2, "t1": 0.4, "kind": "door"}],
         "labels": [{"text": "Estar", "at": [0.5, 0.5]}],
-        "dimensions": [{"text": "8,00 m", "a": [0.0, 0.02], "b": [1.0, 0.02]}],
+        "dimensions": [{"text": "8,00 m", "a": [0.0, 0.02], "b": [1.0, 0.02], "wall_index": 0}],
     }
 
 
@@ -60,7 +60,7 @@ def _sketch_proposal() -> dict:
             {"wall_index": 2, "t0": 0.2, "t1": 0.6, "kind": "window"},
         ],
         "labels": [{"text": "DORM", "at": [0.5, 0.5]}],
-        "dimensions": [{"text": "6,00", "a": [0.0, 0.02], "b": [1.0, 0.02]}],
+        "dimensions": [{"text": "6,00", "a": [0.0, 0.02], "b": [1.0, 0.02], "wall_index": 0}],
     }
 
 
