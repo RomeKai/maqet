@@ -286,6 +286,25 @@ def test_no_flags_by_default() -> None:
     assert report.flags == ()
 
 
+# --- Codes + params (structured findings) ---------------------------------------
+
+
+def test_findings_expose_code_and_params() -> None:
+    scene = _base_scene()
+    scene.rooms[0].polygon = [(0.0, 0.0), (2.0, 0.0), (2.0, 2.0), (0.0, 2.0)]
+    scene.walls[0].b = (5.0, 0.0)
+    report = validate_scene(scene, ValidationContext(needs_second_floor=True))
+    assert report.errors
+    err = report.errors[0]
+    assert getattr(err, "code", "") == "room.area_below_minimum"
+    assert err.params["room_id"] == "r1"  # type: ignore[attr-defined]
+    span = next(f for f in report.flags if f.startswith(PRO_FLAG_SPAN))
+    assert span.code == PRO_FLAG_SPAN  # type: ignore[attr-defined]
+    assert span.params == {"wall_id": "w1"}  # type: ignore[attr-defined]
+    prof = next(f for f in report.flags if f == PRO_FLAG_SECOND_FLOOR)
+    assert prof.code == PRO_FLAG_SECOND_FLOOR  # type: ignore[attr-defined]
+
+
 # --- Constants not enforced by validation -------------------------------------
 
 

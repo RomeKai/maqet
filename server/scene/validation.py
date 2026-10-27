@@ -13,6 +13,17 @@ from dataclasses import dataclass
 
 from server.scene.models import HABITABLE_FUNCTIONS, Scene
 from server.scene.rules import (
+    CODE_CEILING_HEIGHT,
+    CODE_CORRIDOR_SIDE,
+    CODE_DOOR_CLEARANCE,
+    CODE_DOOR_WIDTH,
+    CODE_OPENING_OVERFLOW,
+    CODE_OPENING_UNKNOWN_WALL,
+    CODE_ROOM_AREA,
+    CODE_ROOM_SIDE,
+    CODE_SCENE_UNITS,
+    CODE_WALL_THICKNESS,
+    CODE_WINDOW_RATIO,
     DOOR_CLEARANCE_M,
     EXTERIOR_WALL_THICKNESS_M,
     INTERIOR_WALL_THICKNESS_M,
@@ -33,6 +44,24 @@ FLAG_SECOND_FLOOR = PRO_FLAG_SECOND_FLOOR
 FLAG_LOAD_BEARING = PRO_FLAG_LOAD_BEARING
 FLAG_SPAN = PRO_FLAG_SPAN
 FLAG_SOIL = PRO_FLAG_SOIL
+
+
+class Finding(str):
+    """A message string that also carries a machine-readable code + params.
+
+    Subclasses str so every existing consumer (ops, api, DXF, tests doing
+    `"area" in e`, `f.startswith(...)`, `f"{FLAG}:w1" in flags`) keeps
+    working unchanged (ADR-002, ADR-023).
+    """
+
+    code: str
+    params: dict[str, object]
+
+    def __new__(cls, message: str, code: str, params: dict[str, object] | None = None) -> "Finding":
+        obj = super().__new__(cls, message)
+        obj.code = code
+        obj.params = params if params is not None else {}
+        return obj
 
 
 @dataclass(frozen=True)
@@ -88,12 +117,16 @@ def validate_scene(scene: Scene, ctx: ValidationContext | None = None) -> Valida
     flags: list[str] = []
 
     if scene.units != "m":
-        errors.append("scene units must be meters")
+        errors.append(Finding("scene units must be meters", CODE_SCENE_UNITS, {"units": scene.units}))
 
     if scene.ceiling_height_m < MIN_CEILING_HEIGHT_M:
         errors.append(
-            f"ceiling height {scene.ceiling_height_m:.2f} m below minimum "
-            f"{MIN_CEILING_HEIGHT_M:.2f} m"
+            Finding(
+                f"ceiling height {scene.ceiling_height_m:.2f} m below minimum "
+                f"{MIN_CEILING_HEIGHT_M:.2f} m",
+                CODE_CEILING_HEIGHT,
+                {"height_m": scene.ceiling_height_m, "minimum_m": MIN_CEILING_HEIGHT_M},
+            )
         )
 
     for room in scene.rooms:
@@ -101,14 +134,22 @@ def validate_scene(scene: Scene, ctx: ValidationContext | None = None) -> Valida
         if room.function in HABITABLE_FUNCTIONS:
             if area < MIN_HABITABLE_ROOM_AREA_M2:
                 errors.append(
-                    f"room {room.id} area {area:.2f} m2 below minimum "
-                    f"{MIN_HABITABLE_ROOM_AREA_M2:.2f} m2"
+                    Finding(
+                        f"room {room.id} area {area:.2f} m2 below minimum "
+                        f"{MIN_HABITABLE_ROOM_AREA_M2:.2f} m2",
+                        CODE_ROOM_AREA,
+                        {"room_id": room.id, "area_m2": area, "minimum_m2": MIN_HABITABLE_ROOM_AREA_M2},
+                    )
                 )
             side = _bbox_side(list(room.polygon))
             if side < MIN_HABITABLE_ROOM_SIDE_M:
                 errors.append(
-                    f"room {room.id} min side {side:.2f} m below minimum "
-                    f"{MIN_HABITABLE_ROOM_SIDE_M:.2f} m"
+                    Finding(
+                        f"room {room.id} min side {side:.2f} m below minimum "
+                        f"{MIN_HABITABLE_ROOM_SIDE_M:.2f} m",
+                        CODE_ROOM_SIDE,
+                        {"room_id": room.id, "side_m": side, "minimum_m": MIN_HABITABLE_ROOM_SIDE_M},
+                    )
                 )
             room_windows = [
                 o
@@ -120,8 +161,16 @@ def validate_scene(scene: Scene, ctx: ValidationContext | None = None) -> Valida
             window_area = sum(o.width_m * o.height_m for o in room_windows)
             if area > 0 and window_area / area < MIN_WINDOW_TO_FLOOR_RATIO:
                 warnings.append(
-                    f"room {room.id} window/floor ratio "
-                    f"{window_area / area:.2f} below {MIN_WINDOW_TO_FLOOR_RATIO:.2f}"
+                    Finding(
+                        f"room {room.id} window/floor ratio "
+                        f"{window_area / area:.2f} below {MIN_WINDOW_TO_FLOOR_RATIO:.2f}",
+                        CODE_WINDOW_RATIO,
+                        {
+                            "room_id": room.id,
+                            "ratio": window_area / area,
+                            "minimum": MIN_WINDOW_TO_FLOOR_RATIO,
+                        },
+                    )
                 )
 
     for wall in scene.walls:
@@ -132,36 +181,58 @@ def validate_scene(scene: Scene, ctx: ValidationContext | None = None) -> Valida
         )
         if wall.thickness_m < min_thickness - 1e-9:
             errors.append(
-                f"wall {wall.id} thickness {wall.thickness_m:.2f} m below "
-                f"minimum {min_thickness:.2f} m for {wall.kind}"
+                Finding(
+                    f"wall {wall.id} thickness {wall.thickness_m:.2f} m below "
+                    f"minimum {min_thickness:.2f} m for {wall.kind}",
+                    CODE_WALL_THICKNESS,
+                    {"wall_id": wall.id, "thickness_m": wall.thickness_m, "minimum_m": min_thickness},
+                )
             )
         if _wall_length_m(wall.a, wall.b) > MAX_UNSUPPORTED_SPAN_M:
-            flags.append(f"{FLAG_SPAN}:{wall.id}")
+            flags.append(Finding(f"{FLAG_SPAN}:{wall.id}", FLAG_SPAN, {"wall_id": wall.id}))
 
     for opening in scene.openings:
         wall = next((w for w in scene.walls if w.id == opening.wall_id), None)
         if wall is None:
-            errors.append(f"opening {opening.id} references unknown wall {opening.wall_id}")
+            errors.append(
+                Finding(
+                    f"opening {opening.id} references unknown wall {opening.wall_id}",
+                    CODE_OPENING_UNKNOWN_WALL,
+                    {"opening_id": opening.id, "wall_id": opening.wall_id},
+                )
+            )
             continue
         length = _wall_length_m(wall.a, wall.b)
         if opening.offset_m + opening.width_m > length + 1e-9:
             errors.append(
-                f"opening {opening.id} overflows wall {opening.wall_id} "
-                f"(offset {opening.offset_m:.2f} + width {opening.width_m:.2f} > "
-                f"length {length:.2f})"
+                Finding(
+                    f"opening {opening.id} overflows wall {opening.wall_id} "
+                    f"(offset {opening.offset_m:.2f} + width {opening.width_m:.2f} > "
+                    f"length {length:.2f})",
+                    CODE_OPENING_OVERFLOW,
+                    {"opening_id": opening.id, "wall_id": opening.wall_id},
+                )
             )
         if opening.kind == "door":
             if opening.width_m < MIN_DOOR_WIDTH_M - 1e-9:
                 errors.append(
-                    f"door {opening.id} width {opening.width_m:.2f} m below minimum "
-                    f"{MIN_DOOR_WIDTH_M:.2f} m"
+                    Finding(
+                        f"door {opening.id} width {opening.width_m:.2f} m below minimum "
+                        f"{MIN_DOOR_WIDTH_M:.2f} m",
+                        CODE_DOOR_WIDTH,
+                        {"opening_id": opening.id, "width_m": opening.width_m, "minimum_m": MIN_DOOR_WIDTH_M},
+                    )
                 )
             room = next(
                 (r for r in scene.rooms if _point_in_room(opening, wall, r)), None
             )
             if room is not None and not _door_clearance_ok(scene, room, opening, wall):
                 warnings.append(
-                    f"door {opening.id} clearance below {DOOR_CLEARANCE_M:.1f} m"
+                    Finding(
+                        f"door {opening.id} clearance below {DOOR_CLEARANCE_M:.1f} m",
+                        CODE_DOOR_CLEARANCE,
+                        {"opening_id": opening.id, "room_id": room.id},
+                    )
                 )
 
     # Corridor heuristic: any narrow non-habitable room narrower than 1 m.
@@ -170,16 +241,20 @@ def validate_scene(scene: Scene, ctx: ValidationContext | None = None) -> Valida
             side = _bbox_side(list(room.polygon))
             if 0 < side < MIN_CORRIDOR_WIDTH_M:
                 warnings.append(
-                    f"room {room.id} narrow side {side:.2f} m below corridor "
-                    f"{MIN_CORRIDOR_WIDTH_M:.2f} m"
+                    Finding(
+                        f"room {room.id} narrow side {side:.2f} m below corridor "
+                        f"{MIN_CORRIDOR_WIDTH_M:.2f} m",
+                        CODE_CORRIDOR_SIDE,
+                        {"room_id": room.id, "side_m": side, "minimum_m": MIN_CORRIDOR_WIDTH_M},
+                    )
                 )
 
     if context.removed_load_bearing_wall:
-        flags.append(FLAG_LOAD_BEARING)
+        flags.append(Finding(FLAG_LOAD_BEARING, FLAG_LOAD_BEARING, {}))
     if context.needs_second_floor:
-        flags.append(FLAG_SECOND_FLOOR)
+        flags.append(Finding(FLAG_SECOND_FLOOR, FLAG_SECOND_FLOOR, {}))
     if context.soil_unknown:
-        flags.append(FLAG_SOIL)
+        flags.append(Finding(FLAG_SOIL, FLAG_SOIL, {}))
 
     return ValidationReport(errors=tuple(errors), warnings=tuple(warnings), flags=tuple(flags))
 

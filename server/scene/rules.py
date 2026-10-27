@@ -58,6 +58,22 @@ MAX_UNSUPPORTED_SPAN_M = 4.0  # rule of thumb, unverified — always verify stru
 # Clear space in front of a door leaf swing.
 DOOR_CLEARANCE_M = 0.6  # rule of thumb, unverified (usability floor, see scene-model skill)
 
+# --- Finding codes (machine-readable, ADR-023) ---------------------------------
+# Every error/warning carries one of these codes plus a params dict; the
+# English message stays for humans (jury-readable, ADR-026). The professional
+# flags below double as their own codes.
+CODE_SCENE_UNITS = "scene.units_not_meters"
+CODE_CEILING_HEIGHT = "ceiling.height_below_minimum"
+CODE_ROOM_AREA = "room.area_below_minimum"
+CODE_ROOM_SIDE = "room.side_below_minimum"
+CODE_WALL_THICKNESS = "wall.thickness_below_minimum"
+CODE_OPENING_UNKNOWN_WALL = "opening.unknown_wall"
+CODE_OPENING_OVERFLOW = "opening.overflows_wall"
+CODE_DOOR_WIDTH = "door.width_below_minimum"
+CODE_WINDOW_RATIO = "room.window_ratio_below_minimum"
+CODE_DOOR_CLEARANCE = "door.clearance_below_minimum"
+CODE_CORRIDOR_SIDE = "room.narrow_side_below_corridor"
+
 # --- Professional-required flags (ADR-023) ------------------------------------
 # These do not block geometry; they travel in the validation report so every
 # output (app, share link, takeoff, DXF notes) shows "needs a licensed
