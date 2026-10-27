@@ -4,6 +4,7 @@ import { App } from "../App";
 import { DEFAULT_LOCALE, getStrings } from "../i18n";
 import { UploadStatus, uploadBusyText } from "./UploadStep";
 import { IntakeScreen } from "./IntakeScreen";
+import { ScaleBadge } from "./ScaleBadge";
 import type { Scene } from "../scene/types";
 
 const confirmedScene: Scene = {
@@ -55,5 +56,24 @@ describe("BUG4: reading state, receipt hiding, scale badge", () => {
     const html = renderToString(<App />);
     expect(html).toContain(t["badge.notToScale"]);
     expect(html).not.toContain(t["badge.measured"]);
+  });
+
+  it("ScaleBadge is the single source of truth for both render paths (en + es-AR)", () => {
+    for (const locale of ["en", "es-AR"] as const) {
+      const t = getStrings(locale);
+      // Component renders both states in both locales.
+      expect(renderToString(<ScaleBadge locale={locale} scaleConfirmed />)).toContain(t["badge.measured"]);
+      expect(renderToString(<ScaleBadge locale={locale} scaleConfirmed={false} />)).toContain(
+        t["badge.notToScale"],
+      );
+      // App topbar consumes the component (confirmed scene -> measured).
+      const appHtml = renderToString(<App initialLocale={locale} initialScene={confirmedScene} />);
+      expect(appHtml).toContain(t["badge.measured"]);
+      // IntakeScreen head consumes the component (confirmed scene -> measured).
+      const intakeHtml = renderToString(
+        <IntakeScreen locale={locale} initialScene={confirmedScene} />,
+      );
+      expect(intakeHtml).toContain(t["badge.measured"]);
+    }
   });
 });

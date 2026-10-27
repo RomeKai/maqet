@@ -3,6 +3,7 @@ import type { Scene } from "../scene/types";
 import { SceneHistory, createEmptyScene, type SceneOp } from "../scene/store";
 import { getStrings, type Locale } from "../i18n";
 import { UploadStep } from "./UploadStep";
+import { ScaleBadge } from "./ScaleBadge";
 import { CornerEditor } from "./CornerEditor";
 import { ScaleTool } from "./ScaleTool";
 import { ArMeasure } from "../measure/ArMeasure";
@@ -65,9 +66,7 @@ export function IntakeScreen({ locale, initialScene, onSceneChange, onPhotoChang
   return (
     <div className="intake">
       <div className="intake-head">
-        <span className={scaleConfirmed ? "badge badge-measured" : "badge badge-notoscale"}>
-          {scaleConfirmed ? t["badge.measured"] : t["badge.notToScale"]}
-        </span>
+        <ScaleBadge locale={locale} scaleConfirmed={scaleConfirmed} />
         <span className="intake-step">{t["intake.step.capture"]}</span>
       </div>
 

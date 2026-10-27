@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { DEFAULT_LOCALE, getStrings, type Locale, type StringKey } from "./i18n";
 import { IntakeScreen } from "./intake/IntakeScreen";
+import { ScaleBadge } from "./intake/ScaleBadge";
 import { SceneView } from "./view3d/SceneView";
 import type { Scene } from "./scene/types";
 
@@ -51,9 +52,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: App
         </button>
         <div className="topbar-title">
           <span className="topbar-project">{t["project.defaultName"]}</span>
-          <span className={scaleConfirmed ? "badge badge-measured" : "badge badge-notoscale"}>
-            {scaleConfirmed ? t["badge.measured"] : t["badge.notToScale"]}
-          </span>
+          <ScaleBadge locale={locale} scaleConfirmed={scaleConfirmed} />
         </div>
         <button type="button" className="topbar-btn topbar-ar" aria-label={t["action.ar"]}>
           {t["action.ar"]}
