@@ -174,6 +174,20 @@ def post_intake(
         proposal = read_plan(image_bytes, cast(InputKind, kind))
     except ReadPlanError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        # mme.client ReplayMiss in MME_MODE=replay: no cached vision
+        # response for this upload. Duck-typed on the class name (the
+        # harness is never imported at module top); genuine crashes
+        # re-raise onto the 500 path.
+        if type(exc).__name__ == "ReplayMiss":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "no recorded vision response for this upload "
+                    f"({exc}): pick a recorded sample or record it in live mode"
+                ),
+            ) from exc
+        raise
     return _finish_intake(proposal, image_w, image_h, kind, anchor_index)
 
 

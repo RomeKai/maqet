@@ -153,3 +153,43 @@ def test_replay_miss_is_value_error() -> None:
     from server.intake.replay import ReplayMiss
 
     assert issubclass(ReplayMiss, ValueError)
+
+
+def test_upload_replay_miss_is_409_not_500(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Upload with no cached vision response -> 409, not 500.
+
+    In MME_MODE=replay the harness raises mme.client.ReplayMiss (a
+    RuntimeError duck-typed by class name: api.py must not import the
+    harness at module top). The route must map it to 409 with an
+    actionable detail; genuine crashes stay on the 500 path.
+    """
+    from server.tests.test_api_intake import _make_image_bytes
+
+    HarnessReplayMiss = type("ReplayMiss", (RuntimeError,), {})
+
+    class NoCacheClient:
+        def chat_json(self, messages: Any, **kwargs: Any) -> dict[str, Any]:
+            raise HarnessReplayMiss(
+                "no cached response for /v1/responses (abc123.json); "
+                "record it in live mode first"
+            )
+
+    module = types.ModuleType("mme.client")
+    module.client = lambda: NoCacheClient()  # type: ignore[attr-defined]
+    pkg = types.ModuleType("mme")
+    pkg.client = module  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "mme", pkg)
+    monkeypatch.setitem(sys.modules, "mme.client", module)
+
+    res = client.post(
+        "/intake",
+        files={"file": ("photo.png", _make_image_bytes(800, 600), "image/png")},
+        data={"kind": "plan"},
+    )
+    assert res.status_code == 409, res.text
+    detail = res.json()["detail"].lower()
+    assert "sample" in detail
+    assert "live" in detail
+    assert client.get("/scene").status_code == 404  # nothing stored
