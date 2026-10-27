@@ -105,6 +105,10 @@ gateway `/key/*`), the watchdog. Those are the human's decisions.
 **Retry discipline:** after 2 failures of the same command, stop tweaking: re-read the full error, state one root-cause
 hypothesis, verify it with a targeted read. The loop-breaker hook stops the session at 3.
 
+**Shell:** each Bash tool call starts from the user's profile, not from the venv the session was launched in. Prefix
+commands that need `mme`, `python` or `pytest` with `source .venv/Scripts/activate &&` (Windows Git Bash;
+`.venv/bin/activate` elsewhere), and combine `cd` with the command in the same call.
+
 **Status:** `mme today` shows the deadline, today's goal and what's behind. Suggest `mme gate` when you believe the
 day's goal is done; it is the definition of done, not your judgment.
 <!-- mme:end -->
