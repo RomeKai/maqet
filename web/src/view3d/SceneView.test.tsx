@@ -39,4 +39,51 @@ describe("SceneView fallback (no WebGL under test)", () => {
     );
     expect(html).toContain('data-empty="no"');
   });
+
+  it("exposes the selected wall id on the wrapper", () => {
+    const html = renderToString(
+      <SceneView
+        scene={{
+          ...emptyScene,
+          walls: [
+            {
+              id: "w1",
+              a: [0, 0],
+              b: [4, 0],
+              thickness_m: 0.2,
+              kind: "exterior",
+            },
+          ],
+        }}
+        selectedWallId="w1"
+      />,
+    );
+    expect(html).toContain('data-selected-wall="w1"');
+  });
+
+  it("renders an empty selection marker when nothing is selected", () => {
+    const html = renderToString(<SceneView scene={emptyScene} />);
+    expect(html).toContain('data-selected-wall=""');
+  });
+
+  it("keeps data-empty=no alongside a selection", () => {
+    const html = renderToString(
+      <SceneView
+        scene={{
+          ...emptyScene,
+          walls: [
+            {
+              id: "w1",
+              a: [0, 0],
+              b: [4, 0],
+              thickness_m: 0.2,
+              kind: "exterior",
+            },
+          ],
+        }}
+        selectedWallId="w1"
+      />,
+    );
+    expect(html).toContain('data-empty="no"');
+  });
 });

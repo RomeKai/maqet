@@ -33,6 +33,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: App
   const [scaleConfirmed, setScaleConfirmed] = useState(initialScene?.scale_confirmed === true);
   const [hasPhoto, setHasPhoto] = useState(false);
   const [intakeScene, setIntakeScene] = useState<Scene | null>(initialScene);
+  const [selectedWallId, setSelectedWallId] = useState<string | null>(null);
   const t = getStrings(locale);
 
   function handleIntakeScene(scene: Scene): void {
@@ -61,7 +62,11 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: App
 
       <main className="viewport" aria-label={t["app.name"]}>
         {intakeScene !== null && (intakeScene.walls?.length ?? 0) > 0 ? (
-          <SceneView scene={intakeScene} />
+          <SceneView
+            scene={intakeScene}
+            selectedWallId={selectedWallId}
+            onSelectWall={setSelectedWallId}
+          />
         ) : (
           <div className="viewport-placeholder">
             <p className="viewport-hint">{t["sheet.hint"]}</p>

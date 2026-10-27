@@ -6,6 +6,8 @@ import { sceneToMeshes } from "./sceneToMeshes";
 
 interface SceneViewProps {
   scene: Scene;
+  selectedWallId?: string | null;
+  onSelectWall?: (wallId: string) => void;
 }
 
 /**
@@ -19,7 +21,11 @@ interface SceneViewProps {
  *   assert fallback rendering WITHOUT WebGL (<Canvas> needs a real GL
  *   context, which jsdom cannot provide — see SceneView.test.tsx).
  */
-export function SceneMeshesView({ scene }: { scene: Scene }): React.JSX.Element {
+export function SceneMeshesView({
+  scene,
+  selectedWallId = null,
+  onSelectWall,
+}: SceneViewProps): React.JSX.Element {
   const meshes = useMemo(() => sceneToMeshes(scene), [scene]);
   const floorGeometries = useMemo(
     () =>
@@ -42,10 +48,21 @@ export function SceneMeshesView({ scene }: { scene: Scene }): React.JSX.Element 
           key={wall.id}
           position={[wall.center[0], wall.center[2], -wall.center[1]]}
           rotation={[0, 0, wall.rotationZ]}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelectWall?.(wall.id);
+          }}
         >
           <boxGeometry args={[wall.size[0], wall.size[2], wall.size[1]]} />
           <meshStandardMaterial
-            color={wall.wallKind === "exterior" ? "#8a7f72" : "#b3a898"}
+            color={
+              wall.id === selectedWallId
+                ? "#e8a33d"
+                : wall.wallKind === "exterior"
+                  ? "#8a7f72"
+                  : "#b3a898"
+            }
+            emissive={wall.id === selectedWallId ? "#7a4d00" : "#000000"}
           />
         </mesh>
       ))}
@@ -62,19 +79,32 @@ export function SceneMeshesView({ scene }: { scene: Scene }): React.JSX.Element 
   );
 }
 
-export function SceneView({ scene }: SceneViewProps): React.JSX.Element {
+export function SceneView({
+  scene,
+  selectedWallId = null,
+  onSelectWall,
+}: SceneViewProps): React.JSX.Element {
   return (
-    <div data-testid="scene-view" data-empty={scene.walls?.length ? "no" : "yes"}>
+    <div
+      data-testid="scene-view"
+      data-empty={scene.walls?.length ? "no" : "yes"}
+      data-selected-wall={selectedWallId ?? ""}
+    >
       <Canvas
         dpr={[1, 2]}
         frameloop="demand"
         shadows={false}
         gl={{ antialias: true }}
         camera={{ position: [6, 6, 6], fov: 50 }}
+        onPointerMissed={() => onSelectWall?.("")}
       >
         <ambientLight intensity={0.9} />
         <directionalLight position={[5, 10, 4]} intensity={0.9} />
-        <SceneMeshesView scene={scene} />
+        <SceneMeshesView
+          scene={scene}
+          selectedWallId={selectedWallId}
+          onSelectWall={onSelectWall}
+        />
       </Canvas>
     </div>
   );
