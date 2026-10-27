@@ -21,6 +21,7 @@ import math
 import re
 from dataclasses import dataclass, field
 
+from server.intake.solver import solve_vertices
 from server.scene.models import Opening as SceneOpening
 from server.scene.models import Room as SceneRoom
 from server.scene.models import Scene
@@ -246,50 +247,6 @@ def _cluster_vertices(
     return verts, vids
 
 
-def _solve_vertices(
-    verts_m: list[tuple[float, float]],
-    wall_vids: list[tuple[int, int]],
-    targets_m: dict[int, float],
-    warnings: list[str],
-) -> list[tuple[float, float]]:
-    """Move shared vertices so measured walls hit their written lengths.
-
-    Sequential relaxation along each wall axis (500 sweeps max, stops below
-    1e-9 m residual). Walls without a target follow their shared vertices and
-    stay estimated. Large leftover residuals mean contradictory measures and
-    are flagged to the technician via warnings -- never silently averaged.
-    """
-    pos = [list(v) for v in verts_m]
-    if not targets_m:
-        return verts_m
-    for _ in range(500):
-        sweep_max = 0.0
-        for j, target in targets_m.items():
-            u, v = wall_vids[j]
-            dx, dy = pos[v][0] - pos[u][0], pos[v][1] - pos[u][1]
-            dist = math.hypot(dx, dy)
-            if dist <= 0:
-                continue
-            err = target - dist
-            sweep_max = max(sweep_max, abs(err))
-            ux, uy = dx / dist, dy / dist
-            pos[u][0] -= ux * err / 2
-            pos[u][1] -= uy * err / 2
-            pos[v][0] += ux * err / 2
-            pos[v][1] += uy * err / 2
-        if sweep_max < 1e-9:
-            break
-    for j, target in targets_m.items():
-        u, v = wall_vids[j]
-        residual = abs(math.dist(pos[u], pos[v]) - target)
-        if residual > max(0.02, 0.02 * target):
-            warnings.append(
-                f"contradiction: wall {j} measures disagree "
-                f"(residual {residual:.2f} m), verify with human"
-            )
-    return [(p[0], p[1]) for p in pos]
-
-
 def build_scaled_plan(
     proposal: object,
     image_w: int,
@@ -352,7 +309,7 @@ def build_scaled_plan(
         (px * image_w * m_per_px, (1.0 - py) * image_h * m_per_px)
         for px, py in verts_norm
     ]
-    solved = _solve_vertices(verts_guess, wall_vids, targets_m, warnings)
+    solved = solve_vertices(verts_guess, wall_vids, targets_m, warnings)
     min_x = min((p[0] for p in solved), default=0.0)
     min_y = min((p[1] for p in solved), default=0.0)
 
