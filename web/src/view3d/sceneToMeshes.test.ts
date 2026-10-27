@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   cameraForBoundingBox,
   floorMesh,
+  planToThree,
   sceneBoundingBox,
   sceneToMeshes,
   solidIntervalsM,
@@ -288,5 +289,52 @@ describe("cameraForBoundingBox", () => {
     expect(distOf(portrait)).toBeGreaterThan(distOf(square));
     // Target is unchanged — only the distance adapts.
     expect(portrait.target).toEqual(square.target);
+  });
+});
+
+describe("wall renderer mapping (plan -> three.js Y-up)", () => {
+  /**
+   * World-space center of a wall-segment end, the way the renderer places
+   * it: segment center via planToThree, length axis rotated about +Y by
+   * rotationZ (the same angle as the plan rotation about Z), end at
+   * +/- length/2 along that axis. Mirrors SceneView's mesh transform so a
+   * mapping regression shows here, without WebGL.
+   */
+  function endWorld(
+    seg: { center: readonly [number, number, number]; size: readonly [number, number, number]; rotationZ: number },
+    sign: 1 | -1,
+  ): readonly [number, number, number] {
+    const [cx, cy, cz] = planToThree([seg.center[0], seg.center[1]], seg.center[2]);
+    const half = (seg.size[0] / 2) * sign;
+    // three.js rotation about +Y by rotationZ applied to (half, 0, 0).
+    const cos = Math.cos(seg.rotationZ);
+    const sin = Math.sin(seg.rotationZ);
+    return [cx + half * cos, cy, cz - half * sin];
+  }
+
+  it("an L of two walls sharing a corner meets in world space", () => {
+    const s = scene({
+      walls: [
+        wall({ id: "w1", a: [0, 0], b: [4, 0] }),
+        wall({ id: "w2", a: [4, 0], b: [4, 3] }),
+      ],
+    });
+    const segs = s.walls!.flatMap((w) => wallSegments(w, s));
+    expect(segs).toHaveLength(2);
+    // w1's b-end and w2's a-end share plan corner [4, 0]: their world
+    // end-centers must coincide (within wall thickness, i.e. exactly here).
+    const end1 = endWorld(segs[0]!, 1);
+    const end2 = endWorld(segs[1]!, -1);
+    const gap = Math.hypot(end1[0] - end2[0], end1[1] - end2[1], end1[2] - end2[2]);
+    expect(gap).toBeLessThan(0.2);
+  });
+
+  it("a diagonal wall keeps its plan length in world space", () => {
+    const s = scene({ walls: [wall({ id: "w1", a: [0, 0], b: [3, 4] })] });
+    const segs = s.walls!.flatMap((w) => wallSegments(w, s));
+    expect(segs).toHaveLength(1);
+    const a = endWorld(segs[0]!, -1);
+    const b = endWorld(segs[0]!, 1);
+    expect(Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2])).toBeCloseTo(5, 9);
   });
 });

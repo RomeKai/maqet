@@ -25,6 +25,23 @@ export type PlanPoint = readonly [number, number];
 /** 3D point in meters, Z-up: [x east, y north, z up]. */
 export type WorldPoint = readonly [number, number, number];
 
+/**
+ * three.js world point in meters, Y-up: [x east, z up, -y north].
+ * The renderer mapping lives here (not in the component) so tests pin it:
+ * plan [x, y] at height zUp -> world [x, zUp, -y]. A plan rotation about Z
+ * by θ is a three.js rotation about +Y by the SAME θ — never about Z
+ * (that tips the wall sideways; it renders tilted and corners never meet).
+ */
+export type ThreePoint = readonly [number, number, number];
+
+/** Plan [x east, y north] at height zUp -> three.js Y-up world point. */
+export function planToThree(
+  plan: PlanPoint,
+  zUp: number,
+): ThreePoint {
+  return [plan[0], zUp, -plan[1]];
+}
+
 /** Fallback wall height in meters (ADR-023: ceiling 2.60 m). */
 export const DEFAULT_CEILING_HEIGHT_M = 2.6;
 

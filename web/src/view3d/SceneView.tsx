@@ -5,6 +5,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { Scene } from "../scene/types";
 import {
   cameraForBoundingBox,
+  planToThree,
   sceneBoundingBox,
   sceneToMeshes,
 } from "./sceneToMeshes";
@@ -18,7 +19,9 @@ interface SceneViewProps {
 /**
  * Phone-first 3D view of the measured Scene.
  * - Descriptors from sceneToMeshes(): pure geometry math, unit-tested there.
- * - Renderer detail: three.js is Y-up, so plan [x, y, zUp] -> [x, zUp, -y].
+ * - Renderer detail: plan rotation about Z is a three.js rotation about +Y
+ *   by the same angle (rotation about Z tips walls sideways). Centers go
+ *   through planToThree so the mapping is defined once.
  * - Phone-safe: pixel-ratio capped at 2 (mobile-ui skill), demand frameloop,
  *   no shadows.
  * - Empty/partial scenes render an empty canvas, never crash: the descriptors
@@ -51,8 +54,11 @@ export function SceneMeshesView({
       {meshes.walls.map((wall) => (
         <mesh
           key={wall.id}
-          position={[wall.center[0], wall.center[2], -wall.center[1]]}
-          rotation={[0, 0, wall.rotationZ]}
+          // Plan rotation about Z is a three.js rotation about +Y by the
+          // same angle (rotation about Z tips the wall sideways). Center
+          // goes through planToThree so the mapping is defined once.
+          position={planToThree([wall.center[0], wall.center[1]], wall.center[2])}
+          rotation={[0, wall.rotationZ, 0]}
           onClick={(e) => {
             e.stopPropagation();
             onSelectWall?.(wall.id);
