@@ -357,6 +357,25 @@ body {
   stroke-dasharray: 6 3;
 }
 
+.intake-svg .proposal-wall {
+  stroke: var(--accent-2);
+  stroke-width: 1.5;
+  fill: none;
+  opacity: 0.85;
+}
+
+.intake-svg .proposal-dim line {
+  stroke: var(--accent-2);
+  stroke-width: 1;
+  stroke-dasharray: 4 2;
+}
+
+.intake-svg .proposal-dim text {
+  fill: var(--accent-2);
+  font-size: 12px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
 .intake-selected {
   display: flex;
   gap: 8px;

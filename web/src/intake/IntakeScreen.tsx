@@ -5,7 +5,7 @@ import { getStrings, type Locale } from "../i18n";
 import { UploadStep } from "./UploadStep";
 import { CornerEditor } from "./CornerEditor";
 import { ScaleTool, type ReadDimension } from "./ScaleTool";
-import type { IntakeProposalDimension, IntakeResult } from "./api";
+import type { IntakeProposal, IntakeProposalDimension, IntakeResult } from "./api";
 
 interface IntakeScreenProps {
   locale: Locale;
@@ -24,6 +24,7 @@ export function IntakeScreen({ locale, initialScene, readDimensions = [] }: Inta
   const [scene, setScene] = useState<Scene>(history.scene);
   const [photo, setPhoto] = useState<{ url: string; width: number; height: number } | null>(null);
   const [proposalDims, setProposalDims] = useState<IntakeProposalDimension[]>([]);
+  const [proposal, setProposal] = useState<IntakeProposal | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [scaling, setScaling] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +53,7 @@ export function IntakeScreen({ locale, initialScene, readDimensions = [] }: Inta
     history.reset(draft);
     setScene({ ...draft });
     setProposalDims(result.proposal.dimensions);
+    setProposal(result.proposal);
     setWarnings(result.warnings);
     setError(null);
   }
@@ -97,6 +99,7 @@ export function IntakeScreen({ locale, initialScene, readDimensions = [] }: Inta
           <CornerEditor
             locale={locale}
             scene={scene}
+            proposal={proposal}
             imageUrl={photo.url}
             imageWidth={photo.width}
             imageHeight={photo.height}
