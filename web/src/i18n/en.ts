@@ -43,6 +43,7 @@ export const en: Record<keyof typeof esAR, string> = {
   "intake.sample.label": "Sample sketch (no photo)",
   "intake.kind.plan": "Plan",
   "intake.kind.sketch": "Sketch",
+  "intake.capture.ar": "Measure (AR)",
   "intake.scale.cta": "Check wall measures",
   "intake.scale.title": "Check wall measures",
   "intake.scale.hint": "Tap a wall, then confirm its measure or type the real length.",

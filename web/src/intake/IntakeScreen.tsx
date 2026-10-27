@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Scene } from "../scene/types";
 import { SceneHistory, createEmptyScene, type SceneOp } from "../scene/store";
 import { getStrings, type Locale } from "../i18n";
@@ -7,11 +7,14 @@ import { ScaleBadge } from "./ScaleBadge";
 import { CornerEditor } from "./CornerEditor";
 import { ScaleTool } from "./ScaleTool";
 import { ArMeasure } from "../measure/ArMeasure";
-import type { IntakeProposal, IntakeProposalDimension, IntakeResult } from "./api";
+import { isARSupported } from "../measure/xrAdapter";
+import type { IntakeKind, IntakeProposal, IntakeProposalDimension, IntakeResult } from "./api";
 
 interface IntakeScreenProps {
   locale: Locale;
   initialScene?: Scene;
+  /** Test seam: override the auto-detected WebXR immersive-ar support. */
+  arSupported?: boolean;
   onSceneChange?: (scene: Scene) => void;
   onPhotoChange?: (hasPhoto: boolean) => void;
 }
@@ -23,7 +26,7 @@ interface IntakeScreenProps {
  * (ADR-025 mode C); the ScaleTool confirms each wall's measure.
  * Localized strings (demo default English), no prices, preliminary label.
  */
-export function IntakeScreen({ locale, initialScene, onSceneChange, onPhotoChange }: IntakeScreenProps) {
+export function IntakeScreen({ locale, initialScene, arSupported, onSceneChange, onPhotoChange }: IntakeScreenProps) {
   const t = getStrings(locale);
   const [history] = useState(() => new SceneHistory(initialScene ?? createEmptyScene()));
   const [scene, setScene] = useState<Scene>(history.scene);
@@ -34,6 +37,24 @@ export function IntakeScreen({ locale, initialScene, onSceneChange, onPhotoChang
   const [scaling, setScaling] = useState(false);
   const [measuringAR, setMeasuringAR] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Mode A entry before any photo (ADR-025): auto-detect WebXR immersive-ar
+  // support on mount; the test seam overrides detection.
+  const [arAvailable, setArAvailable] = useState<boolean>(arSupported ?? false);
+  const [kindChips, setKindChips] = useState<IntakeKind>("plan");
+
+  useEffect(() => {
+    if (arSupported !== undefined) {
+      setArAvailable(arSupported);
+      return;
+    }
+    let cancelled = false;
+    isARSupported().then((ok) => {
+      if (!cancelled) setArAvailable(ok);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [arSupported]);
 
   const scaleConfirmed = useMemo(() => scene.scale_confirmed === true, [scene]);
 
@@ -78,13 +99,39 @@ export function IntakeScreen({ locale, initialScene, onSceneChange, onPhotoChang
         </ul>
       )}
 
-      {photo === null && (
-        <UploadStep
-          locale={locale}
-          onPhoto={(url, width, height) => handlePhoto(url, width, height)}
-          onError={setError}
-          onScene={handleSceneDraft}
-        />
+      {photo === null && !measuringAR && (
+        <>
+          <div className="intake-kind" role="radiogroup" aria-label={t["intake.step.capture"]}>
+            {(["plan", "sketch"] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={kindChips === value}
+                className={kindChips === value ? "chip chip-active" : "chip"}
+                onClick={() => setKindChips(value)}
+              >
+                {value === "plan" ? t["intake.kind.plan"] : t["intake.kind.sketch"]}
+              </button>
+            ))}
+            {arAvailable && (
+              <button
+                type="button"
+                className="chip"
+                onClick={() => setMeasuringAR(true)}
+              >
+                {t["intake.capture.ar"]}
+              </button>
+            )}
+          </div>
+          <UploadStep
+            locale={locale}
+            kind={kindChips}
+            onPhoto={(url, width, height) => handlePhoto(url, width, height)}
+            onError={setError}
+            onScene={handleSceneDraft}
+          />
+        </>
       )}
 
       {photo !== null && !scaling && (

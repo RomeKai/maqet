@@ -42,6 +42,7 @@ export const esAR = {
   "intake.sample.label": "Croquis de ejemplo (sin foto)",
   "intake.kind.plan": "Plano",
   "intake.kind.sketch": "Croquis",
+  "intake.capture.ar": "Medir (AR)",
   "intake.scale.cta": "Revisar medidas",
   "intake.scale.title": "Revisar medidas",
   "intake.scale.hint": "Tocá una pared y confirmá su medida o escribí la medida real.",
