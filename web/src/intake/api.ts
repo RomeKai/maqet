@@ -4,7 +4,8 @@ import type { Scene } from "../scene/types";
  * Intake API client (web, P0 Capture).
  * POSTs the downscaled photo to `POST /intake` (multipart `file` + `kind`)
  * and returns the validated `{ proposal, scene }` draft.
- * Base URL comes from `VITE_API_URL`, defaulting to local FastAPI.
+ * Base URL comes from `VITE_API_URL`, defaulting to the same-origin
+ * `/api` proxy (avoids mixed-content and unreachable localhost on phones).
  * Server route contract: multipart { file: image, kind: plan|sketch }
  * -> { proposal: IntakeProposal, scene: Scene }.
  */
@@ -54,9 +55,7 @@ export interface IntakeResult {
 
 function apiBase(): string {
   const configured: unknown = import.meta.env.VITE_API_URL;
-  return typeof configured === "string" && configured.length > 0
-    ? configured
-    : "http://localhost:8000";
+  return typeof configured === "string" && configured.length > 0 ? configured : "/api";
 }
 
 export function intakeUrl(): string {

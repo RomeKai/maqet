@@ -46,7 +46,7 @@ describe("postIntake upload -> Scene flow", () => {
 
     const out = await postIntake(new Blob(["img"]), "plan");
 
-    expect(seen.url).toBe("http://localhost:8000/intake");
+    expect(seen.url).toBe("/api/intake");
     expect(seen.body?.get("kind")).toBe("plan");
     expect(seen.body?.get("file")).toBeInstanceOf(File);
     expect(out.scene).toEqual(draftScene);

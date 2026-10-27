@@ -47,7 +47,7 @@ describe("I16 try-a-sample replay", () => {
 
     const out = await postSampleIntake("sketch", "croquis_nonproportional");
 
-    expect(seen.url).toBe("http://localhost:8000/intake");
+    expect(seen.url).toBe("/api/intake");
     expect(seen.body?.get("sample")).toBe("croquis_nonproportional");
     expect(seen.body?.get("kind")).toBe("sketch");
     expect(seen.body?.get("file")).toBeNull();
