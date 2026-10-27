@@ -22,7 +22,8 @@ interface SceneViewProps {
  * - Renderer detail: plan rotation about Z is a three.js rotation about +Y
  *   by the same angle (rotation about Z tips walls sideways). Centers go
  *   through planToThree so the mapping is defined once.
- * - Phone-safe: pixel-ratio capped at 2 (mobile-ui skill), demand frameloop,
+ * - Phone-safe: pixel-ratio capped at 1.5 on Android fill-rate (mobile-ui
+ *   skill), demand frameloop with explicit invalidate on control change,
  *   no shadows.
  * - Empty/partial scenes render an empty canvas, never crash: the descriptors
  *   are just empty arrays. The wrapper keeps a `data-testid` so tests can
@@ -119,29 +120,44 @@ function GroundPlane({ scene }: { scene: Scene }): React.JSX.Element | null {
  * OrbitControls from the already-installed `three` examples (no new dep):
  * touch rotate + pinch zoom on phones. Tap-to-select keeps working because
  * OrbitControls only starts a drag after the pointer moves — a clean tap
- * still fires the mesh onClick.
+ * still fires the mesh onClick. Zoom is clamped to the Scene bbox so a wild
+ * pinch can't dive inside the walls (near-plane clipping churn = the
+ * Android lag) or lose the house: min 0.5 m for close looks, max twice the
+ * autofit distance. Demand frameloop still needs an explicit invalidate on
+ * change — otherwise the canvas freezes mid-gesture.
  */
 function Controls({
   target,
+  minDistance,
+  maxDistance,
 }: {
   target: readonly [number, number, number];
+  minDistance: number;
+  maxDistance: number;
 }): React.JSX.Element | null {
-  const { camera, gl } = useThree();
+  const { camera, gl, invalidate } = useThree();
   useEffect(() => {
     const controls = new OrbitControls(camera, gl.domElement);
     controls.target.set(target[0], target[1], target[2]);
     controls.enableDamping = false;
+    controls.minDistance = minDistance;
+    controls.maxDistance = maxDistance;
+    const onChange = (): void => invalidate();
+    controls.addEventListener("change", onChange);
     controls.update();
     return () => {
+      controls.removeEventListener("change", onChange);
       controls.dispose();
     };
-  }, [camera, gl, target]);
+  }, [camera, gl, invalidate, target, minDistance, maxDistance]);
   return null;
 }
 
 /**
  * Drives the default camera from the Scene bbox: position + target are pure
- * math from sceneToMeshes (unit-tested), applied here only. Runs in an
+ * math from sceneToMeshes (unit-tested), applied here only. Zoom clamps ride
+ * along: min 0.5 m (close looks without entering wall boxes), max twice the
+ * autofit distance (a wild pinch can't lose the house). Runs in an
  * isomorphic layout effect so the SSR fallback test (renderToString) never
  * touches the camera.
  */
@@ -154,20 +170,30 @@ function CameraRig({ scene }: { scene: Scene }): React.JSX.Element | null {
       height: size.height,
     });
     // Z-up math -> three.js Y-up: [x, y, zUp] becomes [x, zUp, -y].
+    const position = new THREE.Vector3(
+      cam.position[0],
+      cam.position[2],
+      -cam.position[1],
+    );
+    const target = new THREE.Vector3(cam.target[0], cam.target[2], -cam.target[1]);
     return {
-      position: new THREE.Vector3(
-        cam.position[0],
-        cam.position[2],
-        -cam.position[1],
-      ),
-      target: new THREE.Vector3(cam.target[0], cam.target[2], -cam.target[1]),
+      position,
+      target,
+      minDistance: 0.5,
+      maxDistance: Math.max(position.distanceTo(target) * 2, 2),
     };
   }, [scene, size.width, size.height]);
   useLayoutEffect(() => {
     camera.position.copy(view.position);
     camera.lookAt(view.target);
   }, [camera, view]);
-  return <Controls target={[view.target.x, view.target.y, view.target.z]} />;
+  return (
+    <Controls
+      target={[view.target.x, view.target.y, view.target.z]}
+      minDistance={view.minDistance}
+      maxDistance={view.maxDistance}
+    />
+  );
 }
 
 export function SceneView({
@@ -183,7 +209,7 @@ export function SceneView({
       data-selected-wall={selectedWallId ?? ""}
     >
       <Canvas
-        dpr={[1, 2]}
+        dpr={[1, 1.5]}
         frameloop="demand"
         shadows={false}
         gl={{ antialias: true }}
