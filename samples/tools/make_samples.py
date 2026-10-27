@@ -356,11 +356,21 @@ def wobble_line(d: ImageDraw.ImageDraw, A, B, passes=2, amp=2.2,
         d.line(pts, fill=color, width=width, joint="curve")
 
 
-def render_sketch(scene: dict) -> Image.Image:
+SKETCH_PAD = {"top": 90, "bottom": 170, "left": 130, "right": 90}
+SKETCH_NOTE_DEFAULT = [  # handwritten measurements (Argentine comma decimals)
+    ((0, 0), (3.5, 0), 60, "3,50"),
+    ((3.5, 0), (6, 0), 60, "2,50"),
+    ((0, 0), (0, 3.5), 66, "3,50"),
+    ((0, 3.5), (6, 3.5), -64, "6,00 total"),
+]
+
+
+def render_sketch(scene: dict, notes: list | None = None,
+                  title: str = "CROQUIS — ampliación dormitorio + baño"
+                  ) -> Image.Image:
     xmax = max(max(w["a"][0], w["b"][0]) for w in scene["walls"])
     ymax = max(max(w["a"][1], w["b"][1]) for w in scene["walls"])
-    c = Canvas(xmax, ymax, top=90, bottom=170, left=130, right=90,
-               bg=SKETCH_PAPER)
+    c = Canvas(xmax, ymax, **SKETCH_PAD, bg=SKETCH_PAPER)
     step = 0.5 * PX  # graph paper
     x = 0.0
     while x < c.w:
@@ -404,13 +414,7 @@ def render_sketch(scene: dict) -> Image.Image:
                 c.d.line([(Q0[0] + nx * s, Q0[1] + ny * s),
                           (Q1[0] + nx * s, Q1[1] + ny * s)],
                          fill=PEN_RED, width=2)
-    notes = [  # handwritten measurements (Argentine comma decimals)
-        ((0, 0), (3.5, 0), 60, "3,50"),
-        ((3.5, 0), (6, 0), 60, "2,50"),
-        ((0, 0), (0, 3.5), 66, "3,50"),
-        ((0, 3.5), (6, 3.5), -64, "6,00 total"),
-    ]
-    for (ax, ay), (bx, by), off, text in notes:
+    for (ax, ay), (bx, by), off, text in (notes or SKETCH_NOTE_DEFAULT):
         A, B = c.p(ax, ay), c.p(bx, by)
         dx, dy = B[0] - A[0], B[1] - A[1]
         L = math.hypot(dx, dy) or 1.0
@@ -481,6 +485,93 @@ def phone_photo(img: Image.Image, seed: int, table: bool = False,
     return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
 
 
+# ------------------------------------------------- non-proportional sketch (ADR-025)
+
+# True L-shaped extension, meters, walked counter-clockwise. The sketch below
+# DRAWS it as a portrait shape (4 x 5 units) with the 6.00 m wall drawn shorter
+# than the 3.50 m wall, exactly like a real hand sketch not made to scale.
+NONPROP_TRUE = [(0, 0), (6, 0), (6, 2), (3.5, 2), (3.5, 3.5), (0, 3.5)]
+NONPROP_DRAWN = [(0, 0), (4, 0), (4, 3), (2, 3), (2, 5), (0, 5)]
+NONPROP_TEXTS = ["6,00 total", "2,00", "2,50", "1,50", "3,50", "3,50"]
+NONPROP_NOTE_OFFSET_PX = 60
+
+
+def _closed_edges(pts: list[tuple[float, float]]):
+    return [(pts[i], pts[(i + 1) % len(pts)]) for i in range(len(pts))]
+
+
+def scene_sketch_nonproportional() -> dict:
+    """Truth: real wall lengths in meters, provenance written_on_sketch."""
+    walls = []
+    for i, (a, b) in enumerate(_closed_edges(NONPROP_TRUE)):
+        w = wall(f"w{i}", a[0], a[1], b[0], b[1], 0.20, "exterior")
+        w["provenance"] = "written_on_sketch"
+        w["measured_length_m"] = round(math.dist(a, b), 6)
+        walls.append(w)
+    rooms = [room("r_sala", "SALA", [list(p) for p in NONPROP_TRUE], "living")]
+    return make_scene("croquis-nonproporcional", walls, [], rooms)
+
+
+def _drawn_sketch_scene() -> dict:
+    walls = [wall(f"w{i}", a[0], a[1], b[0], b[1], 0.20, "exterior")
+             for i, (a, b) in enumerate(_closed_edges(NONPROP_DRAWN))]
+    return {"walls": walls, "openings": [],
+            "rooms": [room("r_sala", "SALA",
+                           [list(p) for p in NONPROP_DRAWN], "living")]}
+
+
+def _nonproportional_notes() -> list:
+    return [(a, b, NONPROP_NOTE_OFFSET_PX, text) for (a, b), text in
+            zip(_closed_edges(NONPROP_DRAWN), NONPROP_TEXTS)]
+
+
+def nonproportional_proposal(size: tuple[int, int]) -> dict:
+    """What the vision step returns for the drawn sketch (normalized coords).
+
+    Built from the same drawn geometry the PNG is rendered from, so the
+    offline solver tests need no model call. The written lengths are attached
+    to their walls via ``wall_index`` (mode C).
+    """
+    w, h = size
+    c = Canvas(max(p[0] for p in NONPROP_DRAWN),
+               max(p[1] for p in NONPROP_DRAWN), **SKETCH_PAD)
+
+    def norm(p: tuple[float, float]) -> list[float]:
+        return [round(min(1.0, max(0.0, p[0] / w)), 6),
+                round(min(1.0, max(0.0, p[1] / h)), 6)]
+
+    walls, dims = [], []
+    for j, ((a, b), text) in enumerate(
+            zip(_closed_edges(NONPROP_DRAWN), NONPROP_TEXTS)):
+        A, B = c.p(*a), c.p(*b)
+        walls.append({"a": norm(A), "b": norm(B), "kind": "exterior"})
+        dx, dy = B[0] - A[0], B[1] - A[1]
+        L = math.hypot(dx, dy)
+        nx, ny = -dy / L, dx / L
+        off = NONPROP_NOTE_OFFSET_PX
+        dims.append({"text": text,
+                     "a": norm((A[0] + nx * off, A[1] + ny * off)),
+                     "b": norm((B[0] + nx * off, B[1] + ny * off)),
+                     "wall_index": j})
+    return {"input_kind": "sketch", "walls": walls, "openings": [],
+            "labels": [], "dimensions": dims}
+
+
+def save_nonproportional() -> None:
+    truth = scene_sketch_nonproportional()
+    img = render_sketch(
+        _drawn_sketch_scene(), notes=_nonproportional_notes(),
+        title="CROQUIS — ampliación (no a escala)")
+    save_one("croquis_nonproportional", truth, img,
+             photo_seed=44, table=True, expect_area=17.25)
+    payload = {"image": {"w": img.width, "h": img.height},
+               "proposal": nonproportional_proposal(img.size)}
+    with open(OUT / "croquis_nonproportional.proposal.json", "w",
+              encoding="utf-8") as fh:
+        json.dump(payload, fh, indent=2, ensure_ascii=False)
+        fh.write("\n")
+
+
 # ---------------------------------------------------------------------- main
 
 def save_one(basename: str, scene: dict, img: Image.Image,
@@ -519,6 +610,7 @@ web image was used, traced or copied. License: **CC0** (public domain).
 | `plano_48m_1ambiente.png` / `_photo.png` / `.truth.json` | clean 48 m² plan: 1 ambiente + cocina-baño | generated, CC0 |
 | `plano_70m_2dorm.png` / `_photo.png` / `.truth.json` | clean 70 m² plan: 2 dormitorios | generated, CC0 |
 | `croquis_ampliacion.png` / `_photo.png` / `.truth.json` | hand-drawn croquis with written measurements (dormitorio + baño, 6.00 × 3.50 m) | generated, CC0 |
+| `croquis_nonproportional.png` / `_photo.png` / `.truth.json` / `.proposal.json` | L-shaped croquis drawn OUT of proportion (6.00 m wall drawn shorter than a 3.50 m wall); truth = real lengths, provenance `written_on_sketch`; `.proposal.json` = the vision output built from the drawn geometry (offline tests) | generated, CC0 |
 
 Ground truth (`*.truth.json`) holds walls/openings/rooms in meters and loads
 as `server/scene/models.py::Scene` (validated by the generator itself).
@@ -545,6 +637,7 @@ def main() -> None:
     sk = scene_sketch()
     save_one("croquis_ampliacion", sk, render_sketch(sk),
              photo_seed=33, table=True, expect_area=21.0)
+    save_nonproportional()
     (OUT / "SOURCES.md").write_text(SOURCES, encoding="utf-8")
     print("wrote SOURCES.md")
 
