@@ -37,6 +37,11 @@ real family's result), **M** (robustness/UX), **L** (polish). Status: open / don
 | P1 | H | Contributor models may train on inputs; the demo uses only synthetic data | Real family homes and sketches are personal data | `MME_PRIVATE=1` (standard models) for any real use; consent notice in the UI |
 | P2 | M | Contributor rate limit is lower (150 vs 3000 in the price table); the gateway falls back to standard | Bursts cost about 19x more on fallback | Queue intake calls; alert when fallback is used |
 
+## Demo and submission
+| # | Pri | Assumption or patch | Why it matters | Hardening |
+|---|---|---|---|---|
+| D1 | H | The official rules ban "simple image analyzers"; a demo that opens on "upload a photo, AI reads the plan" can be pattern-matched into that bucket | Disqualification risk or a weak first impression | Capture is the entry door, not the product: the video reaches the voice reform agent, construction rules, staged takeoff and DXF within the first minute; submission text uses the "Build for Your World" framing |
+
 ## Process: gates and integration
 | # | Pri | Assumption or patch | Why it matters | Hardening |
 |---|---|---|---|---|
