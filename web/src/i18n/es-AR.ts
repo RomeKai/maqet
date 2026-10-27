@@ -66,6 +66,8 @@ export const esAR = {
   "measure.ar.confirm": "Usar esta medida",
   "measure.ar.fallback": "Tu teléfono no tiene AR. Medí la pared con cinta o escribí la medida del croquis.",
   "measure.ar.unsupported": "AR no disponible en este dispositivo",
+  "measure.ar.starting": "Iniciando AR…",
+  "measure.ar.stuck": "AR trabado en:",
   "measure.ar.done": "Listo",
   "measure.ar.cancel": "Cancelar",
 } as const;

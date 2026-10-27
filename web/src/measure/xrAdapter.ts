@@ -2,19 +2,64 @@ import type * as THREE from "three";
 import type { Vec3 } from "./cornerMath";
 import { isValidCorner } from "./cornerMath";
 
-/** Callbacks carried by the hit-test session. Length math stays in cornerMath. */
+/**
+ * Callbacks carried by the hit-test session. Length math stays in cornerMath.
+ */
 export interface XrTapCallbacks {
   onTapCorner: (corner: Vec3) => void;
   onEnd: () => void;
 }
 
 /**
+ * One await boundary of WebXrHitTestAdapter.start(), in order. Reported
+ * through the optional onStep progress callback so a stuck await is visible
+ * on the phone (the AR start shows no camera and no error otherwise):
+ *  1. session-requested — requestSession() invoked (synchronously, in the
+ *     user gesture; NOTHING is awaited before it)
+ *  2. three-loaded — the lazy three.js import resolved
+ *  3. session-granted — the requestSession promise resolved
+ *  4. session-set — the session is set on the three.js renderer
+ *  5. viewer-space — the viewer reference space resolved
+ *  6. hit-test-source — the hit-test source resolved
+ *  7. local-floor-space — the local-floor reference space resolved
+ *  8. render-loop-running — the animation loop started (taps now emit)
+ */
+export const XR_START_STEPS = [
+  "session-requested",
+  "three-loaded",
+  "session-granted",
+  "session-set",
+  "viewer-space",
+  "hit-test-source",
+  "local-floor-space",
+  "render-loop-running",
+] as const;
+
+export type XrStartStep = (typeof XR_START_STEPS)[number];
+
+/** Progress callback for start(): receives each XrStartStep in order. */
+export type XrStartProgress = (step: XrStartStep) => void;
+
+/**
+ * Watchdog for AR session start: if start() neither resolves nor rejects
+ * within this window, the caller surfaces "AR stuck at: <last-step>".
+ * On the phone a wedged await shows no camera and no error otherwise.
+ */
+export const AR_START_WATCHDOG_MS = 10_000;
+
+/**
  * Thin seam over WebXR hit-test: start a session, tap corners, end it.
- * The optional container hosts the XR canvas (production path); fakes used
- * in tests keep a one-param start and still satisfy this interface.
+ * The optional container hosts the XR canvas (production path); the optional
+ * onStep reports each XR_START_STEPS entry in order (diagnostic trace).
+ * Fakes used in tests keep a one-param start and still satisfy this
+ * interface.
  */
 export interface XrHitTestAdapter {
-  start: (callbacks: XrTapCallbacks, container?: HTMLElement) => Promise<void>;
+  start: (
+    callbacks: XrTapCallbacks,
+    container?: HTMLElement,
+    onStep?: XrStartProgress,
+  ) => Promise<void>;
   end: () => void;
 }
 
@@ -100,6 +145,7 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
   async start(
     callbacks: XrTapCallbacks,
     container?: HTMLElement,
+    onStep?: XrStartProgress,
   ): Promise<void> {
     const nav = globalThis.navigator as
       | (Navigator & { xr?: XRSystem })
@@ -124,14 +170,21 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
     // activation (~5 s, shorter on a cold LAN load) is still alive.
     // three.js should already be warm via preloadThree() at screen mount.
     // The xr guard above narrowed nav.xr to a defined XRSystem.
+    // The caller passes the visible AR controls element as `container`
+    // (domOverlay.root): End + the step trace stay visible and tappable
+    // over the camera feed. The DOM lib types requestSession's options
+    // loosely, so the root is cast to the HTMLElement three expects.
     const xr = nav.xr as XRSystem;
+    const overlayRoot = (container ?? host) as HTMLElement;
     const sessionPromise = xr.requestSession("immersive-ar", {
       requiredFeatures: ["hit-test"],
       optionalFeatures: ["dom-overlay"],
-      domOverlay: { root: container ?? host },
+      domOverlay: { root: overlayRoot },
     });
+    onStep?.("session-requested");
     // three.js stays out of the test bundle: only the phone path loads it.
     const THREE = await import("three");
+    onStep?.("three-loaded");
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.xr.enabled = true;
     renderer.xr.setReferenceSpaceType("local-floor");
@@ -139,8 +192,11 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
     this.renderer = renderer;
     try {
       const session = await sessionPromise;
+      onStep?.("session-granted");
       await renderer.xr.setSession(session);
+      onStep?.("session-set");
       const viewerSpace = await session.requestReferenceSpace("viewer");
+      onStep?.("viewer-space");
       // The DOM lib types requestHitTestSource as optional: a device that
       // offers immersive-ar without hit-test fails loudly here so the
       // caller falls back to B/C instead of tapping into the void.
@@ -149,7 +205,9 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
       }
       this.hitTestSource =
         (await session.requestHitTestSource({ space: viewerSpace })) ?? null;
+      onStep?.("hit-test-source");
       this.refSpace = await session.requestReferenceSpace("local-floor");
+      onStep?.("local-floor-space");
 
       const scene = new THREE.Scene();
       const reticle = new THREE.Mesh(
@@ -184,6 +242,7 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
         }
         renderer.render(scene, camera);
       });
+      onStep?.("render-loop-running");
     } catch (error) {
       this.teardown();
       throw error;

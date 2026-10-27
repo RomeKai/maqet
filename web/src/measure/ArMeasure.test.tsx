@@ -8,6 +8,11 @@ import {
 import { applySceneOp, createEmptyScene } from "../scene/store";
 import { pairCornersToWallUpdate, traceCornerTap, emptyCornerTrace } from "./cornerMath";
 import type { XrHitTestAdapter, XrTapCallbacks } from "./xrAdapter";
+import {
+  AR_START_WATCHDOG_MS,
+  XR_START_STEPS,
+  type XrStartStep,
+} from "./xrAdapter";
 import type { Scene } from "../scene/types";
 import type { SceneOp } from "../scene/store";
 import type { Vec3 } from "./cornerMath";
@@ -129,6 +134,25 @@ describe("ArMeasure", () => {
     const err = Object.assign(new Error("boom"), { name: "SecurityError" });
     expect(startErrorMessage(err)).toBe("SecurityError: boom");
     expect(startErrorMessage("gone")).toBe("gone");
+  });
+
+  it("the XR host is not rendered before a session (Start button uncovered)", () => {
+    // Regression: a fixed full-screen .ar-xr-host rendered on the Start
+    // screen swallowed every tap, so requestSession never fired and no
+    // trace step ever appeared. The host mounts only in session state now.
+    const { adapter } = makeFakeAdapter();
+    const html = renderToString(
+      <ArMeasure
+        locale="en"
+        scene={scene}
+        adapter={adapter}
+        onChange={noopChange}
+        onDone={noopDone}
+        onCancel={noopCancel}
+      />,
+    );
+    expect(html).toContain("Measure (AR)");
+    expect(html).not.toContain("ar-xr-host");
   });
 
   it("the measuring UI appears only after a started session", () => {
@@ -256,5 +280,140 @@ describe("ArMeasure", () => {
     trace = traceCornerTap(trace, [0.05, 0, 0.02], next.walls?.length ?? 0);
     expect(trace.closed).toBe(false);
     expect(trace.lastWall).toBeNull();
+  });
+});
+
+describe("AR start step trace + watchdog", () => {
+  /** Fake that emits every documented step through the onStep param, in order. */
+  function makeStepAdapter() {
+    const seen: XrStartStep[] = [];
+    const adapter: XrHitTestAdapter = {
+      start: async (_callbacks, _container, onStep) => {
+        for (const step of XR_START_STEPS) onStep?.(step);
+      },
+      end: () => undefined,
+    };
+    return { adapter, seen };
+  }
+
+  it("reports steps through onStep in the documented order", async () => {
+    const { adapter } = makeStepAdapter();
+    const seen: XrStartStep[] = [];
+    const handleClick = createArStartHandler(
+      adapter,
+      noopCallbacks,
+      () => undefined,
+      {
+        onStarted: () => undefined,
+        onFailed: () => {
+          throw new Error("must not fail");
+        },
+        onStep: (step) => seen.push(step),
+      },
+    );
+    handleClick();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(seen).toEqual([...XR_START_STEPS]);
+  });
+
+  it("a start that never settles trips onFailed after the watchdog timeout", () => {
+    vi.useFakeTimers();
+    try {
+      const adapter: XrHitTestAdapter = {
+        start: () => new Promise<void>(() => undefined),
+        end: () => undefined,
+      };
+      const adapterStart = vi.spyOn(adapter, "start");
+      let failed: string | null = null;
+      const handleClick = createArStartHandler(
+        adapter,
+        noopCallbacks,
+        () => undefined,
+        {
+          onStarted: () => {
+            throw new Error("must not start");
+          },
+          onFailed: (message) => {
+            failed = message;
+          },
+          onStep: () => undefined,
+        },
+      );
+      handleClick();
+      // The one-param fake still satisfies the interface: the handler passes
+      // onStep as the third start() arg.
+      expect(adapterStart.mock.calls[0]).toHaveLength(3);
+      expect(failed).toBeNull();
+      vi.advanceTimersByTime(AR_START_WATCHDOG_MS);
+      expect(failed).toContain("AR stuck at:");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("settling in time clears the watchdog (no stuck error after timers run)", async () => {
+    vi.useFakeTimers();
+    try {
+      let resolveStart!: () => void;
+      const adapter: XrHitTestAdapter = {
+        start: () => new Promise<void>((resolve) => { resolveStart = resolve; }),
+        end: () => undefined,
+      };
+      let started = false;
+      let failed: string | null = null;
+      const handleClick = createArStartHandler(
+        adapter,
+        noopCallbacks,
+        () => undefined,
+        {
+          onStarted: () => { started = true; },
+          onFailed: (message) => { failed = message; },
+          onStep: () => undefined,
+        },
+      );
+      handleClick();
+      resolveStart();
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(started).toBe(true);
+      vi.advanceTimersByTime(AR_START_WATCHDOG_MS * 2);
+      await Promise.resolve();
+      expect(failed).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a late success after a watchdog trip still lets onStarted win", async () => {
+    vi.useFakeTimers();
+    try {
+      let resolveStart!: () => void;
+      const adapter: XrHitTestAdapter = {
+        start: () => new Promise<void>((resolve) => { resolveStart = resolve; }),
+        end: () => undefined,
+      };
+      let started = false;
+      let failed: string | null = null;
+      const handleClick = createArStartHandler(
+        adapter,
+        noopCallbacks,
+        () => undefined,
+        {
+          onStarted: () => { started = true; },
+          onFailed: (message) => { failed = message; },
+          onStep: () => undefined,
+        },
+      );
+      handleClick();
+      vi.advanceTimersByTime(AR_START_WATCHDOG_MS);
+      expect(failed).toContain("AR stuck at:");
+      resolveStart();
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(started).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

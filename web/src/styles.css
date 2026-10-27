@@ -203,11 +203,14 @@ body {
   margin-top: 8px;
 }
 
-/* Mode A XR canvas host: device AR stream behind the bottom sheet. */
+/* Mode A XR canvas host: device AR stream behind the bottom sheet.
+   Rendered only while a session is active; pointer-events: none as
+   belt-and-braces so it can never swallow taps on the AR controls. */
 .ar-xr-host {
   position: fixed;
   inset: 0;
   z-index: 0;
+  pointer-events: none;
 }
 
 .ar-xr-host canvas {

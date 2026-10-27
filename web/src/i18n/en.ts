@@ -67,6 +67,8 @@ export const en: Record<keyof typeof esAR, string> = {
   "measure.ar.confirm": "Use this measure",
   "measure.ar.fallback": "Your phone has no AR. Measure the wall with tape or type the sketch measure.",
   "measure.ar.unsupported": "AR not available on this device",
+  "measure.ar.starting": "Starting AR…",
+  "measure.ar.stuck": "AR stuck at:",
   "measure.ar.done": "Done",
   "measure.ar.cancel": "Cancel",
 };

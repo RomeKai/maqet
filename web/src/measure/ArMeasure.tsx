@@ -16,10 +16,12 @@ import {
   type Vec3,
 } from "./cornerMath";
 import {
+  AR_START_WATCHDOG_MS,
   isARSupported,
   preloadThree,
   WebXrHitTestAdapter,
   type XrHitTestAdapter,
+  type XrStartStep,
   type XrTapCallbacks,
 } from "./xrAdapter";
 
@@ -43,6 +45,14 @@ export function startErrorMessage(error: unknown): string {
 export interface ArStartOutcome {
   onStarted: () => void;
   onFailed: (message: string) => void;
+  /** Receives each XR start step in order (diagnostic trace). */
+  onStep?: (step: XrStartStep) => void;
+  /** Builds the watchdog message; defaults to English for locale-free tests. */
+  stuckMessage?: (step: XrStartStep | null) => string;
+}
+
+function defaultStuckMessage(step: XrStartStep | null): string {
+  return `AR stuck at: ${step ?? "?"}`;
 }
 
 export function createArStartHandler(
@@ -52,18 +62,42 @@ export function createArStartHandler(
   outcome: ArStartOutcome,
 ): () => void {
   return () => {
+    let lastStep: XrStartStep | null = null;
+    const reportStep = (step: XrStartStep): void => {
+      lastStep = step;
+      outcome.onStep?.(step);
+    };
     let started: Promise<void>;
     try {
-      started = active.start(callbacks, getContainer());
+      // Third arg is optional: one-param fakes ignore it and still
+      // satisfy the XrHitTestAdapter interface.
+      started = active.start(callbacks, getContainer(), reportStep);
     } catch (error: unknown) {
       started = Promise.reject(error);
     }
-    void started
-      .then(outcome.onStarted)
-      .catch((error: unknown) => {
+    // Watchdog: a wedged await inside start() shows no camera and no
+    // error on the phone. Trip onFailed with the last reported step.
+    // A late settle still runs its own path: a late success lets
+    // onStarted win (session state overwrites the stuck error), a late
+    // rejection overwrites it with the real error.
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      outcome.onFailed((outcome.stuckMessage ?? defaultStuckMessage)(lastStep));
+    }, AR_START_WATCHDOG_MS);
+    void started.then(
+      () => {
+        settled = true;
+        clearTimeout(timer);
+        outcome.onStarted();
+      },
+      (error: unknown) => {
+        settled = true;
+        clearTimeout(timer);
         active.end();
         outcome.onFailed(startErrorMessage(error));
-      });
+      },
+    );
   };
 }
 
@@ -114,19 +148,31 @@ export function ArMeasure({
   // The XR session starts from the button tap (a user gesture): Chrome
   // rejects requestSession when called from a mount effect, so no start()
   // call may happen before the button exists. "ar-ready" = supported but
-  // not started; "session" = started (measuring UI); "failed" = start()
-  // rejected, showing the real error; "unsupported" = detection said no.
+  // not started; "starting" = start() pending (button disabled, current
+  // step shown); "session" = started (measuring UI); "failed" = start()
+  // rejected or the watchdog tripped, showing the real error or the stuck
+  // step; "unsupported" = detection said no.
   const [support, setSupport] = useState<
-    "checking" | "ar-ready" | "session" | "failed" | "unsupported"
+    "checking" | "ar-ready" | "starting" | "session" | "failed" | "unsupported"
   >(adapter ? "ar-ready" : "checking");
   const [startError, setStartError] = useState<string | null>(null);
+  // Latest XR start step while pending (diagnostic line under the button).
+  const [startStep, setStartStep] = useState<XrStartStep | null>(null);
+  // Ref mirror: the watchdog message reads the current step outside render.
+  const startStepRef = useRef<XrStartStep | null>(null);
   const [corners, setCorners] = useState<Vec3[]>([]);
   const [previewM, setPreviewM] = useState<number | null>(null);
   const cornersRef = useRef<Vec3[]>([]);
   cornersRef.current = corners;
   // Host for the XR canvas (production path): the device stream renders
-  // behind the bottom sheet. Minimal positioning; stacking is refined later.
+  // behind the bottom sheet. Mounts only while a session is active so it
+  // never swallows taps on the Start screen. Minimal positioning; stacking
+  // is refined later.
   const xrHostRef = useRef<HTMLDivElement | null>(null);
+  // Controls container: mounted on every measuring screen, passed as
+  // domOverlay.root so End + the step trace stay visible and tappable
+  // over the camera feed (dom-overlay needs a live element at start()).
+  const controlsRef = useRef<HTMLDivElement | null>(null);
   // Production adapter owned by this component when no test fake is injected.
   const prodAdapterRef = useRef<XrHitTestAdapter | null>(null);
   // Adapter taps arrive through the start() subscription: keep a ref to
@@ -171,20 +217,37 @@ export function ArMeasure({
     };
     const active = adapter ?? new WebXrHitTestAdapter();
     if (adapter === undefined) prodAdapterRef.current = active;
+    startStepRef.current = null;
+    setStartStep(null);
+    setSupport("starting");
     const onStarted = (): void => setSupport("session");
     const onFailed = (message: string): void => {
       // Surface the REAL reason (e.g. NotAllowedError when the gesture
-      // chain is broken), never the "unsupported" copy: detection already
-      // passed, so this device supports AR and something else failed.
+      // chain is broken) or the watchdog's stuck step — never the
+      // "unsupported" copy: detection already passed, so this device
+      // supports AR and something else failed.
       if (adapter === undefined) prodAdapterRef.current = null;
       setStartError(message);
       setSupport("failed");
     };
+    const onStep = (step: XrStartStep): void => {
+      startStepRef.current = step;
+      setStartStep(step);
+    };
+    // The "AR stuck at: <step>" sentence comes from the dictionary; the
+    // step id itself renders raw (same as the "err.name: message" style).
+    const stuckMessage = (): string =>
+      `${t["measure.ar.stuck"]} ${startStepRef.current ?? "?"}`;
     createArStartHandler(
       active,
       callbacks,
-      () => xrHostRef.current ?? undefined,
-      { onStarted, onFailed },
+      // Prefer the live controls element as domOverlay.root (visible +
+      // tappable over the camera); fall back to the XR host if mounted.
+      () =>
+        (controlsRef.current ?? xrHostRef.current ?? undefined) as
+          | HTMLElement
+          | undefined,
+      { onStarted, onFailed, onStep, stuckMessage },
     )();
   }
 
@@ -282,16 +345,23 @@ export function ArMeasure({
     setPreviewM(null);
   }
 
-  // Production path needs the XR canvas host mounted before the Start AR
-  // button is tappable: render it in every non-unsupported state so the
-  // ref is set by the time the gesture handler reads it.
-  const xrHost = support !== "unsupported" && (
+  // Production path: the XR host renders ONLY while a session is active.
+  // An always-mounted fixed full-screen host would swallow every tap on the
+  // Start screen (the button would look fine but requestSession never fires).
+  // domOverlay.root is the visible controls container, not this empty host,
+  // so End + the step trace stay tappable over the camera feed.
+  const xrHost = support === "session" && (
     <div ref={xrHostRef} className="ar-xr-host" aria-hidden="true" />
   );
 
   // Start screen: detection passed (or a fake adapter was injected), but no
   // session is running yet. The Start AR tap IS the user gesture.
-  if (support === "checking" || support === "ar-ready") {
+  if (
+    support === "checking" ||
+    support === "ar-ready" ||
+    support === "starting"
+  ) {
+    const starting = support === "starting";
     return (
       <div className="ar-measure" role="dialog" aria-label={t["measure.ar.title"]}>
         {xrHost}
@@ -302,7 +372,7 @@ export function ArMeasure({
             type="button"
             className="btn-primary"
             onClick={handleStart}
-            disabled={support === "checking"}
+            disabled={support === "checking" || starting}
           >
             {t["intake.capture.ar"]}
           </button>
@@ -310,6 +380,11 @@ export function ArMeasure({
             {t["measure.ar.cancel"]}
           </button>
         </div>
+        {starting && (
+          <p className="intake-hint ar-start-step">
+            {startStep ?? t["measure.ar.starting"]}
+          </p>
+        )}
         <p className="preliminary">{t["notice.preliminary"]}</p>
       </div>
     );
@@ -378,7 +453,12 @@ export function ArMeasure({
     corners.length === 0 ? t["measure.ar.tapFirst"] : t["measure.ar.tapSecond"];
 
   return (
-    <div className="ar-measure" role="dialog" aria-label={t["measure.ar.title"]}>
+    <div
+      ref={controlsRef}
+      className="ar-measure"
+      role="dialog"
+      aria-label={t["measure.ar.title"]}
+    >
       {xrHost}
       <h2 className="intake-title">{t["measure.ar.title"]}</h2>
       <p className="intake-hint">{t["measure.ar.hint"]}</p>
