@@ -23,8 +23,12 @@ interface ScaleToolProps {
 
 /** Locale-aware measure: "3.50 m" (en) / "3,50 m" (es-AR). */
 export function formatMeasureM(locale: Locale, meters: number): string {
-  const fixed = meters.toFixed(2);
-  return locale === "es-AR" ? `${fixed.replace(".", ",")} m` : `${fixed} m`;
+  const tag = locale === "es-AR" ? "es-AR" : "en-US";
+  const grouped = new Intl.NumberFormat(tag, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(meters);
+  return `${grouped} m`;
 }
 
 function wallLabel(index: number): string {
@@ -178,7 +182,7 @@ export function ScaleTool({ locale, scene, dimensions, onChange, onDone, onCance
         autoComplete="off"
         value={typed}
         onChange={(e) => setTyped(e.target.value)}
-        placeholder={locale === "es-AR" ? "3,50 m" : "3.50 m"}
+        placeholder={formatMeasureM(locale, 3.5)}
       />
       <button type="button" className="btn-primary" onClick={handleTypedConfirm}>
         {t["intake.scale.confirm"]}

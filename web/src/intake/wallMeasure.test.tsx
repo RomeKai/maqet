@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { renderToString } from "react-dom/server";
-import { ScaleTool } from "./ScaleTool";
+import { ScaleTool, formatMeasureM } from "./ScaleTool";
 import { CornerEditor } from "./CornerEditor";
 import {
   allWallsMeasured,
@@ -96,6 +96,11 @@ describe("per-wall measure flow (BUG2+3)", () => {
   it("treats estimated provenance as not measured", () => {
     expect(isWallEstimated(scene.walls![0]!)).toBe(true);
     expect(isWallEstimated(scene.walls![1]!)).toBe(false);
+  });
+
+  it("formats measures per locale (Intl: 3.50 m / 3,50 m)", () => {
+    expect(formatMeasureM("en", 3.5)).toBe("3.50 m");
+    expect(formatMeasureM("es-AR", 3.5)).toBe("3,50 m");
   });
 
   it("ScaleTool shows one row per wall with its measure, estimated flagged", () => {

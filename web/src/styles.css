@@ -278,6 +278,22 @@ body {
   opacity: 0.6;
 }
 
+/* Secondary action next to the upload CTA (Try a sample): outlined 44px+. */
+.btn-secondary {
+  min-height: 48px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 600;
+  padding: 0 16px;
+}
+
+.btn-secondary:disabled {
+  opacity: 0.6;
+}
+
 .intake-editor {
   display: flex;
   flex-direction: column;
