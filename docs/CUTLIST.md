@@ -10,3 +10,4 @@ Ideas and features moved off the critical path (date, why). Revisit only after t
 | 2026-10-26 | Reference-object scale from a room photo (A4 sheet, standard door) with SAM 3.1 masks | Approximate (5-10% error); modes A and B measure for real (ADR-025) |
 | 2026-10-26 | Consumer decorating (finish catalogs, imagined materials, concept pieces, brand kit) | Off the self-build critical path |
 | 2026-10-26 | Architect/agency licence tiers and billing-style gating | Replaced by the program licence hypothesis (ADR-016, ADR-022) |
+| 2026-10-27 | Mode B opening taps (tap a door or window on the room photo and type its width) | cut_if_late: mode B ships per-wall lengths only (`measured_tape`); openings are marked in the corner editor. SAM 3.1 opening widths (P1) cover the photo case |

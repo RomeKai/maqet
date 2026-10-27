@@ -20,6 +20,7 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass, field
+from typing import Literal
 
 from server.intake.solver import solve_vertices
 from server.scene.models import Opening as SceneOpening
@@ -34,6 +35,10 @@ TOL_DEFAULT = 1e-6
 # (measured 1.0010000000004737e-06 vs threshold 1.001e-06). The beyond case
 # (tol + 1e-8) still does not fuse: 1.01e-06 > 1.002e-06.
 _MERGE_EPS = 2e-9
+
+
+# Provenance a measured wall may carry when it comes out of intake (ADR-025).
+MeasuredProvenance = Literal["measured_tape", "written_on_sketch"]
 
 
 class ScaleError(ValueError):
@@ -394,14 +399,19 @@ def _polygonize_rooms(
     )
 
 
-def to_scene(plan: ScaledPlan, scene_id: str = "intake") -> Scene:
+def to_scene(
+    plan: ScaledPlan,
+    scene_id: str = "intake",
+    measured_provenance: MeasuredProvenance = "written_on_sketch",
+) -> Scene:
     """ScaledPlan -> measured Scene with documented construction defaults.
 
     Defaults (server/scene/rules.py): exterior 0.20 m, interior 0.10 m,
     ceiling 2.60 m; door height 2.05 m, window 1.40 m + sill 0.80 m.
     scale_confirmed=False: the anchor was picked automatically, the human
     confirms (ADR-002). Per-wall provenance: measured walls carry
-    written_on_sketch + measured_length_m, the rest stay estimated.
+    ``measured_provenance`` (mode C ``written_on_sketch`` by default; mode B
+    passes ``measured_tape``) + measured_length_m, the rest stay estimated.
     """
     from server.scene import rules
 
@@ -417,7 +427,7 @@ def to_scene(plan: ScaledPlan, scene_id: str = "intake") -> Scene:
             ),
             kind=w.kind,  # type: ignore[arg-type]
             provenance=(
-                "written_on_sketch" if w.measured_m is not None else "estimated"
+                measured_provenance if w.measured_m is not None else "estimated"
             ),
             measured_length_m=w.measured_m,
         )
