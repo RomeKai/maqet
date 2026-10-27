@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { DEFAULT_LOCALE, getStrings, type Locale, type StringKey } from "./i18n";
 import { IntakeScreen } from "./intake/IntakeScreen";
+import { SceneView } from "./view3d/SceneView";
 import type { Scene } from "./scene/types";
 
 const STAGES: StringKey[] = [
@@ -15,19 +16,27 @@ const SKIPPABLE: ReadonlySet<StringKey> = new Set(["stage.reform", "stage.design
 
 interface AppProps {
   initialLocale?: Locale;
+  // Test/demo seam: pre-load a measured Scene so the viewport renders its
+  // 3D view without going through the intake upload flow. In production the
+  // Scene arrives via IntakeScreen's onSceneChange callback.
+  initialScene?: Scene | null;
 }
 
-export function App({ initialLocale = DEFAULT_LOCALE }: AppProps) {
+export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: AppProps) {
   const [locale, setLocale] = useState<Locale>(initialLocale);
   const [stage, setStage] = useState<StringKey>("stage.capture");
   // Driven by the measured Scene (ADR-001): scale_confirmed flips the
   // topbar badge; hasPhoto hides the start receipt once a photo is set.
-  // IntakeScreen reports both via callbacks; nothing here owns geometry.
-  const [scaleConfirmed, setScaleConfirmed] = useState(false);
+  // The intake Scene is held here so the viewport can render its 3D view;
+  // a scene with no walls keeps the placeholder hint (mobile-ui: full-screen
+  // 3D with bottom sheet shape stays as-is, this only swaps viewport content).
+  const [scaleConfirmed, setScaleConfirmed] = useState(initialScene?.scale_confirmed === true);
   const [hasPhoto, setHasPhoto] = useState(false);
+  const [intakeScene, setIntakeScene] = useState<Scene | null>(initialScene);
   const t = getStrings(locale);
 
   function handleIntakeScene(scene: Scene): void {
+    setIntakeScene(scene);
     setScaleConfirmed(scene.scale_confirmed === true);
   }
 
@@ -51,15 +60,20 @@ export function App({ initialLocale = DEFAULT_LOCALE }: AppProps) {
       </header>
 
       <main className="viewport" aria-label={t["app.name"]}>
-        <div className="viewport-placeholder">
-          <p className="viewport-hint">{t["sheet.hint"]}</p>
-        </div>
+        {intakeScene !== null && (intakeScene.walls?.length ?? 0) > 0 ? (
+          <SceneView scene={intakeScene} />
+        ) : (
+          <div className="viewport-placeholder">
+            <p className="viewport-hint">{t["sheet.hint"]}</p>
+          </div>
+        )}
       </main>
 
       <section className="sheet" aria-label={t["app.name"]}>
         {stage === "stage.capture" && (
           <IntakeScreen
             locale={locale}
+            initialScene={initialScene ?? undefined}
             onSceneChange={handleIntakeScene}
             onPhotoChange={setHasPhoto}
           />
