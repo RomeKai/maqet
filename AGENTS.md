@@ -78,6 +78,7 @@ Product: `docs/PRODUCT.md`. Decisions: `docs/DECISIONS.md`. Ops: `docs/RUNBOOK.m
 
 ## Style
 Python: type hints, pydantic at boundaries, pure functions for ops. TS: strict, no `any`. Conventional commits, small.
+Never end a message announcing an action ("Running the tests now."): make the tool call in the same response.
 
 <!-- mme:start (managed by `mme init`; edit outside these markers) -->
 ## MME harness rules (all agents: Claude Code, Muse Code, OpenCode, Codex)
