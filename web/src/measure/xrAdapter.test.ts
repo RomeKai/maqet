@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { isARSupported, NoopAdapter, type XrHitTestAdapter, type XrTapCallbacks } from "./xrAdapter";
+import {
+  hitTestPoseToCorner,
+  isARSupported,
+  NoopAdapter,
+  WebXrHitTestAdapter,
+  type XrHitTestAdapter,
+  type XrTapCallbacks,
+} from "./xrAdapter";
 import type { Vec3 } from "./cornerMath";
 
 /** Fake adapter: injects tapped corners without a device. */
@@ -55,5 +62,42 @@ describe("xrAdapter", () => {
     adapter.end();
     expect(onTapCorner).not.toHaveBeenCalled();
     expect(onEnd).not.toHaveBeenCalled();
+  });
+});
+
+describe("hitTestPoseToCorner", () => {
+  it("maps a valid hit-test pose position to Vec3 meters", () => {
+    expect(
+      hitTestPoseToCorner({ position: { x: 1.5, y: 0, z: -2.25 } }),
+    ).toEqual([1.5, 0, -2.25]);
+  });
+
+  it("returns null when a component is NaN", () => {
+    expect(hitTestPoseToCorner({ position: { x: NaN, y: 0, z: 1 } })).toBeNull();
+  });
+
+  it("returns null for non-finite components", () => {
+    expect(
+      hitTestPoseToCorner({ position: { x: 1, y: Infinity, z: 1 } }),
+    ).toBeNull();
+    expect(
+      hitTestPoseToCorner({ position: { x: 1, y: 0, z: -Infinity } }),
+    ).toBeNull();
+  });
+
+  it("returns null for a missing pose", () => {
+    expect(hitTestPoseToCorner(null)).toBeNull();
+    expect(hitTestPoseToCorner(undefined)).toBeNull();
+  });
+});
+
+describe("WebXrHitTestAdapter", () => {
+  it("start rejects cleanly without navigator.xr (caller falls back to B/C)", async () => {
+    const adapter = new WebXrHitTestAdapter();
+    await expect(
+      adapter.start({ onTapCorner: () => undefined, onEnd: () => undefined }),
+    ).rejects.toThrow();
+    // Ending a never-started adapter is a safe no-op.
+    adapter.end();
   });
 });

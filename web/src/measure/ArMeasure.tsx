@@ -17,6 +17,7 @@ import {
 } from "./cornerMath";
 import {
   isARSupported,
+  WebXrHitTestAdapter,
   type XrHitTestAdapter,
 } from "./xrAdapter";
 
@@ -68,6 +69,11 @@ export function ArMeasure({
   const [previewM, setPreviewM] = useState<number | null>(null);
   const cornersRef = useRef<Vec3[]>([]);
   cornersRef.current = corners;
+  // Host for the XR canvas (production path): the device stream renders
+  // behind the bottom sheet. Minimal positioning; stacking is refined later.
+  const xrHostRef = useRef<HTMLDivElement | null>(null);
+  // Production adapter owned by this component when no test fake is injected.
+  const prodAdapterRef = useRef<WebXrHitTestAdapter | null>(null);
   // Adapter taps arrive through the mount-time subscription: keep a ref to
   // the latest scene so each tap emits its addWall onto current walls.
   const sceneRef = useRef<Scene>(scene);
@@ -83,18 +89,43 @@ export function ArMeasure({
 
   useEffect(() => {
     if (adapter) {
+      // Test seam: the fake drives corner taps without a device.
       adapter.start({
         onTapCorner: (corner) => appendCorner(corner, target?.id ?? null),
         onEnd: () => undefined,
       });
       return () => adapter.end();
     }
+    // Production path: detect WebXR, then start the real hit-test session.
+    // Corner taps arrive only from the device `select` event.
+    const active = new WebXrHitTestAdapter();
+    prodAdapterRef.current = active;
     let cancelled = false;
     isARSupported().then((ok) => {
-      if (!cancelled) setSupport(ok ? "ar" : "fallback");
+      if (cancelled) return;
+      if (!ok) {
+        setSupport("fallback");
+        return;
+      }
+      active
+        .start(
+          {
+            onTapCorner: (corner) => appendCorner(corner, target?.id ?? null),
+            onEnd: () => undefined,
+          },
+          xrHostRef.current ?? undefined,
+        )
+        .then(() => {
+          if (!cancelled) setSupport("ar");
+        })
+        .catch(() => {
+          if (!cancelled) setSupport("fallback");
+        });
     });
     return () => {
       cancelled = true;
+      prodAdapterRef.current = null;
+      active.end();
     };
     // Mount-only: adapter and target are construction-time inputs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -145,18 +176,8 @@ export function ArMeasure({
     );
   }
 
-  function handleTapCorner(): void {
-    // P0 stand-in until device hit-test lands: taps march around a 1 m
-    // square so the chained path (wall-1..wall-4) is tappable by hand.
-    // The length math is fully tested in cornerMath.
-    const square: Vec3[] = [
-      [0, 0, 0],
-      [1, 0, 0],
-      [1, 0, -1],
-      [0, 0, -1],
-    ];
-    const next: Vec3 = square[corners.length] ?? square[0]!;
-    appendCorner(next, isEmptyStart ? null : (target as { id: string }).id);
+  function handleEnd(): void {
+    (adapter ?? prodAdapterRef.current)?.end();
   }
 
   function handleConfirm(): void {
@@ -221,6 +242,9 @@ export function ArMeasure({
 
   return (
     <div className="ar-measure" role="dialog" aria-label={t["measure.ar.title"]}>
+      {!adapter && (
+        <div ref={xrHostRef} className="ar-xr-host" aria-hidden="true" />
+      )}
       <h2 className="intake-title">{t["measure.ar.title"]}</h2>
       <p className="intake-hint">{t["measure.ar.hint"]}</p>
       <p className="intake-hint">{stepLabel}</p>
@@ -238,14 +262,14 @@ export function ArMeasure({
         </span>
       )}
 
-      <button
-        type="button"
-        className="btn-primary ar-tap"
-        onClick={handleTapCorner}
-        disabled={isEmptyStart ? traceRef.current.closed : corners.length >= 2}
-      >
-        {stepLabel}
-      </button>
+      <div className="intake-scale-foot">
+        <button type="button" className="chip" onClick={handleEnd}>
+          {t["measure.ar.done"]}
+        </button>
+        <button type="button" className="chip" onClick={onCancel}>
+          {t["measure.ar.cancel"]}
+        </button>
+      </div>
 
       {previewM !== null && (
         <div className="intake-scale-foot">
@@ -258,11 +282,6 @@ export function ArMeasure({
         </div>
       )}
 
-      <div className="intake-scale-foot">
-        <button type="button" className="chip" onClick={onCancel}>
-          {t["measure.ar.cancel"]}
-        </button>
-      </div>
       <p className="preliminary">{t["notice.preliminary"]}</p>
     </div>
   );
