@@ -61,6 +61,11 @@ describe("SceneView fallback (no WebGL under test)", () => {
     expect(html).toContain('data-selected-wall="w1"');
   });
 
+  it("wraps the canvas in a clipped viewport container", () => {
+    const html = renderToString(<SceneView scene={emptyScene} />);
+    expect(html).toContain('class="scene-view"');
+  });
+
   it("renders an empty selection marker when nothing is selected", () => {
     const html = renderToString(<SceneView scene={emptyScene} />);
     expect(html).toContain('data-selected-wall=""');

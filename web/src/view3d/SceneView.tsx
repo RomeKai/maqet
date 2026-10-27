@@ -86,6 +86,7 @@ export function SceneView({
 }: SceneViewProps): React.JSX.Element {
   return (
     <div
+      className="scene-view"
       data-testid="scene-view"
       data-empty={scene.walls?.length ? "no" : "yes"}
       data-selected-wall={selectedWallId ?? ""}

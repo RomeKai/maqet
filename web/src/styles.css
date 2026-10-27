@@ -99,6 +99,20 @@ body {
   padding: 16px;
 }
 
+/* 3D canvas clip: the r3f <canvas> must not overflow the phone viewport. */
+.scene-view {
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+  overflow: hidden;
+}
+
+.scene-view canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .viewport-placeholder {
   border: 2px dashed var(--accent-2);
   border-radius: var(--radius);
