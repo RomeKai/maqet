@@ -48,6 +48,17 @@ export class NoopAdapter implements XrHitTestAdapter {
 }
 
 /**
+ * Warm the three.js module cache (call when the AR screen mounts, alongside
+ * detection): the dynamic import inside start() then resolves fast instead
+ * of eating into Chrome's transient-activation window on a cold LAN load.
+ * Safe to call anywhere (tests, unsupported devices): a failed preload is
+ * swallowed, start() imports three lazily as before.
+ */
+export function preloadThree(): void {
+  void import("three").catch(() => undefined);
+}
+
+/**
  * Minimal structural view of a WebXR hit-test pose: the 3D tap point in
  * meters. A full XRPose also carries orientation; Mode A only needs the
  * floor position.
@@ -103,24 +114,31 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
     if (globalThis.isSecureContext === false) {
       throw new Error("WebXR needs a secure context (HTTPS).");
     }
-    // three.js stays out of the test bundle: only the phone path loads it.
-    const THREE = await import("three");
     const host =
       container ?? (typeof document !== "undefined" ? document.body : null);
     if (host === null) {
       throw new Error("WebXR needs a DOM container for the XR canvas.");
     }
+    // requestSession FIRST, synchronously in the gesture handler: NOTHING is
+    // awaited before it (not even the three.js import) so Chrome's transient
+    // activation (~5 s, shorter on a cold LAN load) is still alive.
+    // three.js should already be warm via preloadThree() at screen mount.
+    // The xr guard above narrowed nav.xr to a defined XRSystem.
+    const xr = nav.xr as XRSystem;
+    const sessionPromise = xr.requestSession("immersive-ar", {
+      requiredFeatures: ["hit-test"],
+      optionalFeatures: ["dom-overlay"],
+      domOverlay: { root: container ?? host },
+    });
+    // three.js stays out of the test bundle: only the phone path loads it.
+    const THREE = await import("three");
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.xr.enabled = true;
     renderer.xr.setReferenceSpaceType("local-floor");
     host.appendChild(renderer.domElement);
     this.renderer = renderer;
     try {
-      const session = await nav.xr.requestSession("immersive-ar", {
-        requiredFeatures: ["hit-test"],
-        optionalFeatures: ["dom-overlay"],
-        domOverlay: { root: container ?? host },
-      });
+      const session = await sessionPromise;
       await renderer.xr.setSession(session);
       const viewerSpace = await session.requestReferenceSpace("viewer");
       // The DOM lib types requestHitTestSource as optional: a device that

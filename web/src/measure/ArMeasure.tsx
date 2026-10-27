@@ -17,9 +17,55 @@ import {
 } from "./cornerMath";
 import {
   isARSupported,
+  preloadThree,
   WebXrHitTestAdapter,
   type XrHitTestAdapter,
+  type XrTapCallbacks,
 } from "./xrAdapter";
+
+/**
+ * Formats an adapter.start() rejection for the UI as "name: message" so the
+ * technician sees the REAL reason (e.g. NotAllowedError when Chrome got no
+ * user gesture). The "unsupported" copy is never used for this path:
+ * detection already passed when start() runs. Exported for tests.
+ */
+export function startErrorMessage(error: unknown): string {
+  if (error instanceof Error) return `${error.name}: ${error.message}`;
+  return String(error);
+}
+
+/**
+ * Starts an XR session from a user gesture. Thin wrapper so the click path
+ * is unit-testable: the component calls the returned handler synchronously
+ * inside onClick (no await before it) so Chrome counts requestSession as
+ * gesture-driven. Exported for tests.
+ */
+export interface ArStartOutcome {
+  onStarted: () => void;
+  onFailed: (message: string) => void;
+}
+
+export function createArStartHandler(
+  active: XrHitTestAdapter,
+  callbacks: XrTapCallbacks,
+  getContainer: () => HTMLElement | undefined,
+  outcome: ArStartOutcome,
+): () => void {
+  return () => {
+    let started: Promise<void>;
+    try {
+      started = active.start(callbacks, getContainer());
+    } catch (error: unknown) {
+      started = Promise.reject(error);
+    }
+    void started
+      .then(outcome.onStarted)
+      .catch((error: unknown) => {
+        active.end();
+        outcome.onFailed(startErrorMessage(error));
+      });
+  };
+}
 
 interface ArMeasureProps {
   locale: Locale;
@@ -39,9 +85,11 @@ interface ArMeasureProps {
 /**
  * Mode A AR measure (P0, ADR-025): tap two corners, preview the length,
  * confirm to emit a `setWallLength` op with `measured_ar` provenance.
- * Feature-detects WebXR on mount; unsupported devices get the fallback with
- * the B/C capture modes. Bottom-sheet style, tap targets >= 44px,
- * safe-area aware, preliminary label.
+ * Detection runs on mount and decides only whether to offer the Start AR
+ * button; the XR session starts from the button's user gesture (Chrome
+ * rejects requestSession without one). Unsupported devices get the B/C
+ * fallback. Bottom-sheet style, tap targets >= 44px, safe-area aware,
+ * preliminary label.
  */
 export function ArMeasure({
   locale,
@@ -62,9 +110,16 @@ export function ArMeasure({
     walls[0] ??
     null;
 
-  const [support, setSupport] = useState<"checking" | "ar" | "fallback">(
-    adapter ? "ar" : "checking",
-  );
+  // Detection decides ONLY whether the Start AR button is offered.
+  // The XR session starts from the button tap (a user gesture): Chrome
+  // rejects requestSession when called from a mount effect, so no start()
+  // call may happen before the button exists. "ar-ready" = supported but
+  // not started; "session" = started (measuring UI); "failed" = start()
+  // rejected, showing the real error; "unsupported" = detection said no.
+  const [support, setSupport] = useState<
+    "checking" | "ar-ready" | "session" | "failed" | "unsupported"
+  >(adapter ? "ar-ready" : "checking");
+  const [startError, setStartError] = useState<string | null>(null);
   const [corners, setCorners] = useState<Vec3[]>([]);
   const [previewM, setPreviewM] = useState<number | null>(null);
   const cornersRef = useRef<Vec3[]>([]);
@@ -73,8 +128,8 @@ export function ArMeasure({
   // behind the bottom sheet. Minimal positioning; stacking is refined later.
   const xrHostRef = useRef<HTMLDivElement | null>(null);
   // Production adapter owned by this component when no test fake is injected.
-  const prodAdapterRef = useRef<WebXrHitTestAdapter | null>(null);
-  // Adapter taps arrive through the mount-time subscription: keep a ref to
+  const prodAdapterRef = useRef<XrHitTestAdapter | null>(null);
+  // Adapter taps arrive through the start() subscription: keep a ref to
   // the latest scene so each tap emits its addWall onto current walls.
   const sceneRef = useRef<Scene>(scene);
   sceneRef.current = scene;
@@ -87,49 +142,51 @@ export function ArMeasure({
   const isEmptyStart = target === null;
   const traceRef = useRef<CornerTrace>(emptyCornerTrace());
 
+  // Detection on mount: decides only whether the Start AR button shows.
+  // Never starts a session here — no user gesture exists yet. Also warms
+  // the three.js module cache so requestSession-first start() doesn't pay
+  // a cold import inside the transient-activation window.
   useEffect(() => {
-    if (adapter) {
-      // Test seam: the fake drives corner taps without a device.
-      adapter.start({
-        onTapCorner: (corner) => appendCorner(corner, target?.id ?? null),
-        onEnd: () => undefined,
-      });
-      return () => adapter.end();
-    }
-    // Production path: detect WebXR, then start the real hit-test session.
-    // Corner taps arrive only from the device `select` event.
-    const active = new WebXrHitTestAdapter();
-    prodAdapterRef.current = active;
+    if (adapter) return;
+    preloadThree();
     let cancelled = false;
     isARSupported().then((ok) => {
       if (cancelled) return;
-      if (!ok) {
-        setSupport("fallback");
-        return;
-      }
-      active
-        .start(
-          {
-            onTapCorner: (corner) => appendCorner(corner, target?.id ?? null),
-            onEnd: () => undefined,
-          },
-          xrHostRef.current ?? undefined,
-        )
-        .then(() => {
-          if (!cancelled) setSupport("ar");
-        })
-        .catch(() => {
-          if (!cancelled) setSupport("fallback");
-        });
+      setSupport(ok ? "ar-ready" : "unsupported");
     });
     return () => {
       cancelled = true;
-      prodAdapterRef.current = null;
-      active.end();
     };
-    // Mount-only: adapter and target are construction-time inputs.
+    // Mount-only: adapter presence is a construction-time input.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function handleStart(): void {
+    // Runs SYNCHRONOUSLY inside the button onClick: no await (not even
+    // detection) before adapter.start() so the browser counts it as the
+    // user gesture that requestSession requires.
+    const callbacks: XrTapCallbacks = {
+      onTapCorner: (corner) => appendCorner(corner, target?.id ?? null),
+      onEnd: () => undefined,
+    };
+    const active = adapter ?? new WebXrHitTestAdapter();
+    if (adapter === undefined) prodAdapterRef.current = active;
+    const onStarted = (): void => setSupport("session");
+    const onFailed = (message: string): void => {
+      // Surface the REAL reason (e.g. NotAllowedError when the gesture
+      // chain is broken), never the "unsupported" copy: detection already
+      // passed, so this device supports AR and something else failed.
+      if (adapter === undefined) prodAdapterRef.current = null;
+      setStartError(message);
+      setSupport("failed");
+    };
+    createArStartHandler(
+      active,
+      callbacks,
+      () => xrHostRef.current ?? undefined,
+      { onStarted, onFailed },
+    )();
+  }
 
   function appendCorner(corner: Vec3, targetId: string | null): void {
     if (targetId === null && !isEmptyStart) return;
@@ -180,6 +237,19 @@ export function ArMeasure({
     (adapter ?? prodAdapterRef.current)?.end();
   }
 
+  // Unmount cleanup: end any running session (production adapter only; the
+  // injected fake belongs to the test, not to this component).
+  useEffect(() => {
+    return () => {
+      if (adapter === undefined) {
+        prodAdapterRef.current?.end();
+        prodAdapterRef.current = null;
+      }
+    };
+    // Mount-only: adapter is a construction-time input.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function handleConfirm(): void {
     if (previewM === null) return;
     if (isEmptyStart) {
@@ -212,7 +282,74 @@ export function ArMeasure({
     setPreviewM(null);
   }
 
-  if (support === "fallback") {
+  // Production path needs the XR canvas host mounted before the Start AR
+  // button is tappable: render it in every non-unsupported state so the
+  // ref is set by the time the gesture handler reads it.
+  const xrHost = support !== "unsupported" && (
+    <div ref={xrHostRef} className="ar-xr-host" aria-hidden="true" />
+  );
+
+  // Start screen: detection passed (or a fake adapter was injected), but no
+  // session is running yet. The Start AR tap IS the user gesture.
+  if (support === "checking" || support === "ar-ready") {
+    return (
+      <div className="ar-measure" role="dialog" aria-label={t["measure.ar.title"]}>
+        {xrHost}
+        <h2 className="intake-title">{t["measure.ar.title"]}</h2>
+        <p className="intake-hint">{t["measure.ar.hint"]}</p>
+        <div className="intake-scale-foot">
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={handleStart}
+            disabled={support === "checking"}
+          >
+            {t["intake.capture.ar"]}
+          </button>
+          <button type="button" className="chip" onClick={onCancel}>
+            {t["measure.ar.cancel"]}
+          </button>
+        </div>
+        <p className="preliminary">{t["notice.preliminary"]}</p>
+      </div>
+    );
+  }
+
+  // Start rejected: show the REAL error, plus the B/C fallback actions.
+  // The "unsupported" copy is reserved for isARSupported() === false.
+  if (support === "failed") {
+    return (
+      <div className="ar-measure" role="dialog" aria-label={t["measure.ar.title"]}>
+        {xrHost}
+        <h2 className="intake-title">{t["measure.ar.title"]}</h2>
+        <p className="intake-error" role="alert">
+          {startError ?? t["measure.ar.fallback"]}
+        </p>
+        <p className="intake-hint">{t["measure.ar.fallback"]}</p>
+        <div className="intake-scale-foot">
+          <button type="button" className="btn-primary" onClick={handleStart}>
+            {t["intake.capture.ar"]}
+          </button>
+          {onFallbackB && (
+            <button type="button" className="chip" onClick={onFallbackB}>
+              {t["intake.kind.plan"]}
+            </button>
+          )}
+          {onFallbackC && (
+            <button type="button" className="chip" onClick={onFallbackC}>
+              {t["intake.kind.sketch"]}
+            </button>
+          )}
+          <button type="button" className="chip" onClick={onCancel}>
+            {t["measure.ar.cancel"]}
+          </button>
+        </div>
+        <p className="preliminary">{t["notice.preliminary"]}</p>
+      </div>
+    );
+  }
+
+  if (support === "unsupported") {
     return (
       <div className="ar-measure" role="dialog" aria-label={t["measure.ar.unsupported"]}>
         <h2 className="intake-title">{t["measure.ar.unsupported"]}</h2>
@@ -242,9 +379,7 @@ export function ArMeasure({
 
   return (
     <div className="ar-measure" role="dialog" aria-label={t["measure.ar.title"]}>
-      {!adapter && (
-        <div ref={xrHostRef} className="ar-xr-host" aria-hidden="true" />
-      )}
+      {xrHost}
       <h2 className="intake-title">{t["measure.ar.title"]}</h2>
       <p className="intake-hint">{t["measure.ar.hint"]}</p>
       <p className="intake-hint">{stepLabel}</p>

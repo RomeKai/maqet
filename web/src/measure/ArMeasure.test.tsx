@@ -1,9 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderToString } from "react-dom/server";
-import { ArMeasure } from "./ArMeasure";
+import {
+  ArMeasure,
+  createArStartHandler,
+  startErrorMessage,
+} from "./ArMeasure";
 import { applySceneOp, createEmptyScene } from "../scene/store";
 import { pairCornersToWallUpdate, traceCornerTap, emptyCornerTrace } from "./cornerMath";
-import type { XrHitTestAdapter } from "./xrAdapter";
+import type { XrHitTestAdapter, XrTapCallbacks } from "./xrAdapter";
 import type { Scene } from "../scene/types";
 import type { SceneOp } from "../scene/store";
 import type { Vec3 } from "./cornerMath";
@@ -11,17 +15,25 @@ import type { Vec3 } from "./cornerMath";
 /** Captures the adapter callbacks so the test taps corners like a device. */
 function makeFakeAdapter() {
   let onTap: ((corner: Vec3) => void) | null = null;
+  let startCalls = 0;
   const adapter: XrHitTestAdapter = {
     start: async (callbacks) => {
+      startCalls += 1;
       onTap = callbacks.onTapCorner;
     },
     end: () => undefined,
   };
   return {
     adapter,
+    startCalls: () => startCalls,
     tap: (corner: Vec3) => onTap?.(corner),
   };
 }
+
+const noopCallbacks: XrTapCallbacks = {
+  onTapCorner: () => undefined,
+  onEnd: () => undefined,
+};
 
 const scene: Scene = {
   id: "intake",
@@ -41,8 +53,8 @@ function noopDone(_next: Scene): void {}
 function noopCancel(): void {}
 
 describe("ArMeasure", () => {
-  it("renders the AR title and first-tap prompt", () => {
-    const { adapter } = makeFakeAdapter();
+  it("shows the Start AR button on mount without starting the session", () => {
+    const { adapter, startCalls } = makeFakeAdapter();
     const html = renderToString(
       <ArMeasure
         locale="en"
@@ -54,7 +66,87 @@ describe("ArMeasure", () => {
       />,
     );
     expect(html).toContain("Measure with AR");
-    expect(html).toContain("Tap the first corner");
+    // The XR session must only start from the button tap (user gesture):
+    // renderToString runs no effects and fires no clicks, and nothing else
+    // in the module may call start() on mount.
+    expect(startCalls()).toBe(0);
+  });
+
+  it("the Start handler calls start synchronously (user-gesture safe)", () => {
+    let calls = 0;
+    const adapter: XrHitTestAdapter = {
+      start: (callbacks) => {
+        calls += 1;
+        callbacks.onTapCorner([0, 0, 0]);
+        return Promise.resolve();
+      },
+      end: () => undefined,
+    };
+    let started = false;
+    const onStarted = (): void => {
+      started = true;
+    };
+    const onFailed = (): void => {
+      throw new Error("must not fail");
+    };
+    const handleClick = createArStartHandler(adapter, noopCallbacks, () => undefined, {
+      onStarted,
+      onFailed,
+    });
+    handleClick();
+    // Synchronous: the gesture chain is intact the moment onClick returns.
+    expect(calls).toBe(1);
+    return Promise.resolve().then(() => {
+      expect(started).toBe(true);
+    });
+  });
+
+  it("a rejected start surfaces the real error, never the unsupported copy", async () => {
+    const rejection = Object.assign(new Error("user gesture required"), {
+      name: "NotAllowedError",
+    });
+    const adapter: XrHitTestAdapter = {
+      start: () => Promise.reject(rejection),
+      end: vi.fn(),
+    };
+    let failed: string | null = null;
+    const handleClick = createArStartHandler(adapter, noopCallbacks, () => undefined, {
+      onStarted: () => {
+        throw new Error("must not start");
+      },
+      onFailed: (message) => {
+        failed = message;
+      },
+    });
+    handleClick();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(failed).toBe("NotAllowedError: user gesture required");
+    expect(adapter.end).toHaveBeenCalledTimes(1);
+  });
+
+  it("startErrorMessage formats name: message and passes through unknowns", () => {
+    const err = Object.assign(new Error("boom"), { name: "SecurityError" });
+    expect(startErrorMessage(err)).toBe("SecurityError: boom");
+    expect(startErrorMessage("gone")).toBe("gone");
+  });
+
+  it("the measuring UI appears only after a started session", () => {
+    const { adapter } = makeFakeAdapter();
+    const html = renderToString(
+      <ArMeasure
+        locale="en"
+        scene={scene}
+        adapter={adapter}
+        onChange={noopChange}
+        onDone={noopDone}
+        onCancel={noopCancel}
+      />,
+    );
+    // Pre-start: the button flow shows the Start screen, not the
+    // corner-tap measuring UI.
+    expect(html).toContain("Measure (AR)");
+    expect(html).not.toContain("Tap the first corner");
   });
 
   it("3-4-5 corners through the real path emit measured_ar length 5m", () => {
@@ -91,6 +183,7 @@ describe("ArMeasure", () => {
       />,
     );
     expect(html).toContain("Medir con AR");
+    expect(html).toContain("Medir (AR)");
   });
 
   it("uses the injected fake adapter seam", async () => {
