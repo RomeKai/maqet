@@ -192,4 +192,28 @@ describe("CornerEditor proposal overlay (BUG1)", () => {
     expect(html).toContain('x1="0"');
     expect(html).toContain('y2="3"');
   });
+
+  it("renders proposal openings on their wall spans", () => {
+    const withOpenings: IntakeProposal = {
+      ...proposal,
+      openings: [{ wall_index: 0, t0: 0.2, t1: 0.5, kind: "door" }],
+    };
+    const html = renderToString(
+      <CornerEditor
+        locale="en"
+        scene={scene}
+        proposal={withOpenings}
+        imageUrl="photo.jpg"
+        imageWidth={800}
+        imageHeight={600}
+        onChange={noopScene}
+        onUndo={noopUndo}
+        canUndo={false}
+      />,
+    );
+    // Wall 0 spans photo x 200..600: door t0..t1 maps to x 280..400, y 150.
+    expect(html).toContain("proposal-opening-door");
+    expect(html).toContain('x1="280"');
+    expect(html).toContain('x2="400"');
+  });
 });

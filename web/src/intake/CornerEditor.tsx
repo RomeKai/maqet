@@ -250,6 +250,7 @@ export function CornerEditor({
 
   const proposalWalls = useMemo(() => proposal?.walls ?? [], [proposal]);
   const proposalDims = useMemo(() => proposal?.dimensions ?? [], [proposal]);
+  const proposalOpenings = useMemo(() => proposal?.openings ?? [], [proposal]);
 
   return (
     <div className="intake-editor">
@@ -318,6 +319,24 @@ export function CornerEditor({
               </text>
             </g>
           ))}
+          {proposalOpenings.map((o, i) => {
+            const wall = proposalWalls[o.wall_index];
+            if (wall === undefined) return null;
+            const ax = wall.a[0] * canvasW;
+            const ay = wall.a[1] * canvasH;
+            const bx = wall.b[0] * canvasW;
+            const by = wall.b[1] * canvasH;
+            return (
+              <line
+                key={`proposal-opening-${i}`}
+                x1={ax + (bx - ax) * o.t0}
+                y1={ay + (by - ay) * o.t0}
+                x2={ax + (bx - ax) * o.t1}
+                y2={ay + (by - ay) * o.t1}
+                className={o.kind === "door" ? "proposal-opening-door" : "proposal-opening-window"}
+              />
+            );
+          })}
           {walls.map((w) => {
             const a = toDisplay(w.a[0], w.a[1]);
             const b = toDisplay(w.b[0], w.b[1]);

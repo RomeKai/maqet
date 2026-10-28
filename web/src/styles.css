@@ -555,6 +555,24 @@ body {
   opacity: 0.85;
 }
 
+/* Read-model openings: same hues as confirmed openings, dashed so the
+   technician sees they are not in the Scene yet. */
+.intake-svg .proposal-opening-door {
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-linecap: butt;
+  stroke-dasharray: 6 3;
+  opacity: 0.85;
+}
+
+.intake-svg .proposal-opening-window {
+  stroke: var(--accent-2);
+  stroke-width: 3;
+  stroke-linecap: butt;
+  stroke-dasharray: 6 3;
+  opacity: 0.85;
+}
+
 .intake-svg .proposal-dim line {
   stroke: var(--accent-2);
   stroke-width: 1;
