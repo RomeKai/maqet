@@ -35,6 +35,10 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: App
   const [hasPhoto, setHasPhoto] = useState(false);
   const [intakeScene, setIntakeScene] = useState<Scene | null>(initialScene);
   const [selectedWallId, setSelectedWallId] = useState<string | null>(null);
+  // While the AR session runs the app hides its chrome (topbar, 3D, sheet)
+  // so opaque backgrounds never cover the camera; only the AR HUD (the
+  // domOverlay.root) stays visible. Restored on session end.
+  const [arSession, setArSession] = useState(false);
   const t = getStrings(locale);
 
   function handleIntakeScene(scene: Scene): void {
@@ -45,7 +49,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: App
   const otherLocale: Locale = locale === "es-AR" ? "en" : "es-AR";
 
   return (
-    <div className="app">
+    <div className={arSession ? "app ar-session" : "app"}>
       <header className="topbar">
         <button type="button" className="topbar-btn" aria-label={t["nav.back"]}>
           ←
@@ -80,6 +84,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: App
             initialScene={initialScene ?? undefined}
             onSceneChange={handleIntakeScene}
             onPhotoChange={setHasPhoto}
+            onArSessionChange={setArSession}
           />
         )}
         <div className="chips" role="tablist">

@@ -17,6 +17,8 @@ interface IntakeScreenProps {
   arSupported?: boolean;
   onSceneChange?: (scene: Scene) => void;
   onPhotoChange?: (hasPhoto: boolean) => void;
+  /** Fired when the AR session starts/ends (app hides/restores chrome). */
+  onArSessionChange?: (active: boolean) => void;
 }
 
 /**
@@ -26,7 +28,7 @@ interface IntakeScreenProps {
  * (ADR-025 mode C); the ScaleTool confirms each wall's measure.
  * Localized strings (demo default English), no prices, preliminary label.
  */
-export function IntakeScreen({ locale, initialScene, arSupported, onSceneChange, onPhotoChange }: IntakeScreenProps) {
+export function IntakeScreen({ locale, initialScene, arSupported, onSceneChange, onPhotoChange, onArSessionChange }: IntakeScreenProps) {
   const t = getStrings(locale);
   const [history] = useState(() => new SceneHistory(initialScene ?? createEmptyScene()));
   const [scene, setScene] = useState<Scene>(history.scene);
@@ -186,6 +188,7 @@ export function IntakeScreen({ locale, initialScene, arSupported, onSceneChange,
             setMeasuringAR(false);
           }}
           onCancel={() => setMeasuringAR(false)}
+          onSessionChange={onArSessionChange}
           onFallbackB={() => {
             setMeasuringAR(false);
             setScaling(false);

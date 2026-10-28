@@ -213,6 +213,78 @@ body {
   pointer-events: none;
 }
 
+/* Dedicated AR HUD: the ONLY app content inside domOverlay.root while the
+   XR session runs. Transparent root (camera shows through); taps pass
+   through everywhere except the bottom bar, so select events reach the
+   session while Undo / Done / Cancel stay tappable. */
+.ar-hud {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  background: transparent;
+  pointer-events: none;
+}
+
+.ar-hud-crosshair {
+  width: 44px;
+  height: 44px;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
+}
+
+.ar-hud-hint,
+.ar-hud-step {
+  margin: 0;
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  text-align: center;
+}
+
+.ar-hud-readout {
+  margin: 0;
+  color: #ffffff;
+  font-size: 28px;
+  font-weight: 700;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+}
+
+.ar-hud-bar {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding: 10px;
+  border-radius: var(--radius);
+  background: rgba(20, 22, 24, 0.72);
+  pointer-events: auto;
+}
+
+/* While the XR session runs the app hides its chrome (topbar, 3D, sheet)
+   so opaque backgrounds never cover the camera. visibility (not display)
+   keeps the HUD subtree mounted — it lives inside the sheet, and unmounting
+   it would kill the domOverlay.root mid-session. */
+.app.ar-session .topbar,
+.app.ar-session .viewport,
+.app.ar-session .sheet {
+  visibility: hidden;
+}
+
+.app.ar-session .ar-hud {
+  visibility: visible;
+}
+
 .ar-xr-host canvas {
   width: 100%;
   height: 100%;

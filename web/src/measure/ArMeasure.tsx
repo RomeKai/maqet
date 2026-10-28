@@ -115,9 +115,91 @@ interface ArMeasureProps {
   onChange: (scene: Scene, op: SceneOp) => void;
   onDone: (scene: Scene) => void;
   onCancel: () => void;
+  /** Fired when the XR session starts/ends so the app can hide/restore chrome. */
+  onSessionChange?: (active: boolean) => void;
   /** Fallback actions: B = room photo + tapped lengths, C = sketch measures. */
   onFallbackB?: () => void;
   onFallbackC?: () => void;
+}
+
+interface ArHudProps {
+  locale: Locale;
+  /** Ref to the HUD root: the dedicated domOverlay.root while live. */
+  hudRef: { current: HTMLDivElement | null };
+  /**
+   * Shell mode: renders the empty transparent element only. Every branch
+   * renders ArHud (shell or full) at the same tree position so React keeps
+   * the DOM node across the ar-ready -> starting -> session transitions —
+   * the overlay root is captured at start() time and a replaced node would
+   * leave the overlay empty. Content props are ignored in shell mode.
+   */
+  shell?: boolean;
+  /** Length preview, or null while tapping. */
+  previewM?: number | null;
+  /** Wall still needing a measure (its current length shows), or null. */
+  targetLengthM?: number | null;
+  /** Step prompt: tap-first / tap-second. */
+  stepLabel?: string;
+  canConfirm?: boolean;
+  onConfirm?: () => void;
+  onReset?: () => void;
+  onEnd?: () => void;
+  onCancel?: () => void;
+}
+
+/**
+ * Dedicated AR HUD: the ONLY app content rendered while the XR session runs,
+ * and the domOverlay.root passed to requestSession. Transparent full-screen
+ * root (the camera shows through), centered crosshair + readout, and a small
+ * bottom bar with its own semi-opaque background holding Undo / Done /
+ * Cancel (plus Confirm while a length is previewed — wall-target mode needs
+ * it to emit the setWallLength op). Shell mode renders the empty element so
+ * the overlay root exists (and keeps its DOM node) before the session
+ * starts. Exported for tests.
+ */
+function noopArHudAction(): void {}
+export function ArHud({
+  locale,
+  hudRef,
+  shell = false,
+  previewM = null,
+  targetLengthM = null,
+  stepLabel = "",
+  canConfirm = false,
+  onConfirm = noopArHudAction,
+  onReset = noopArHudAction,
+  onEnd = noopArHudAction,
+  onCancel = noopArHudAction,
+}: ArHudProps): React.JSX.Element {
+  const t = getStrings(locale);
+  if (shell) {
+    return <div ref={hudRef} className="ar-hud" aria-hidden="true" />;
+  }
+  const shownM = previewM ?? targetLengthM ?? 0;
+  return (
+    <div ref={hudRef} className="ar-hud" role="dialog" aria-label={t["measure.ar.title"]}>
+      <div className="ar-hud-crosshair" aria-hidden="true" />
+      <p className="ar-hud-hint">{t["measure.ar.hint"]}</p>
+      <p className="ar-hud-step">{stepLabel}</p>
+      <p className="ar-hud-readout">{formatMeasureM(locale, shownM)}</p>
+      <div className="ar-hud-bar">
+        {canConfirm && (
+          <button type="button" className="btn-primary" onClick={onConfirm}>
+            {t["measure.ar.confirm"]}
+          </button>
+        )}
+        <button type="button" className="chip" onClick={onReset}>
+          {t["intake.undo"]}
+        </button>
+        <button type="button" className="chip" onClick={onEnd}>
+          {t["measure.ar.done"]}
+        </button>
+        <button type="button" className="chip" onClick={onCancel}>
+          {t["measure.ar.cancel"]}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -137,6 +219,7 @@ export function ArMeasure({
   onChange,
   onDone,
   onCancel,
+  onSessionChange,
   onFallbackB,
   onFallbackC,
 }: ArMeasureProps) {
@@ -173,10 +256,14 @@ export function ArMeasure({
   // never swallows taps on the Start screen. Minimal positioning; stacking
   // is refined later.
   const xrHostRef = useRef<HTMLDivElement | null>(null);
-  // Controls container: mounted on every measuring screen, passed as
-  // domOverlay.root so End + the step trace stay visible and tappable
-  // over the camera feed (dom-overlay needs a live element at start()).
-  const controlsRef = useRef<HTMLDivElement | null>(null);
+  // HUD root: the dedicated domOverlay.root while a session runs (see the
+  // session branch below). Rendered as an empty transparent shell on the
+  // Start/starting/failed screens so the element exists when start() reads
+  // it in the gesture handler.
+  const hudRef = useRef<HTMLDivElement | null>(null);
+  // Latest onSessionChange (parent hides the sheet + 3D while active).
+  const onSessionChangeRef = useRef(onSessionChange);
+  onSessionChangeRef.current = onSessionChange;
   // Production adapter owned by this component when no test fake is injected.
   const prodAdapterRef = useRef<XrHitTestAdapter | null>(null);
   // Adapter taps arrive through the start() subscription: keep a ref to
@@ -215,21 +302,32 @@ export function ArMeasure({
     // Runs SYNCHRONOUSLY inside the button onClick: no await (not even
     // detection) before adapter.start() so the browser counts it as the
     // user gesture that requestSession requires.
+    const notify = onSessionChangeRef.current;
     const callbacks: XrTapCallbacks = {
       onTapCorner: (corner) => appendCorner(corner, target?.id ?? null),
-      onEnd: () => undefined,
+      // Device End (or adapter teardown): leave the session state, restore
+      // app chrome via the notify, back to the Start screen for re-tap.
+      onEnd: () => {
+        notify?.(false);
+        if (adapter === undefined) prodAdapterRef.current = null;
+        setSupport("ar-ready");
+      },
     };
     const active = adapter ?? new WebXrHitTestAdapter();
     if (adapter === undefined) prodAdapterRef.current = active;
     startStepRef.current = null;
     setStartStep(null);
     setSupport("starting");
-    const onStarted = (): void => setSupport("session");
+    const onStarted = (): void => {
+      notify?.(true);
+      setSupport("session");
+    };
     const onFailed = (message: string): void => {
       // Surface the REAL reason (e.g. NotAllowedError when the gesture
       // chain is broken) or the watchdog's stuck step — never the
       // "unsupported" copy: detection already passed, so this device
       // supports AR and something else failed.
+      notify?.(false);
       if (adapter === undefined) prodAdapterRef.current = null;
       setStartError(message);
       setSupport("failed");
@@ -245,10 +343,11 @@ export function ArMeasure({
     createArStartHandler(
       active,
       callbacks,
-      // Prefer the live controls element as domOverlay.root (visible +
-      // tappable over the camera); fall back to the XR host if mounted.
+      // The dedicated HUD root (transparent, camera shows through); it is
+      // mounted as an empty shell on the Start/starting screens so the
+      // element exists when start() reads it in the gesture handler.
       () =>
-        (controlsRef.current ?? xrHostRef.current ?? undefined) as
+        (hudRef.current ?? xrHostRef.current ?? undefined) as
           | HTMLElement
           | undefined,
       { onStarted, onFailed, onStep, stuckMessage },
@@ -301,17 +400,29 @@ export function ArMeasure({
   }
 
   function handleEnd(): void {
+    // State transition arrives via the adapter's onEnd (back to Start
+    // screen, chrome restored); notify here too in case an adapter ends
+    // without firing the event.
+    onSessionChangeRef.current?.(false);
     (adapter ?? prodAdapterRef.current)?.end();
   }
 
+  function handleSessionCancel(): void {
+    onSessionChangeRef.current?.(false);
+    (adapter ?? prodAdapterRef.current)?.end();
+    onCancel();
+  }
+
   // Unmount cleanup: end any running session (production adapter only; the
-  // injected fake belongs to the test, not to this component).
+  // injected fake belongs to the test, not to this component) and restore
+  // app chrome in case the parent unmounts us mid-session.
   useEffect(() => {
     return () => {
       if (adapter === undefined) {
         prodAdapterRef.current?.end();
         prodAdapterRef.current = null;
       }
+      onSessionChangeRef.current?.(false);
     };
     // Mount-only: adapter is a construction-time input.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -352,11 +463,16 @@ export function ArMeasure({
   // Production path: the XR host renders ONLY while a session is active.
   // An always-mounted fixed full-screen host would swallow every tap on the
   // Start screen (the button would look fine but requestSession never fires).
-  // domOverlay.root is the visible controls container, not this empty host,
-  // so End + the step trace stay tappable over the camera feed.
   const xrHost = support === "session" && (
     <div ref={xrHostRef} className="ar-xr-host" aria-hidden="true" />
   );
+
+  // HUD: the same ArHud element in shell mode on the Start/starting/
+  // failed screens and full mode in the session, at the same tree position
+  // in every branch ({xrHost}{hud}{sheet}). Same component + position =
+  // same DOM node across the ar-ready -> starting -> session transitions,
+  // which the captured domOverlay.root depends on.
+  const hudShell = <ArHud locale={locale} hudRef={hudRef} shell />;
 
   // Start screen: detection passed (or a fake adapter was injected), but no
   // session is running yet. The Start AR tap IS the user gesture.
@@ -367,8 +483,10 @@ export function ArMeasure({
   ) {
     const starting = support === "starting";
     return (
-      <div className="ar-measure" role="dialog" aria-label={t["measure.ar.title"]}>
+      <>
         {xrHost}
+        {hudShell}
+        <div className="ar-measure" role="dialog" aria-label={t["measure.ar.title"]}>
         <h2 className="intake-title">{t["measure.ar.title"]}</h2>
         <p className="intake-hint">{t["measure.ar.hint"]}</p>
         <div className="intake-scale-foot">
@@ -390,7 +508,8 @@ export function ArMeasure({
           </p>
         )}
         <p className="preliminary">{t["notice.preliminary"]}</p>
-      </div>
+        </div>
+      </>
     );
   }
 
@@ -398,8 +517,10 @@ export function ArMeasure({
   // The "unsupported" copy is reserved for isARSupported() === false.
   if (support === "failed") {
     return (
-      <div className="ar-measure" role="dialog" aria-label={t["measure.ar.title"]}>
+      <>
         {xrHost}
+        {hudShell}
+        <div className="ar-measure" role="dialog" aria-label={t["measure.ar.title"]}>
         <h2 className="intake-title">{t["measure.ar.title"]}</h2>
         <p className="intake-error" role="alert">
           {startError ?? t["measure.ar.fallback"]}
@@ -424,7 +545,8 @@ export function ArMeasure({
           </button>
         </div>
         <p className="preliminary">{t["notice.preliminary"]}</p>
-      </div>
+        </div>
+      </>
     );
   }
 
@@ -456,52 +578,27 @@ export function ArMeasure({
   const stepLabel =
     corners.length === 0 ? t["measure.ar.tapFirst"] : t["measure.ar.tapSecond"];
 
+  // Live session: ONLY the HUD renders (transparent root = domOverlay.root,
+  // camera shows through). No sheet copy, no confirm footers, nothing else
+  // from the app — opaque bottom-sheet backgrounds would cover the camera.
+  // Same child order as the other branches so the HUD div keeps the DOM
+  // node captured at start(). The parent hides the sheet + 3D via
+  // onSessionChange and restores them on end.
   return (
-    <div
-      ref={controlsRef}
-      className="ar-measure"
-      role="dialog"
-      aria-label={t["measure.ar.title"]}
-    >
+    <>
       {xrHost}
-      <h2 className="intake-title">{t["measure.ar.title"]}</h2>
-      <p className="intake-hint">{t["measure.ar.hint"]}</p>
-      <p className="intake-hint">{stepLabel}</p>
-
-      <span className="wall-row-measure">
-        {previewM !== null
-          ? formatMeasureM(locale, previewM)
-          : target !== null
-            ? formatMeasureM(locale, wallDisplayLengthM(target))
-            : formatMeasureM(locale, 0)}
-      </span>
-      {previewM === null && (
-        <span className="wall-row-flag wall-row-flag-estimated">
-          {t["intake.scale.estimated"]}
-        </span>
-      )}
-
-      <div className="intake-scale-foot">
-        <button type="button" className="chip" onClick={handleEnd}>
-          {t["measure.ar.done"]}
-        </button>
-        <button type="button" className="chip" onClick={onCancel}>
-          {t["measure.ar.cancel"]}
-        </button>
-      </div>
-
-      {previewM !== null && (
-        <div className="intake-scale-foot">
-          <button type="button" className="btn-primary" onClick={handleConfirm}>
-            {t["measure.ar.confirm"]}
-          </button>
-          <button type="button" className="chip" onClick={handleReset}>
-            {t["intake.undo"]}
-          </button>
-        </div>
-      )}
-
-      <p className="preliminary">{t["notice.preliminary"]}</p>
-    </div>
+      <ArHud
+        locale={locale}
+        hudRef={hudRef}
+        previewM={previewM}
+        targetLengthM={target !== null ? wallDisplayLengthM(target) : null}
+        stepLabel={stepLabel}
+        canConfirm={previewM !== null}
+        onConfirm={handleConfirm}
+        onReset={handleReset}
+        onEnd={handleEnd}
+        onCancel={handleSessionCancel}
+      />
+    </>
   );
 }

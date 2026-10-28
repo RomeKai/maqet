@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderToString } from "react-dom/server";
 import {
+  ArHud,
   ArMeasure,
   createArStartHandler,
   startErrorMessage,
@@ -154,6 +155,26 @@ describe("ArMeasure", () => {
     );
     expect(html).toContain("Measure (AR)");
     expect(html).not.toContain("ar-xr-host");
+  });
+
+  it("pre-start renders an empty HUD shell, no HUD content", () => {
+    // The domOverlay.root must exist when start() reads it, but it must be
+    // empty until the session runs: no bar, no readout, no crosshair.
+    const { adapter } = makeFakeAdapter();
+    const html = renderToString(
+      <ArMeasure
+        locale="en"
+        scene={scene}
+        adapter={adapter}
+        onChange={noopChange}
+        onDone={noopDone}
+        onCancel={noopCancel}
+      />,
+    );
+    expect(html).toContain('class="ar-hud"');
+    expect(html).not.toContain("ar-hud-bar");
+    expect(html).not.toContain("ar-hud-readout");
+    expect(html).not.toContain("ar-hud-crosshair");
   });
 
   it("the measuring UI appears only after a started session", () => {
@@ -416,5 +437,63 @@ describe("AR start step trace + watchdog", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("ArHud (live session overlay)", () => {
+  function hudHtml(over: Partial<React.ComponentProps<typeof ArHud>> = {}): string {
+    return renderToString(
+      <ArHud
+        locale="en"
+        hudRef={{ current: null }}
+        previewM={null}
+        targetLengthM={2}
+        stepLabel="Tap the first corner"
+        canConfirm={false}
+        {...over}
+      />,
+    );
+  }
+
+  it("during a session only the HUD renders, nothing else from the app", () => {
+    const html = hudHtml();
+    // HUD content: crosshair, hint, step, readout, bar with Undo/Done/Cancel.
+    expect(html).toContain("ar-hud-crosshair");
+    expect(html).toContain("ar-hud-readout");
+    expect(html).toContain("ar-hud-bar");
+    // Nothing else from the app may render inside the overlay root: no
+    // sheet copy, no measuring titles, no wall rows, no viewport chrome.
+    expect(html).not.toContain("intake-title");
+    expect(html).not.toContain("intake-hint");
+    expect(html).not.toContain("wall-row");
+    expect(html).not.toContain("ar-measure");
+    expect(html).not.toContain("sheet");
+    expect(html).not.toContain("viewport");
+    expect(html).not.toContain("topbar");
+  });
+
+  it("shows Confirm only while a length is previewed", () => {
+    expect(hudHtml({ canConfirm: false, previewM: null })).not.toContain(
+      "Use this measure",
+    );
+    expect(hudHtml({ canConfirm: true, previewM: 3.5 })).toContain(
+      "Use this measure",
+    );
+  });
+
+  it("renders the readout from the preview, falling back to the target", () => {
+    // Preview wins; target shows while tapping; zero with neither.
+    expect(hudHtml({ previewM: 3.5, targetLengthM: 2 })).toContain("3.50");
+    expect(hudHtml({ previewM: null, targetLengthM: 2 })).toContain("2.00");
+    expect(hudHtml({ previewM: null, targetLengthM: null })).toContain("0.00");
+  });
+
+  it("shell mode renders the empty root, keeping the node for the session", () => {
+    const html = renderToString(
+      <ArHud locale="en" hudRef={{ current: null }} shell />,
+    );
+    expect(html).toContain('class="ar-hud"');
+    expect(html).not.toContain("ar-hud-bar");
+    expect(html).not.toContain("ar-hud-crosshair");
   });
 });
