@@ -1,0 +1,152 @@
+/* Agent chat bottom sheet. Tokens come from styles.css (warm technical palette). */
+.agent-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 60dvh;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  border-radius: 18px 18px 0 0;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.agent-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.agent-empty,
+.agent-caption {
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.agent-caption {
+  margin: 0;
+}
+
+.agent-message {
+  max-width: 88%;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: #f1efeb;
+}
+
+.agent-message[data-role="user"] {
+  align-self: flex-end;
+  background: var(--accent-2);
+  color: #fff;
+}
+
+.agent-text {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.agent-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--muted);
+}
+
+.agent-chip-ok {
+  border-color: var(--accent-2);
+}
+
+.agent-chip-warn {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.agent-chip-pro {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.agent-pending {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.agent-composer {
+  display: flex;
+  gap: 8px;
+}
+
+.agent-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--muted);
+  border-radius: 12px;
+  font: inherit;
+  font-size: 1rem; /* 16px: stops iOS zooming on focus */
+  color: var(--ink);
+}
+
+.agent-send,
+.agent-ptt-button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  touch-action: manipulation;
+}
+
+.agent-send:disabled,
+.agent-ptt-button:disabled {
+  opacity: 0.5;
+}
+
+.agent-ptt {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.agent-ptt-button {
+  width: 100%;
+  background: var(--accent-2);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none; /* keep the hold from scrolling or selecting */
+}
+
+.agent-ptt[data-ptt-state="recording"] .agent-ptt-button {
+  background: var(--accent);
+}
+
+.agent-ptt-message {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
