@@ -295,37 +295,24 @@ body {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
-/* DOM surface indicator: the 3D reticle ring may be invisible on the phone
-   (compositor, material, dom-overlay covering it), so the HUD carries a
-   text line driven by hit-test presence. Amber = still searching, teal =
-   surface found. Text over the camera feed: white with a dark shadow. */
-.ar-hud-surface {
+/* Step 6: one top pill (status + step + live length). No separate
+   surface/hint/step/readout lines stacking over the camera feed — lengths
+   live in the pill and the SVG edge/band labels. */
+.ar-hud-pill {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 12px;
+  right: 12px;
   margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: rgba(20, 22, 24, 0.72);
   color: #ffffff;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   text-align: center;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-}
-
-.ar-hud-surface-found {
-  color: #7fd4c1;
-}
-
-.ar-hud-hint,
-.ar-hud-step {
-  margin: 0;
-  color: #ffffff;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-  text-align: center;
-}
-
-.ar-hud-readout {
-  margin: 0;
-  color: #ffffff;
-  font-size: 28px;
-  font-weight: 700;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
 }
 
 .ar-hud-bar {
@@ -342,22 +329,14 @@ body {
   pointer-events: auto;
 }
 
-/* Guided AR HUD mode selector (Wall / Door / Window) + wall picker chips.
-   Reuses .chip/.chip-active; the containers re-enable taps (root passes
-   them through) and wrap so small phones still fit three 44px targets. */
-.ar-hud-modes {
-  display: flex;
-  gap: 8px;
-  pointer-events: auto;
-}
-
-.ar-hud-walls {
-  display: flex;
+/* Guided AR HUD mode selector (Wall / Height / Door / Window), living in
+   the bottom bar (thumb zone), not mid-screen. Reuses .chip/.chip-active;
+   wraps so small phones still fit four 44px targets. */
+.ar-hud-bar-modes {
+  display: inline-flex;
   flex-wrap: wrap;
-  justify-content: center;
   gap: 8px;
-  max-width: 100%;
-  pointer-events: auto;
+  justify-content: center;
 }
 
 /* While the XR session runs the app hides its chrome (topbar, 3D, sheet)

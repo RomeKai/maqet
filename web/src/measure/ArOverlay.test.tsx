@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { computeOverlayLayout } from "./ArOverlay";
+import { renderToString } from "react-dom/server";
+import { ArOverlay, computeOverlayLayout } from "./ArOverlay";
 import type { OverlayFrame } from "./xrAdapter";
 import type { Vec3 } from "./cornerMath";
 
@@ -94,7 +95,36 @@ describe("computeOverlayLayout", () => {
     expect(far.closeLoop).toBe(false);
   });
 
-  it("links consecutive visible corners with edges, skipping hidden ones", () => {
+  it("labels every visible edge with its floor-plane length", () => {
+    // 3-4-5 on the floor plane: label is plan geometry, never screen pixels.
+    const layout = computeOverlayLayout(
+      frame([3, 0, -6]),
+      [
+        [0, 0, -2],
+        [3, 0, -6],
+      ],
+      "en",
+    );
+    expect(layout.edges).toHaveLength(1);
+    expect(layout.edges[0]?.lengthM).toBeCloseTo(5, 9);
+    expect(layout.edges[0]?.label).toBe("5.00 m");
+  });
+
+  it("formats edge labels in es-AR", () => {
+    const layout = computeOverlayLayout(
+      frame([3, 0, -6]),
+      [
+        [0, 0, -2],
+        [3, 0, -6],
+      ],
+      "es-AR",
+    );
+    expect(layout.edges[0]?.label).toBe("5,00 m");
+  });
+
+  it("keeps edges positional: a hidden pair yields null, never a shift", () => {
+    // Pair 2 hides behind the camera: the slot stays null so the rAF loop
+    // hides that line instead of misassigning later edges positionally.
     const layout = computeOverlayLayout(
       frame([1, 0, -2]),
       [
@@ -105,11 +135,23 @@ describe("computeOverlayLayout", () => {
       "en",
     );
     expect(layout.corners.map((c) => c.visible)).toEqual([true, true, false]);
-    // Only the fully-visible pair gets an edge.
-    expect(layout.edges).toHaveLength(1);
-    expect(layout.edges[0]?.x1).toBeCloseTo(500, 9);
-    expect(layout.edges[0]?.y1).toBeCloseTo(500, 9);
-    expect(layout.edges[0]?.x2).toBeCloseTo(750, 9);
-    expect(layout.edges[0]?.y2).toBeCloseTo(500, 9);
+    expect(layout.edges).toHaveLength(2);
+    expect(layout.edges[0]?.label).toBe("1.00 m");
+    expect(layout.edges[1]).toBeNull();
+  });
+
+  it("renders one edge-label text per corner pair for the rAF loop", () => {
+    const html = renderToString(
+      <ArOverlay
+        frameRef={{ current: null }}
+        corners={[
+          [0, 0, -2],
+          [1, 0, -2],
+          [0, 0, 2],
+        ]}
+        locale="en"
+      />,
+    );
+    expect(html.match(/ar-overlay-edge-label/g)).toHaveLength(2);
   });
 });

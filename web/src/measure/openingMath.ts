@@ -6,7 +6,9 @@ import { isValidCorner, type Vec3 } from "./cornerMath";
  *
  * Taps arrive as 3D corners (Vec3 = [x, y, z] in meters) but wall geometry is
  * floor-plane: plan = [x, -z], the same convention as pairCornersToNewWall in
- * cornerMath.ts. Tap height never leaks into the opening.
+ * cornerMath.ts. Offset + width are plan-only (tap height never leaks into
+ * them); height + sill come from y taps against the floor datum (see
+ * openingHeightFromTopTap): three taps per opening, no typed numbers.
  */
 
 /**
@@ -174,6 +176,51 @@ export function nextOpeningId(openings: Opening[]): string {
 }
 
 /**
+ * Opening height from the third (top) tap: top tap y minus the session floor
+ * reference. Returns null when the height is not positive or not finite —
+ * the caller keeps waiting for a valid third tap instead of emitting a
+ * flat or NaN opening. Exported for tests.
+ */
+export function openingHeightFromTopTap(
+  floorY: number,
+  topY: number,
+): number | null {
+  if (!Number.isFinite(floorY) || !Number.isFinite(topY)) return null;
+  const height = topY - floorY;
+  if (!Number.isFinite(height) || !(height > 0)) return null;
+  return height;
+}
+
+/**
+ * Opening sill from the FIRST edge tap: edge y minus the session floor
+ * reference (the same reference the height uses, so sill + height share the
+ * datum). Doors always run to the floor — sill is null regardless of tap y.
+ * Windows clamp dips to zero: hit-test y noise can land at/below the floor
+ * plane, and a 0 sill (full-height base) keeps a valid opening instead of
+ * vetoing it; a non-finite floor or edge height is treated the same way.
+ * Exported for tests.
+ */
+export function openingSillFromEdgeTap(
+  floorY: number,
+  edgeY: number,
+  kind: "door" | "window",
+): number | null {
+  if (kind === "door") return null;
+  if (!Number.isFinite(floorY) || !Number.isFinite(edgeY)) return 0;
+  return Math.max(0, edgeY - floorY);
+}
+
+/**
+ * Explicit opening dimensions from the 3-tap flow (replaces the fixed
+ * openingDefaults at emit time). Doors run to the floor (sill null); windows
+ * use the first edge tap's sill. Exported for tests.
+ */
+export interface OpeningDims {
+  height_m: number;
+  sill_m: number | null;
+}
+
+/**
  * Opening placement failure reasons, so the HUD can say WHY the taps were
  * dropped instead of silently keeping the first edge. "no-walls" comes from
  * the caller-side snap (no traced wall to place on); the rest come from
@@ -189,9 +236,11 @@ export type OpeningFailure =
 /**
  * Build a markOpening payload for two edge taps on a measured wall: project
  * onto the wall, clamp the far end to the wall length, reject narrow doors
- * (server MIN_DOOR_WIDTH_M backstop). Returns the opening, or the failure
- * reason when the taps cannot map — never null, so the caller can surface
- * the HUD error copy for that reason.
+ * (server MIN_DOOR_WIDTH_M backstop). Explicit dims come from the 3-tap flow
+ * (top tap + first edge): measured height/sill, never guessed. Without them
+ * the fixed openingDefaults apply — the Done-with-2-taps fallback only.
+ * Returns the opening, or the failure reason when the taps cannot map —
+ * never null, so the caller can surface the HUD error copy for that reason.
  */
 export function buildOpening(
   walls: Wall[],
@@ -200,6 +249,7 @@ export function buildOpening(
   wallId: string,
   edge1: Vec3,
   edge2: Vec3,
+  dims?: OpeningDims,
 ): { opening: Opening } | { failure: OpeningFailure } {
   const wall = walls.find((w) => w.id === wallId);
   if (wall === undefined) return { failure: "unknown-wall" };
@@ -212,6 +262,14 @@ export function buildOpening(
     return { failure: "door-narrow" };
   }
   const defaults = openingDefaults(kind);
+  const height_m = dims?.height_m ?? defaults.height_m;
+  const sill_m = dims === undefined ? defaults.sill_m : (dims.sill_m ?? null);
+  if (!Number.isFinite(height_m) || !(height_m > 0)) {
+    return { failure: "degenerate" };
+  }
+  if (sill_m !== null && (!Number.isFinite(sill_m) || sill_m < 0)) {
+    return { failure: "degenerate" };
+  }
   return {
     opening: {
       id,
@@ -219,8 +277,8 @@ export function buildOpening(
       kind,
       offset_m: clamped.offset_m,
       width_m: clamped.width_m,
-      height_m: defaults.height_m,
-      sill_m: defaults.sill_m,
+      height_m,
+      sill_m,
     },
   };
 }

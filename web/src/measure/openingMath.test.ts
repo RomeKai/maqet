@@ -9,6 +9,8 @@ import {
   nearestWallToTap,
   nextOpeningId,
   openingDefaults,
+  openingHeightFromTopTap,
+  openingSillFromEdgeTap,
   projectEdgesToOpening,
 } from "./openingMath";
 import type { Opening, Wall } from "../scene/types";
@@ -251,5 +253,103 @@ describe("openingDefaults", () => {
     expect(AR_WINDOW_HEIGHT_M).toBe(1.2);
     // Head at 2.10 stays under the 2.60 ceiling default.
     expect(AR_WINDOW_SILL_M + AR_WINDOW_HEIGHT_M).toBeLessThan(2.6);
+  });
+});
+
+describe("openingHeightFromTopTap", () => {
+  it("height is the top tap minus the floor reference", () => {
+    expect(openingHeightFromTopTap(0.05, 2.15)).toBeCloseTo(2.1, 9);
+  });
+
+  it("returns null when the top tap never clears the floor plane", () => {
+    expect(openingHeightFromTopTap(0, 0)).toBeNull();
+    expect(openingHeightFromTopTap(0.1, -0.2)).toBeNull();
+  });
+
+  it("returns null for non-finite input", () => {
+    expect(openingHeightFromTopTap(NaN, 2)).toBeNull();
+    expect(openingHeightFromTopTap(0, Infinity)).toBeNull();
+  });
+});
+
+describe("openingSillFromEdgeTap", () => {
+  it("windows: sill is the first edge tap minus the floor reference", () => {
+    expect(openingSillFromEdgeTap(0.05, 0.95, "window")).toBeCloseTo(0.9, 9);
+  });
+
+  it("doors always run to the floor: sill is null", () => {
+    expect(openingSillFromEdgeTap(0, 0.9, "door")).toBeNull();
+    expect(openingSillFromEdgeTap(0, -0.5, "door")).toBeNull();
+  });
+
+  it("clamps taps at/below the floor plane to a zero sill, never negative", () => {
+    // Hit-test y noise can dip below the floor plane: a 0 sill (full-height
+    // base) keeps a valid opening instead of vetoing it.
+    expect(openingSillFromEdgeTap(0.1, 0.1, "window")).toBe(0);
+    expect(openingSillFromEdgeTap(0.1, -0.4, "window")).toBe(0);
+  });
+
+  it("treats a non-finite edge height as a zero sill", () => {
+    expect(openingSillFromEdgeTap(0, NaN, "window")).toBe(0);
+    expect(openingSillFromEdgeTap(NaN, 0.9, "window")).toBe(0);
+  });
+});
+
+describe("buildOpening with explicit dims", () => {
+  const target: Wall = { ...wall([0, 0], [4, 0]), id: "wall-1" };
+
+  it("uses the explicit height/sill instead of the defaults", () => {
+    const result = buildOpening(
+      [target],
+      "opening-1",
+      "window",
+      "wall-1",
+      [1, 0.9, 0],
+      [3, 0.9, 0],
+      { height_m: 2.1, sill_m: 0.9 },
+    );
+    expect(result).toEqual({
+      opening: {
+        id: "opening-1",
+        wall_id: "wall-1",
+        kind: "window",
+        offset_m: 1,
+        width_m: 2,
+        height_m: 2.1,
+        sill_m: 0.9,
+      },
+    });
+  });
+
+  it("still falls back to defaults when no dims are given", () => {
+    const result = buildOpening([target], "opening-1", "door", "wall-1", [1, 0, 0], [3, 0, 0]);
+    if ("opening" in result) {
+      expect(result.opening.height_m).toBe(AR_DOOR_HEIGHT_M);
+      expect(result.opening.sill_m).toBeNull();
+    } else {
+      throw new Error("expected an opening");
+    }
+  });
+
+  it("reports degenerate for a non-positive explicit height", () => {
+    for (const height_m of [0, -1.5, NaN, Infinity]) {
+      expect(
+        buildOpening([target], "opening-1", "window", "wall-1", [1, 0, 0], [3, 0, 0], {
+          height_m,
+          sill_m: 0.9,
+        }),
+      ).toEqual({ failure: "degenerate" });
+    }
+  });
+
+  it("reports degenerate for a negative or non-finite explicit sill", () => {
+    for (const sill_m of [-0.1, NaN, Infinity]) {
+      expect(
+        buildOpening([target], "opening-1", "window", "wall-1", [1, 0, 0], [3, 0, 0], {
+          height_m: 1.2,
+          sill_m,
+        }),
+      ).toEqual({ failure: "degenerate" });
+    }
   });
 });

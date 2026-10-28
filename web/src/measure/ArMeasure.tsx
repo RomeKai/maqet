@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Scene, Wall } from "../scene/types";
+import type { Scene } from "../scene/types";
 import {
   allWallsMeasured,
   applySceneOp,
@@ -21,6 +21,9 @@ import {
   buildOpening,
   nearestWallToTap,
   nextOpeningId,
+  openingHeightFromTopTap,
+  openingSillFromEdgeTap,
+  type OpeningDims,
   type OpeningFailure,
 } from "./openingMath";
 import {
@@ -116,13 +119,13 @@ export function openingFailureKey(failure: OpeningFailure | null): StringKey {
   }
 }
 
-/** Input for resolveOpeningTap: two edge taps + an optional picked wall. */
+/** Input for resolveOpeningTap: two edge taps snapped to the nearest wall. */
 export interface OpeningTapInput {
   scene: Scene;
   kind: "door" | "window";
-  /** Explicit pick (picker chip), or null to snap to the nearest traced wall. */
-  wallId: string | null;
   edges: [Vec3, Vec3];
+  /** Measured dims from the 3-tap flow; without them the Done fallback defaults apply. */
+  dims?: OpeningDims;
 }
 
 /** Either a markOpening op, or the failure reason to surface in the HUD. */
@@ -133,10 +136,12 @@ export interface OpeningTapResult {
 
 /**
  * Route two AR edge taps through the single openingMath implementation
- * (snap -> buildOpening -> stable id). No manual pick: the first edge tap
- * snaps to the nearest traced wall, so door/window taps land without a W<n>
- * chip. Returns the markOpening op, or the failure reason for the HUD step
- * line. Exported for tests.
+ * (snap -> buildOpening -> stable id). ALWAYS snaps: the first edge tap goes
+ * to the nearest traced wall, so door/window taps land without a W<n> chip.
+ * If the taps land on the wrong wall, the tech re-taps closer to the right
+ * wall — that is the documented behavior, not a picker override. Returns the
+ * markOpening op, or the failure reason for the HUD step line. Exported for
+ * tests.
  */
 export function resolveOpeningTap(input: OpeningTapInput): OpeningTapResult {
   const walls = input.scene.walls ?? [];
@@ -145,8 +150,7 @@ export function resolveOpeningTap(input: OpeningTapInput): OpeningTapResult {
   if (!isValidCorner(input.edges[0]) || !isValidCorner(input.edges[1])) {
     return { op: null, failure: "degenerate" };
   }
-  const wallId =
-    input.wallId ?? nearestWallToTap(walls, input.edges[0])?.id ?? null;
+  const wallId = nearestWallToTap(walls, input.edges[0])?.id ?? null;
   if (wallId === null) {
     return {
       op: null,
@@ -161,6 +165,7 @@ export function resolveOpeningTap(input: OpeningTapInput): OpeningTapResult {
     wallId,
     input.edges[0],
     input.edges[1],
+    input.dims,
   );
   if ("failure" in result) return { op: null, failure: result.failure };
   return { op: { type: "markOpening", opening: result.opening }, failure: null };
@@ -265,11 +270,6 @@ interface ArHudProps {
   /** Active tracing mode + setter for the Wall / Door / Window selector. */
   traceMode?: ArHudMode;
   onTraceModeChange?: (mode: ArHudMode) => void;
-  /** Walls available as opening targets (door/window mode wall picker). */
-  pickerWalls?: Wall[];
-  /** Selected opening target wall id, or null until the tech picks one. */
-  pickerWallId?: string | null;
-  onPickerWallChange?: (wallId: string) => void;
   onConfirm?: () => void;
   onReset?: () => void;
   onEnd?: () => void;
@@ -279,17 +279,17 @@ interface ArHudProps {
 /**
  * Dedicated AR HUD: the ONLY app content rendered while the XR session runs,
  * and the domOverlay.root passed to requestSession. Transparent full-screen
- * root (the camera shows through), centered crosshair + readout, mode
- * selector (Wall / Door / Window), an optional wall picker for openings, and
- * a small bottom bar with its own semi-opaque background holding Undo / Done /
- * Cancel (plus Confirm while a length is previewed — wall-target mode needs
- * it to emit the setWallLength op). Shell mode renders the empty element so
+ * root (the camera shows through), one top pill (status + step + live
+ * length), the SVG overlay (ArOverlay: reticle, corners, edges, band), and a
+ * small bottom bar with its own semi-opaque background holding the mode
+ * selector (Wall / Height / Door / Window) plus Undo / Done / Cancel (and
+ * Confirm while a length is previewed — wall-target mode needs it to emit
+ * the setWallLength op). Shell mode renders the empty element so
  * the overlay root exists (and keeps its DOM node) before the session
  * starts. Exported for tests.
  */
 function noopArHudAction(): void {}
 function noopArHudModeChange(_mode: ArHudMode): void {}
-function noopArHudWallChange(_wallId: string): void {}
 const HUD_MODES: ArHudMode[] = ["wall", "height", "door", "window"];
 function hudModeKey(mode: ArHudMode): `measure.ar.mode.${ArHudMode}` {
   return `measure.ar.mode.${mode}`;
@@ -308,9 +308,6 @@ export function ArHud({
   canConfirm = false,
   traceMode = "wall",
   onTraceModeChange = noopArHudModeChange,
-  pickerWalls = [],
-  pickerWallId = null,
-  onPickerWallChange = noopArHudWallChange,
   onConfirm = noopArHudAction,
   onReset = noopArHudAction,
   onEnd = noopArHudAction,
@@ -321,6 +318,14 @@ export function ArHud({
     return <div ref={hudRef} className="ar-hud" aria-hidden="true" />;
   }
   const shownM = previewM ?? targetLengthM ?? 0;
+  // One pill, one status (Step 6): while the floor is still missing the pill
+  // shows the searching copy alongside the step + live length; once found it
+  // shows the step + length. No separate surface/hint/step/readout lines
+  // stacking over the camera feed — lengths live in the pill and the SVG
+  // edge/band labels.
+  const pill = surfaceFound
+    ? `${stepLabel} · ${formatMeasureM(locale, shownM)}`
+    : `${t["measure.ar.surface.searching"]} · ${stepLabel} · ${formatMeasureM(locale, shownM)}`;
   return (
     <div ref={hudRef} className="ar-hud" role="dialog" aria-label={t["measure.ar.title"]}>
       {overlayFrameRef !== undefined && overlayCorners !== undefined && (
@@ -332,54 +337,27 @@ export function ArHud({
       )}
       {/* No static DOM crosshair: the SVG reticle projected at the hit point
           (ArOverlay) is the only reticle — a centered circle doubles it. */}
-      <p
-        className={`ar-hud-surface${surfaceFound ? " ar-hud-surface-found" : ""}`}
-        role="status"
-      >
-        {surfaceFound
-          ? t["measure.ar.surface.found"]
-          : t["measure.ar.surface.searching"]}
+      <p className="ar-hud-pill" role="status">
+        {pill}
       </p>
-      {/* The static wall-corner hint shows only in wall mode: door/window
-          modes carry their own step prompt (edgeFirst/edgeSecond/pickWall)
-          and the wall copy misleads there. */}
-      {traceMode === "wall" && (
-        <p className="ar-hud-hint">{t["measure.ar.hint"]}</p>
-      )}
-      <div className="ar-hud-modes" role="group" aria-label={t["measure.ar.title"]}>
-        {HUD_MODES.map((mode) => (
-          <button
-            key={mode}
-            type="button"
-            className={`chip${traceMode === mode ? " chip-active" : ""}`}
-            onClick={() => onTraceModeChange(mode)}
-          >
-            {t[hudModeKey(mode)]}
-          </button>
-        ))}
-      </div>
-      {traceMode !== "wall" && pickerWalls.length > 0 && (
-        <div className="ar-hud-walls" role="group" aria-label={t["measure.ar.pickWall"]}>
-          {pickerWalls.map((wall, index) => (
-            <button
-              key={wall.id}
-              type="button"
-              className={`chip${pickerWallId === wall.id ? " chip-active" : ""}`}
-              onClick={() => onPickerWallChange(wall.id)}
-            >
-              {`W${index + 1}`}
-            </button>
-          ))}
-        </div>
-      )}
-      <p className="ar-hud-step">{stepLabel}</p>
-      <p className="ar-hud-readout">{formatMeasureM(locale, shownM)}</p>
       {debugFrames !== null && (
         <p className="ar-hud-debug" role="status">
           {`frames: ${debugFrames}`}
         </p>
       )}
       <div className="ar-hud-bar">
+        <span className="ar-hud-bar-modes" role="group" aria-label={t["measure.ar.title"]}>
+          {HUD_MODES.map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              className={`chip${traceMode === mode ? " chip-active" : ""}`}
+              onClick={() => onTraceModeChange(mode)}
+            >
+              {t[hudModeKey(mode)]}
+            </button>
+          ))}
+        </span>
         {canConfirm && (
           <button type="button" className="btn-primary" onClick={onConfirm}>
             {t["measure.ar.confirm"]}
@@ -451,21 +429,19 @@ export function ArMeasure({
   // Height-tap error (no corners yet, or out-of-range tap): rendered in the
   // step line until the next successful height tap clears it.
   const [heightError, setHeightError] = useState<string | null>(null);
-  // Guided HUD tracing mode: walls (corner trace, current behavior) or
-  // openings (pick a measured wall, tap its two edges, emit markOpening).
+  // Guided HUD tracing mode: walls (corner trace), height (ceiling tap), or
+  // openings (tap two edges, then the top edge, emit markOpening).
   // Stays across rooms/confirmations: the tech traces several openings in a
   // row without re-selecting Door/Window. Resets only on explicit Undo.
   const [traceMode, setTraceMode] = useState<ArHudMode>("wall");
-  // Opening target wall for door/window mode. Defaults to the wall under
-  // measure (wallId prop, else the first estimated wall, else the first
-  // wall) — the same rule that picks the wall-target flow's `target`.
-  const [openingWallId, setOpeningWallId] = useState<string | null>(
-    target?.id ?? null,
-  );
   const traceModeRef = useRef<ArHudMode>("wall");
   traceModeRef.current = traceMode;
-  const openingWallIdRef = useRef<string | null>(null);
-  openingWallIdRef.current = openingWallId;
+  // Session floor datum for openings: the y of the FIRST floor corner tapped
+  // this session — the same reference heightFromCeilingTap uses (its floorY).
+  // Height mode plants corners but never updates this ref; it only serves the
+  // opening flow. Null until the first wall/height tap: without a floor
+  // reference the opening flow refuses (needCorners hint), never y=0.
+  const floorYRef = useRef<number | null>(null);
   // Tap error in door/window mode: WHY the last edge pair was dropped
   // (narrow door, taps overlapping, taps off the wall). Shown in the step
   // line until the next successful opening clears it.
@@ -620,12 +596,56 @@ export function ArMeasure({
     setOpeningError(null);
   }
 
-  function handleOpeningWallChange(wallId: string): void {
-    setOpeningWallId(wallId);
-    // A new target wall invalidates pending edge taps from the old wall.
-    setCorners([]);
-    setPreviewM(null);
-    setOpeningError(null);
+  /**
+   * Door/Window mode, 3 taps: left edge, right edge (offset + width as today,
+   * y ignored for plan), then a THIRD tap at the opening's top edge. Height
+   * is topTap.y - floorY (session datum); windows take the sill from the
+   * FIRST edge tap's y, doors run to the floor (sill null). Invalid third
+   * taps wait (dims stay null) instead of emitting guessed geometry — the
+   * same re-tap discipline as heightFromCeilingTap.
+   */
+  function appendOpeningTap(corner: Vec3, kind: "door" | "window"): void {
+    const floorY = floorYRef.current;
+    if (floorY === null) {
+      // Same refusal as Height mode with no corners: no floor datum yet, so
+      // refuse instead of silently using y=0.
+      setOpeningError(t["measure.ar.height.needCorners"]);
+      return;
+    }
+    const pending = cornersRef.current;
+    if (pending.length < 2) {
+      setCorners([...pending, corner]);
+      return;
+    }
+    const first = pending[0] as Vec3;
+    const second = pending[1] as Vec3;
+    const edges: [Vec3, Vec3] = [first, second];
+    const height_m = openingHeightFromTopTap(floorY, corner[1]);
+    if (height_m === null) {
+      // Keep waiting for a valid top tap: the invalid tap is dropped but the
+      // two good edges stay pending (re-tap only the top).
+      setOpeningError(t[openingFailureKey("degenerate")]);
+      return;
+    }
+    const sill_m = openingSillFromEdgeTap(floorY, first[1], kind);
+    const dims: OpeningDims = { height_m, sill_m };
+    const { op, failure } = resolveOpeningTap({
+      scene: sceneRef.current,
+      kind,
+      edges,
+      dims,
+    });
+    if (op !== null && op.type === "markOpening") {
+      setOpeningError(null);
+      setPreviewM(op.opening.width_m);
+      onChange(applySceneOp(sceneRef.current, op), op);
+      setCorners([]);
+    } else {
+      // Taps that cannot map: say WHY in the step line (via openingError),
+      // keep the two edges so the tech only re-taps the top one.
+      setOpeningError(t[openingFailureKey(failure)]);
+      setPreviewM(null);
+    }
   }
 
   function appendCorner(corner: Vec3, targetId: string | null): void {
@@ -653,40 +673,23 @@ export function ArMeasure({
       }
       return;
     }
-    // Door/Window mode: the first edge tap selects the pending opening;
-    // the second tap resolves it through openingMath (snap + clamp +
-    // narrow-door check, stable ids) and emits markOpening immediately.
-    // Taps stay pending on the same wall so the tech can trace openings
-    // back to back. The explicit wall pick is only an override: without one
-    // the first edge auto-snaps to the nearest traced wall.
+    // Door/Window mode: 3 taps (two edges + top). The first edge tap snaps
+    // the opening to the nearest traced wall (resolveOpeningTap), so no
+    // picker: taps landing on the wrong wall mean the tech re-taps closer
+    // to the right wall. The tech can trace openings back to back: taps
+    // clear only on a successful emit or explicit Undo.
     if (traceModeRef.current !== "wall") {
-      const wallId = openingWallIdRef.current;
-      const next = [...cornersRef.current, corner];
-      if (next.length < 2) {
-        setCorners(next);
-        return;
-      }
-      const { op, failure } = resolveOpeningTap({
-        scene: sceneRef.current,
-        kind: traceModeRef.current,
-        wallId,
-        edges: [next[0] as Vec3, next[1] as Vec3],
-      });
-      if (op !== null && op.type === "markOpening") {
-        setOpeningError(null);
-        setPreviewM(op.opening.width_m);
-        onChange(applySceneOp(sceneRef.current, op), op);
-        setCorners([]);
-      } else {
-        // Taps that cannot map: say WHY in the step line (via openingError),
-        // keep the first edge so the tech only re-taps the second one.
-        setOpeningError(t[openingFailureKey(failure)]);
-        setCorners(next.slice(0, 1));
-        setPreviewM(null);
-      }
+      appendOpeningTap(corner, traceModeRef.current);
       return;
     }
     if (targetId === null && !isEmptyStart) return;
+    if (floorYRef.current === null && Number.isFinite(corner[1])) {
+      // Session floor datum: the y of the FIRST floor corner tapped. The
+      // opening flow (appendOpeningTap) and heightFromCeilingTap share it —
+      // set once per trace, cleared on Undo/confirm. Height/opening taps
+      // never write it (their y is ceiling/sill, not floor).
+      floorYRef.current = corner[1];
+    }
     if (isEmptyStart) {
       // Each new tap completes one wall (the segment ending at it), emitted
       // immediately so the 3D view grows corner by corner. Preview shows the
@@ -732,6 +735,26 @@ export function ArMeasure({
   }
 
   function handleEnd(): void {
+    // Fallback: the user ends the session (Done) with exactly 2 valid edge
+    // taps pending (width/offset known, height never tapped). Emit the
+    // opening with openingDefaults height/sill — the ONLY place defaults
+    // still apply. Snap-only: always snap via nearestWallToTap (no picker).
+    const kind = traceModeRef.current;
+    if (
+      (kind === "door" || kind === "window") &&
+      cornersRef.current.length === 2 &&
+      floorYRef.current !== null
+    ) {
+      const first = cornersRef.current[0] as Vec3;
+      const second = cornersRef.current[1] as Vec3;
+      const { op } = resolveOpeningTap({ scene: sceneRef.current, kind, edges: [first, second] });
+      if (op !== null && op.type === "markOpening") {
+        setOpeningError(null);
+        onChange(applySceneOp(sceneRef.current, op), op);
+        setCorners([]);
+        setPreviewM(null);
+      }
+    }
     // State transition arrives via the adapter's onEnd (back to Start
     // screen, chrome restored); notify here too in case an adapter ends
     // without firing the event.
@@ -767,6 +790,7 @@ export function ArMeasure({
       // the technician can start the next room from a clean state.
       traceRef.current = emptyCornerTrace();
       tracedWallIdsRef.current = [];
+      floorYRef.current = null;
       setCorners([]);
       setPreviewM(null);
       setRoomHeightM(null);
@@ -792,6 +816,7 @@ export function ArMeasure({
   function handleReset(): void {
     traceRef.current = emptyCornerTrace();
     tracedWallIdsRef.current = [];
+    floorYRef.current = null;
     setCorners([]);
     setPreviewM(null);
     setRoomHeightM(null);
@@ -911,8 +936,10 @@ export function ArMeasure({
   // Step copy follows the tracing mode. Wall keeps tap-first/tap-second
   // (+ close hint on empty-start); height shows its own tap prompt, the
   // captured value, or the re-tap error; door/window prompt for the two
-  // opening edges (the wall snaps from the first edge, the picker is only
-  // an override) or the failure reason the last pair was dropped.
+  // opening edges, then the top edge (topFirst/topSecond), or the failure
+  // reason the last taps were dropped (with topSecond re-tap guidance once
+  // both edges are pending). After a successful 3-tap emit the
+  // preview still shows the width (previewM), same as the old 2-tap flow.
   const stepLabel =
     traceMode === "height"
       ? (heightError ??
@@ -923,10 +950,14 @@ export function ArMeasure({
         ? `${corners.length === 0 ? t["measure.ar.tapFirst"] : t["measure.ar.tapSecond"]}${
             isEmptyStart && corners.length > 0 ? ` · ${t["measure.ar.closeHint"]}` : ""
           }`
-        : (openingError ??
-          (corners.length === 0
-            ? t["measure.ar.edgeFirst"]
-            : t["measure.ar.edgeSecond"]));
+        : (corners.length === 2 && openingError !== null
+          ? `${openingError} · ${t["measure.ar.topSecond"]}`
+          : (openingError ??
+            (corners.length === 0
+              ? t["measure.ar.edgeFirst"]
+              : corners.length === 1
+                ? t["measure.ar.edgeSecond"]
+                : t["measure.ar.topFirst"])));
 
   // Live session: ONLY the HUD renders (transparent root = domOverlay.root,
   // camera shows through). No sheet copy, no confirm footers, nothing else
@@ -937,7 +968,8 @@ export function ArMeasure({
   // The parent hides the sheet + 3D via onSessionChange and restores them
   // on end.
   // Door/Window taps produce openings, so there is nothing to Confirm:
-  // markOpening is emitted on the second edge tap. Undo resets the mode.
+  // markOpening is emitted on the third (top) tap; a Done with exactly 2
+  // pending edge taps falls back to openingDefaults. Undo resets the mode.
   const openingPreview = traceMode !== "wall" && previewM !== null ? previewM : null;
   return (
     <ArHud
@@ -953,9 +985,6 @@ export function ArMeasure({
       canConfirm={traceMode === "wall" && previewM !== null}
       traceMode={traceMode}
       onTraceModeChange={handleTraceModeChange}
-      pickerWalls={traceMode === "wall" ? [] : walls}
-      pickerWallId={openingWallId}
-      onPickerWallChange={handleOpeningWallChange}
       onConfirm={handleConfirm}
       onReset={handleReset}
       onEnd={handleEnd}

@@ -21,12 +21,19 @@ export interface OverlayDot {
   visible: boolean;
 }
 
-/** One projected line segment between two overlay dots. */
+/** One projected line segment between two overlay dots, positional: one slot
+ * per corner pair, null when the pair cannot draw (a corner behind the
+ * camera). Null slots keep edge indexing stable so the rAF loop hides that
+ * line instead of misassigning later edges. */
 export interface OverlayEdge {
   x1: number;
   y1: number;
   x2: number;
   y2: number;
+  /** Floor-plane length in meters — plan geometry, never screen pixels. */
+  lengthM: number;
+  /** Locale-formatted length for the SVG edge label. */
+  label: string;
 }
 
 /** The dashed rubber band: last corner to the live reticle. */
@@ -44,7 +51,8 @@ export interface OverlayBand extends OverlayEdge {
 export interface OverlayLayout {
   reticle: OverlayDot | null;
   corners: OverlayDot[];
-  edges: OverlayEdge[];
+  /** Positional per corner pair: null slots hide that line, never shift. */
+  edges: (OverlayEdge | null)[];
   band: OverlayBand | null;
   /** True when the world reticle is within CLOSE_ROOM_M of the first corner. */
   closeLoop: boolean;
@@ -89,12 +97,25 @@ export function computeOverlayLayout(
   const dots: OverlayDot[] = corners.map((corner) =>
     projectToScreen(corner, view, viewport),
   );
-  const edges: OverlayEdge[] = [];
+  const edges: (OverlayEdge | null)[] = [];
   for (let i = 0; i + 1 < dots.length; i++) {
     const a = dots[i] ?? HIDDEN_DOT;
     const b = dots[i + 1] ?? HIDDEN_DOT;
     if (a.visible && b.visible) {
-      edges.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
+      const lengthM = floorPlaneDistanceM(
+        corners[i] as Vec3,
+        corners[i + 1] as Vec3,
+      );
+      edges.push({
+        x1: a.x,
+        y1: a.y,
+        x2: b.x,
+        y2: b.y,
+        lengthM,
+        label: formatMeasureM(locale, lengthM),
+      });
+    } else {
+      edges.push(null);
     }
   }
   const lastIndex = dots.length - 1;
@@ -156,6 +177,7 @@ export function ArOverlay({ frameRef, corners, locale }: ArOverlayProps) {
   const reticleRef = useRef<SVGCircleElement | null>(null);
   const cornerRefs = useRef<Array<SVGCircleElement | null>>([]);
   const edgeRefs = useRef<Array<SVGLineElement | null>>([]);
+  const edgeLabelRefs = useRef<Array<SVGTextElement | null>>([]);
   const bandRef = useRef<SVGLineElement | null>(null);
   const bandLabelRef = useRef<SVGTextElement | null>(null);
   // Refs the loop reads without re-subscribing: latest props per tick, so
@@ -201,14 +223,20 @@ export function ArOverlay({ frameRef, corners, locale }: ArOverlayProps) {
           dot.style.display = "none";
         }
       }
-      // Edges between consecutive corners.
+      // Edges between consecutive corners (positional: slot i is the pair
+      // i->i+1, null hides that line instead of shifting later edges).
       const lines = edgeRefs.current;
+      const edgeLabels = edgeLabelRefs.current;
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         if (line === null || line === undefined) continue;
         const edge = layout.edges[i];
-        if (edge === undefined) {
+        if (edge === undefined || edge === null) {
           line.style.display = "none";
+          const hiddenLabel = edgeLabels[i];
+          if (hiddenLabel !== null && hiddenLabel !== undefined) {
+            hiddenLabel.style.display = "none";
+          }
           continue;
         }
         line.setAttribute("x1", String(edge.x1));
@@ -216,6 +244,13 @@ export function ArOverlay({ frameRef, corners, locale }: ArOverlayProps) {
         line.setAttribute("x2", String(edge.x2));
         line.setAttribute("y2", String(edge.y2));
         line.style.display = "";
+        const label = edgeLabels[i];
+        if (label !== null && label !== undefined) {
+          label.setAttribute("x", String((edge.x1 + edge.x2) / 2));
+          label.setAttribute("y", String((edge.y1 + edge.y2) / 2 - 8));
+          label.textContent = edge.label;
+          label.style.display = "";
+        }
       }
       // Rubber band + its live length label.
       const band = bandRef.current;
@@ -263,6 +298,12 @@ export function ArOverlay({ frameRef, corners, locale }: ArOverlayProps) {
                 .slice(0, -1)
                 .map((_, i) => edgeRefs.current[i] ?? null)
             : [];
+        edgeLabelRefs.current =
+          corners.length > 1
+            ? corners
+                .slice(0, -1)
+                .map((_, i) => edgeLabelRefs.current[i] ?? null)
+            : [];
       }}
     >
       {corners.slice(0, -1).map((_, i) => (
@@ -271,6 +312,15 @@ export function ArOverlay({ frameRef, corners, locale }: ArOverlayProps) {
           className="ar-overlay-edge"
           ref={(el) => {
             edgeRefs.current[i] = el;
+          }}
+        />
+      ))}
+      {corners.slice(0, -1).map((_, i) => (
+        <text
+          key={`el${i}`}
+          className="ar-overlay-edge-label"
+          ref={(el) => {
+            edgeLabelRefs.current[i] = el;
           }}
         />
       ))}
