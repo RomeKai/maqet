@@ -180,7 +180,7 @@ missions:
 
   # 5. Day 4 UI: chat sheet + push-to-talk (route and strings wired by day)
   - id: web-agent-chat
-    status: draft
+    status: skip  # day: done in the maqet-web console (28 Oct)
     template: feature
     budget_usd: 1.25
     goal: |
@@ -198,7 +198,7 @@ missions:
 
   # 6. Present: AR maquette export (Day 6)
   - id: web-ar-export
-    status: draft
+    status: skip  # day: maqet-web console
     template: feature
     budget_usd: 1.5
     goal: |
@@ -216,7 +216,7 @@ missions:
 
   # 7. Fidelity badges (Day 7)
   - id: web-fidelity-badges
-    status: draft
+    status: skip  # day: maqet-web console
     template: feature
     budget_usd: 0.75
     goal: |
@@ -232,7 +232,7 @@ missions:
 
   # 8. Deliver UI: staged takeoff view (Day 5)
   - id: web-takeoff-view
-    status: draft
+    status: skip  # day: maqet-web console
     template: feature
     budget_usd: 1.0
     goal: |
