@@ -7,7 +7,7 @@ import type { Locale } from "../i18n";
 const en = {
   "summary.title": "Fidelity",
   "summary.estimatedWalls": "Estimated walls: confirm them with a tape measure",
-  "label.measured": "Measured",
+  "label.measured": "Walls measured",
   "label.preliminary": "Preliminary",
   "chip.concept": "Concept",
   "provenance.measured_ar": "AR measured",
@@ -22,7 +22,7 @@ export type FidelityStrings = Record<FidelityKey, string>;
 const esAR: FidelityStrings = {
   "summary.title": "Fidelidad",
   "summary.estimatedWalls": "Muros estimados: conviene confirmarlos con cinta métrica",
-  "label.measured": "Medido",
+  "label.measured": "Muros medidos",
   "label.preliminary": "Preliminar",
   "chip.concept": "Concepto",
   "provenance.measured_ar": "Medido con AR",

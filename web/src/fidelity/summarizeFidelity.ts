@@ -10,7 +10,10 @@ export interface FidelityReport {
   counts: Record<Provenance, number>;
   /** True when any furniture piece or material in the Scene is imagined (`concept`). */
   hasConcept: boolean;
-  /** "measured" only when there is at least one wall and none of them is estimated. */
+  /**
+   * "measured" only when there is at least one wall and none of them is estimated. It speaks for walls
+   * only: openings carry no provenance, so the UI labels it "Walls measured", never the whole Scene.
+   */
   label: "measured" | "preliminary";
   /** Ids of the estimated walls, in Scene order. */
   estimatedWallIds: string[];
