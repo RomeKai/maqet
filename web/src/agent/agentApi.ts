@@ -8,14 +8,24 @@ import { validateScene } from "./validateScene";
  * Route contract (not served yet): POST /projects/{id}/turn { text, selected? } -> TurnResponse.
  */
 
+/** A turn that has not answered after this long is abandoned so the chat never stays pending. */
+export const TURN_TIMEOUT_MS = 60_000;
+
 export class AgentApiError extends Error {
   readonly status: number | null;
+  /** True when the request was aborted because the server did not answer in time. */
+  readonly timedOut: boolean;
 
-  constructor(message: string, status: number | null = null) {
+  constructor(message: string, status: number | null = null, timedOut = false) {
     super(message);
     this.name = "AgentApiError";
     this.status = status;
+    this.timedOut = timedOut;
   }
+}
+
+export interface SendTurnOptions {
+  timeoutMs?: number;
 }
 
 function apiBase(): string {
@@ -78,30 +88,51 @@ export function parseTurnResponse(payload: unknown): TurnResponse {
   };
 }
 
-export async function sendTurn(projectId: string, text: string, selected?: SelectedRef): Promise<TurnResponse> {
+export async function sendTurn(
+  projectId: string,
+  text: string,
+  selected?: SelectedRef,
+  { timeoutMs = TURN_TIMEOUT_MS }: SendTurnOptions = {},
+): Promise<TurnResponse> {
   const trimmed = text.trim();
   if (trimmed.length === 0) throw new AgentApiError("Cannot send an empty message");
 
   const body = selected ? { text: trimmed, selected } : { text: trimmed };
 
-  let response: Response;
-  try {
-    response = await fetch(turnUrl(projectId), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-  } catch (err) {
-    throw new AgentApiError(err instanceof Error && err.message ? err.message : "Network error");
-  }
+  // One deadline covers connecting, waiting for the server and reading the body.
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  const timeoutError = (): AgentApiError => new AgentApiError("Agent request timed out", null, true);
 
-  if (!response.ok) throw new AgentApiError(`Agent request failed (${response.status})`, response.status);
-
-  let payload: unknown;
   try {
-    payload = await response.json();
-  } catch {
-    throw new AgentApiError("Agent response was not JSON", response.status);
+    let response: Response;
+    try {
+      response = await fetch(turnUrl(projectId), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (timedOut) throw timeoutError();
+      throw new AgentApiError(err instanceof Error && err.message ? err.message : "Network error");
+    }
+
+    if (!response.ok) throw new AgentApiError(`Agent request failed (${response.status})`, response.status);
+
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      if (timedOut) throw timeoutError();
+      throw new AgentApiError("Agent response was not JSON", response.status);
+    }
+    return parseTurnResponse(payload);
+  } finally {
+    clearTimeout(timer);
   }
-  return parseTurnResponse(payload);
 }

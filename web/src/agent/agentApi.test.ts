@@ -90,6 +90,68 @@ describe("sendTurn", () => {
     await expect(sendTurn("p1", "hi")).rejects.toBeInstanceOf(AgentApiError);
   });
 
+  describe("timeout", () => {
+    /** A server that never answers; like real fetch, it rejects with an AbortError once the signal fires. */
+    function hangingFetch(_url: string, init: RequestInit): Promise<Response> {
+      return new Promise((_resolve, reject) => {
+        init.signal?.addEventListener("abort", () => reject(new DOMException("The operation was aborted.", "AbortError")));
+      });
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("passes an AbortSignal to fetch", async () => {
+      fetchMock.mockResolvedValue(jsonResponse(okBody));
+      await sendTurn("p1", "hi");
+      const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(init.signal).toBeInstanceOf(AbortSignal);
+    });
+
+    it("aborts a hung request after the default 60 s and rejects with a timeout error", async () => {
+      fetchMock.mockImplementation(hangingFetch);
+      const outcome = sendTurn("p1", "hi").then(
+        () => "resolved",
+        (err: unknown) => err,
+      );
+
+      await vi.advanceTimersByTimeAsync(59_999);
+      expect(fetchMock.mock.calls[0]?.[1]?.signal?.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+
+      const err = await outcome;
+      expect(err).toBeInstanceOf(AgentApiError);
+      expect(err).toMatchObject({ timedOut: true, status: null });
+    });
+
+    it("honours a custom timeout", async () => {
+      fetchMock.mockImplementation(hangingFetch);
+      const outcome = sendTurn("p1", "hi", undefined, { timeoutMs: 500 }).catch((err: unknown) => err);
+      await vi.advanceTimersByTimeAsync(500);
+      expect(await outcome).toMatchObject({ timedOut: true });
+    });
+
+    it("clears the timer once the turn settles", async () => {
+      fetchMock.mockResolvedValue(jsonResponse(okBody));
+      await sendTurn("p1", "hi");
+      expect(vi.getTimerCount()).toBe(0);
+
+      fetchMock.mockResolvedValue(jsonResponse({ detail: "nope" }, 500));
+      await expect(sendTurn("p1", "hi")).rejects.toBeInstanceOf(AgentApiError);
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it("does not report a plain network failure as a timeout", async () => {
+      fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
+      await expect(sendTurn("p1", "hi")).rejects.toMatchObject({ timedOut: false });
+    });
+  });
+
   it("rejects empty text without calling the network", async () => {
     await expect(sendTurn("p1", "   ")).rejects.toBeInstanceOf(AgentApiError);
     expect(fetchMock).not.toHaveBeenCalled();
