@@ -21,7 +21,7 @@ question the rules do not answer; ask the organizers in Discord and save the rep
 
 | Rule (from `RULES.md`) | Our status |
 |---|---|
-| **New work only.** "Everything you present has to be built during the hackathon, Oct 26 to Nov 4." | Product built in the window; first commit `9af461d` has no product code. **Risks:** pre-kickoff planning docs and the pre-existing MME library, see "Identify your contributions" |
+| **New work only.** "Everything you present has to be built during the hackathon, Oct 26 to Nov 4." | Product built in the window; first commit `9af461d` has no product code. Pre-kickoff planning docs and the MME dependency are listed and disclosed, see "Identify your contributions" |
 | **Identify your contributions.** The demo shows only what was built during the event; "if they can't [tell what's new], the project is disqualified." | README section "Built during the hackathon" + the video's opening sentence + git history |
 | **Public repo.** | Make the repo public and confirm from a logged-out browser |
 | **Teams.** Max 4, solo allowed. One track only (Indie Developer or Startup). One person submits; every team member is added. | Indie Developer. Add every member on the submission form |
@@ -78,13 +78,12 @@ new. What we claim and where the evidence is:
       (added in `4225340`). The README discloses it. Keep the submission text consistent with that wording.
 - [ ] **The demo shows only Maqet.** No MME screens, terminals or dashboards in the video; no pre-kickoff material
       presented as new.
-- [ ] **VERIFY with the organizers (highest risk):** "Everything you present has to be built during the hackathon" can be read
-      strictly. MME predates kickoff (Oct 22) and the planning docs predate it too. Post a short disclosure in Discord
-      (what MME is, that it is an open-source library used for the API client and replay cache, the link, the pinned commit)
-      and ask whether that is acceptable. Save the reply (screenshot or message link) with the submission materials. If the
-      answer is no, the fallback is to vendor a minimal client into this repo during the window and drop the dependency.
+- [x] **Decision (human): MME is an ordinary dependency.** It is used like any other package, is not presented as hackathon
+      work, and is disclosed in the README. We do not ask the organizers about it. If a judge or organizer questions it, the
+      answer is the README section "Built during the hackathon" and the pinned commit. Optional fallback if that ever
+      changes: vendor a minimal client into this repo and drop the dependency.
 - [ ] **VERIFY:** the original README said the organizers confirmed the pre-kickoff planning docs were acceptable. That
-      confirmation is not in the repo. Find it and save it, or ask again together with the MME question.
+      confirmation is not in the repo. If it exists, save it with the submission materials.
 
 ## Banned projects
 
@@ -147,9 +146,8 @@ new. What we claim and where the evidence is:
 
 ## Open questions for the human
 
-1. Post the MME disclosure in Discord and save the organizers' answer (see "Identify your contributions").
-2. Is there a written organizer confirmation for the pre-kickoff planning docs? Where is it saved?
-3. What were the Discord answers on non-Meta coding assistants and AI disclosure? `AI_USAGE.md` must reflect them.
-4. Are the judging weights and bonus prizes in `PLAN.md` from an official announcement? Link it.
-5. Should the video's opening sentence also name MME ("...and MME, an open-source dev-tool library started Oct 22")? It
-   is the longest-lived risk in "Identify your contributions"; I left the required sentence unchanged.
+1. Is there a written organizer confirmation for the pre-kickoff planning docs? Where is it saved?
+2. What were the Discord answers on non-Meta coding assistants and AI disclosure? `AI_USAGE.md` must reflect them.
+3. Are the judging weights and bonus prizes in `PLAN.md` from an official announcement? Link it.
+4. Optional: should the video's opening sentence also name MME? It is a dependency, not hackathon work, so the required
+   sentence is left unchanged.
