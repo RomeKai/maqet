@@ -59,10 +59,13 @@ rules) and **Best Creative Build** (sketch to staged material list). Mention bot
       shows only Maqet. The video opens with the required sentence: *"Planning docs and agent tooling were prepared before
       kickoff; all code you'll see was built this week."* **VERIFY** the exact wording of the rule once `RULES.md` exists,
       and keep any written organizer confirmation (screenshot or Discord link) with the submission materials.
-- [ ] **Disclose the `mme.client` dependency.** The product's Meta calls import `mme.client` (`server/intake/read_plan.py`,
-      `server/intake/voice.py`), a module of the pre-existing harness that is installed separately and is not in
-      `server/requirements.txt`. Decide before submitting whether to vendor a minimal client into this repo (so a fresh
-      clone runs) or disclose it as a pre-existing personal tool; the README currently discloses it.
+- [ ] **Disclose the MME dependency.** The product's Meta calls import `mme.client` (`server/intake/read_plan.py`,
+      `server/intake/voice.py`). MME is a pre-existing open-source dev-tooling package (MIT,
+      https://github.com/RomeKai/mme, development started 2026-10-22, GitHub repo published 2026-10-28) that Maqet uses as a
+      library for the Meta API client and replay cache. It is pinned to commit `e24c418` in `server/requirements.txt`
+      (added in `4225340`), and the README discloses it under "Built during the hackathon". Keep the submission text
+      consistent with that wording, and confirm in the fresh-clone test below that `pip install -r server/requirements.txt`
+      alone pulls it in.
 - [ ] **Repository created after kickoff** (Oct 26, 2026) with no pre-existing product code. Check `git log --reverse | head`
       and make sure no history was rewritten or imported.
 - [ ] **AI usage disclosure** is complete and linked: [`AI_USAGE.md`](AI_USAGE.md) records the harness and provider per

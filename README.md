@@ -159,10 +159,15 @@ synthetic test-data generator). The repository's first commit, `9af461d` (2026-1
 That first commit does carry material prepared before kickoff, none of it product code:
 
 - **Planning docs:** `docs/PLAN.md`, `docs/PRODUCT.md`, `docs/DECISIONS.md`, `docs/CUTLIST.md`, `docs/RUNBOOK.md`.
-- **`mme/`:** configuration (budget, policy, milestones) for a pre-existing personal dev-tooling harness, a budget guard
-  for AI spend. It is not part of the product. Transparency note: the product's Meta calls go through `mme.client`, the
-  client module of that same harness, which is installed separately from this repo and is not in
-  `server/requirements.txt` (see [`docs/RUNBOOK.md`](docs/RUNBOOK.md), Level 0).
+- **`mme/`:** this repo's configuration (budget, policy, milestones) for MME, a dev-tooling harness (a budget guard for
+  AI spend). The config is not part of the product.
+
+**Pre-existing open-source dependency: [MME](https://github.com/RomeKai/mme)** (MIT, `mme-harness`). It is a dev-tooling
+package whose development started on 2026-10-22, before kickoff (earliest commit in its public history; the GitHub
+repository was published on 2026-10-28). Maqet uses it as a **library**: `mme.client` is the Meta Model API client and
+the replay cache behind every model call. It is pinned to an exact commit in `server/requirements.txt`, so a fresh clone
+installs it with `pip install -r server/requirements.txt`. None of Maqet's product code (Scene, rules, intake, agent,
+export, web) lives in MME.
 - **Agent config:** `AGENTS.md`, `CLAUDE.md` and `.claude/` (agent instructions and hooks), plus third-party ECC rule
   packs in `.claude/rules/ecc/` (MIT, see their `LICENSE`).
 
