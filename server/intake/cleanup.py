@@ -30,6 +30,12 @@ from server.scene.models import Wall as SceneWall
 
 # Normalized units (0..1). ~1e-6 of image width ~ 1px on a 1000px image.
 TOL_DEFAULT = 1e-6
+# Endpoints within this normalized distance merge into ONE shared vertex
+# (sketch corners miss by a few % of image width; the phone 3x8 case misses
+# by ~0.042 diagonal). Used ONLY for vertex clustering and room-loop snap:
+# _fuse_walls keeps TOL_DEFAULT so the epsilon boundary tests still pin the
+# collinear-fuse behavior.
+ENDPOINT_SNAP_TOL = 0.05
 # Nominal fuse threshold is tol + 1e-9; the implementation allows 2e-9 so the
 # exact-boundary case survives float64 noise in the 1D projection
 # (measured 1.0010000000004737e-06 vs threshold 1.001e-06). The beyond case
@@ -235,12 +241,15 @@ def _fuse_walls(
 def _cluster_vertices(
     fused: list[tuple[tuple[float, float], tuple[float, float], str]],
     tol: float,
+    *,
+    snap_tol: float = ENDPOINT_SNAP_TOL,
 ) -> tuple[list[tuple[float, float]], list[tuple[int, int]]] :
     """Shared endpoints within tol + _MERGE_EPS get one vertex id (union-find).
 
-    Returns (vertex positions in normalized coords, per-wall (u, v) ids).
-    Topology (which walls meet) is preserved from the proposal; only vertex
-    positions move during the per-wall solve.
+    ``snap_tol`` merges near-miss sketch corners (endpoint gap <= snap_tol)
+    into one shared vertex BEFORE loop detection, so a hand-drawn loop whose
+    last corner misses the first stays closed. Collinear fusion in
+    ``_fuse_walls`` still uses ``tol`` only.
     """
     pts = [p for wall in fused for p in (wall[0], wall[1])]
     parent = list(range(len(pts)))
@@ -251,9 +260,18 @@ def _cluster_vertices(
             x = parent[x]
         return x
 
+    def _linked(i: int, j: int, limit: float) -> bool:
+        return math.dist(pts[i], pts[j]) <= limit + _MERGE_EPS and find(i) != find(j)
+
+    # Exact shares first (boundary behavior pinned by the epsilon tests).
     for i in range(len(pts)):
         for j in range(i + 1, len(pts)):
-            if math.dist(pts[i], pts[j]) <= tol + _MERGE_EPS and find(i) != find(j):
+            if _linked(i, j, tol):
+                parent[find(i)] = find(j)
+    # Then snap near-miss sketch corners, chained transitively.
+    for i in range(len(pts)):
+        for j in range(i + 1, len(pts)):
+            if _linked(i, j, snap_tol):
                 parent[find(i)] = find(j)
     compact: dict[int, int] = {}
     verts: list[tuple[float, float]] = []
@@ -528,10 +546,12 @@ def _polygonize_rooms(
     lines = [LineString([w.a, w.b]) for w in walls]
     # Close loops by snapping endpoints within tolerance: tolerance is in
     # normalized units, walls are in meters, so convert via wall extent.
+    # Matches the ENDPOINT_SNAP_TOL vertex clustering above so a snapped loop
+    # also polygonizes.
     xs = [p for w in walls for p in (w.a[0], w.b[0])]
     ys = [p for w in walls for p in (w.a[1], w.b[1])]
     extent = max(max(xs) - min(xs), max(ys) - min(ys), 1e-12)
-    snap_tol = TOL_DEFAULT * extent * 2 + 1e-9
+    snap_tol = ENDPOINT_SNAP_TOL * extent + 1e-9
     merged = lines[0]
     for line in lines[1:]:
         merged = snap(merged.union(line), merged, snap_tol)
@@ -611,6 +631,7 @@ def to_scene(
 
 
 __all__ = [
+    "ENDPOINT_SNAP_TOL",
     "TOL_DEFAULT",
     "ScaleError",
     "ScaledOpening",

@@ -551,3 +551,37 @@ def test_bbox_iou_identical_is_one() -> None:
 
     box = (0.0, 0.0, 8.0, 6.0)
     assert bbox_iou(box, box) == pytest.approx(1.0)
+
+
+def test_near_miss_loop_snaps_shut() -> None:
+    """Sketch loop whose last endpoint misses the first by ~0.03 normalized.
+
+    The cached 3x8 phone sketch has a clean 4-wall loop whose final corner
+    misses by ~0.03; without snapping the loop stays open (rooms_empty,
+    duplicate corners, diagonal in 3D). The fix snaps endpoints within
+    ENDPOINT_SNAP_TOL before loop detection so a closed loop stays closed.
+    """
+    import math
+
+    from server.intake.cleanup import build_scaled_plan
+
+    proposal = _proposal(
+        [
+            _wall(0.11, 0.205, 0.832, 0.215),
+            _wall(0.832, 0.215, 0.825, 0.768),
+            _wall(0.825, 0.768, 0.165, 0.808),
+            _wall(0.165, 0.808, 0.14, 0.235),
+        ],
+        dimensions=[
+            _dim("3.00", ax=0.11, ay=0.165, bx=0.832, by=0.17, wall_index=0),
+            _dim("8.00 m", ax=0.88, ay=0.22, bx=0.875, by=0.76, wall_index=1),
+            _dim("3.00 m", ax=0.825, ay=0.728, bx=0.165, by=0.768, wall_index=2),
+            _dim("8.00 m", ax=0.06, ay=0.44, bx=0.06, by=0.56, wall_index=3),
+        ],
+    )
+    scaled = build_scaled_plan(proposal, 1000, 1000)
+    assert len(scaled.walls) == 4
+    lengths = sorted(math.dist(w.a, w.b) for w in scaled.walls)
+    assert lengths == pytest.approx([3.0, 3.0, 8.0, 8.0], abs=0.05)
+    assert len(scaled.rooms) == 1
+    assert not any("rooms_empty" in w for w in scaled.warnings)
