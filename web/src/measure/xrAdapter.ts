@@ -240,15 +240,19 @@ export function hitTestPoseToCorner(
  * unavailable so the caller falls back to the B/C capture modes. Verified
  * on the phone: the session itself is not mockable in vitest.
  *
- * WHY no WebGL in the session (Plan B): three r186 prefers
- * XRProjectionLayer when the device exposes createProjectionLayer, and on
- * the test Android/Chrome the compositor never presents it — verified with
- * a raw-WebGL hit-test sample (renders) against three's official
- * webxr_ar_hittest (camera only; taps land on the page canvas after
- * exiting). So the session runs NO WebGLRenderer, NO XR canvas, NO reticle
- * meshes: hit-test poses drive taps, the per-frame viewer matrices drive
- * the DOM/SVG overlay (onOverlayFrame), and three.js stays for the 3D view
- * outside AR only. web/xr-test.html is kept as the dev AR diagnostic.
+ * WHY the transparent baseLayer (Plan B): an immersive session with no
+ * renderState.baseLayer never runs its requestAnimationFrame callbacks — no
+ * frames, no hit-test, no overlay. three r186 would pick XRProjectionLayer
+ * when the device exposes createProjectionLayer, and on the test
+ * Android/Chrome the compositor never presents it (verified: a raw-WebGL
+ * hit-test sample renders, three's official webxr_ar_hittest shows camera
+ * only). So the adapter mirrors the proven immersive-web sample instead:
+ * its own canvas, `webgl` context with xrCompatible, and
+ * session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) })
+ * BEFORE the first rAF. Each frame binds the layer framebuffer and clears
+ * transparent (nothing is ever drawn — the SVG overlay does the visuals).
+ * three.js stays for the 3D view outside AR only. web/xr-test.html is kept
+ * as the dev AR diagnostic.
  */
 export class WebXrHitTestAdapter implements XrHitTestAdapter {
   private session: XRSession | null = null;
@@ -256,6 +260,8 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
   private refSpace: XRReferenceSpace | null = null;
   private rafHandle = 0;
   private live = false;
+  private canvas: HTMLCanvasElement | null = null;
+  private gl: WebGLRenderingContext | null = null;
 
   async start(
     callbacks: XrTapCallbacks,
@@ -314,6 +320,23 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
       this.refSpace = refSpace;
       onStep?.("local-space");
 
+      // Transparent baseLayer BEFORE the first rAF: without it the session
+      // never runs frame callbacks (no hit-test, no overlay). Mirrors the
+      // immersive-web hit-test sample. The canvas is never appended to the
+      // DOM — this context only feeds the compositor.
+      this.canvas = document.createElement("canvas");
+      const gl = this.canvas.getContext("webgl", {
+        alpha: true,
+        xrCompatible: true,
+      }) as WebGLRenderingContext | null;
+      if (gl === null) {
+        this.canvas = null;
+        throw new Error("WebGL context is not available for the AR session.");
+      }
+      const baseLayer = new XRWebGLLayer(session, gl);
+      session.updateRenderState({ baseLayer });
+      this.gl = gl;
+
       // Transition-only mirror of the frame loop's hit state: the HUD must
       // show surface feedback even though there is no 3D ring anymore.
       // Updated on found<->lost edges only so React state changes once per
@@ -344,6 +367,20 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
       // keeps hit-test going — taps never depend on the matrices.
       const tick = (time: number, frame: XRFrame): void => {
         if (!this.live) return;
+        const sessionNow = this.session;
+        const glNow = this.gl;
+        if (sessionNow === null || glNow === null) return;
+        // Present a transparent frame: the compositor needs a bound
+        // framebuffer with cleared alpha, or nothing shows. Nothing is drawn.
+        const layer = sessionNow.renderState.baseLayer;
+        if (layer !== null && layer !== undefined) {
+          glNow.bindFramebuffer(
+            glNow.FRAMEBUFFER,
+            layer.framebuffer as WebGLFramebuffer,
+          );
+          glNow.clearColor(0, 0, 0, 0);
+          glNow.clear(glNow.COLOR_BUFFER_BIT);
+        }
         const hit = this.hitFromFrame(frame);
         const found = hit !== null;
         if (found !== surfaceFound) {
@@ -423,6 +460,8 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
     this.session = null;
     this.hitTestSource = null;
     this.refSpace = null;
+    this.canvas = null;
+    this.gl = null;
     if (session !== null && rafHandle !== 0) {
       // The session may already be ended (device End button, "end" event
       // path): cancelling then throws, which is harmless here.

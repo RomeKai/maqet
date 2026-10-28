@@ -149,6 +149,101 @@ describe("WebXrHitTestAdapter", () => {
   });
 });
 
+describe("session base layer (transparent XRWebGLLayer)", () => {
+  interface XrStubs {
+    instances: unknown[];
+    canvas: {
+      getContext: ReturnType<typeof vi.fn>;
+      remove: ReturnType<typeof vi.fn>;
+    };
+    session: {
+      requestReferenceSpace: ReturnType<typeof vi.fn>;
+      requestHitTestSource: ReturnType<typeof vi.fn>;
+      updateRenderState: ReturnType<typeof vi.fn>;
+      requestAnimationFrame: ReturnType<typeof vi.fn>;
+      cancelAnimationFrame: ReturnType<typeof vi.fn>;
+      addEventListener: ReturnType<typeof vi.fn>;
+      end: ReturnType<typeof vi.fn>;
+    };
+    restore: () => void;
+  }
+
+  function stubXrGlobals(gl: unknown): XrStubs {
+    const instances: unknown[] = [];
+    class FakeLayer {
+      constructor(_session: unknown, _gl: unknown) {
+        instances.push(this);
+      }
+    }
+    const canvas = {
+      getContext: vi.fn((_type: string, _attrs: unknown) => gl),
+      remove: vi.fn(),
+    };
+    const session = {
+      requestReferenceSpace: vi.fn(async (_type: string) => ({})),
+      requestHitTestSource: vi.fn(async (_opts: unknown) => ({})),
+      updateRenderState: vi.fn(async (_state: unknown) => undefined),
+      requestAnimationFrame: vi.fn((_cb: unknown) => 1),
+      cancelAnimationFrame: vi.fn(),
+      addEventListener: vi.fn(),
+      end: vi.fn(async () => undefined),
+    };
+    vi.stubGlobal("navigator", {
+      xr: { requestSession: vi.fn(async () => session) },
+    });
+    vi.stubGlobal("document", { createElement: () => canvas });
+    vi.stubGlobal("XRWebGLLayer", FakeLayer);
+    return {
+      instances,
+      canvas,
+      session,
+      restore() {
+        vi.unstubAllGlobals();
+      },
+    };
+  }
+
+  function tapCallbacks(): XrTapCallbacks {
+    return { onTapCorner: () => undefined, onEnd: () => undefined };
+  }
+
+  it("start sets a transparent baseLayer before requesting frames", async () => {
+    const stubs = stubXrGlobals({});
+    const adapter = new WebXrHitTestAdapter();
+    try {
+      await adapter.start(tapCallbacks(), {} as HTMLElement);
+      expect(stubs.canvas.getContext).toHaveBeenCalledWith(
+        "webgl",
+        expect.objectContaining({ xrCompatible: true }),
+      );
+      expect(stubs.instances).toHaveLength(1);
+      expect(stubs.session.updateRenderState).toHaveBeenCalledWith({
+        baseLayer: stubs.instances[0],
+      });
+      const updates = stubs.session.updateRenderState.mock.invocationCallOrder;
+      const rafs =
+        stubs.session.requestAnimationFrame.mock.invocationCallOrder;
+      expect(updates[0]).toBeLessThan(rafs[0] ?? Number.POSITIVE_INFINITY);
+    } finally {
+      adapter.end();
+      stubs.restore();
+    }
+  });
+
+  it("start rejects when no WebGL context is available", async () => {
+    const stubs = stubXrGlobals(null);
+    const adapter = new WebXrHitTestAdapter();
+    try {
+      await expect(
+        adapter.start(tapCallbacks(), {} as HTMLElement),
+      ).rejects.toThrow(/WebGL/);
+      expect(stubs.session.updateRenderState).not.toHaveBeenCalled();
+    } finally {
+      adapter.end();
+      stubs.restore();
+    }
+  });
+});
 describe("requestArSession", () => {
   const root = {} as HTMLElement;
   const session = {} as XRSession;
