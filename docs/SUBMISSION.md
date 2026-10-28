@@ -1,6 +1,7 @@
 # Submission checklist
 
-Meta Global AI Developer Hackathon, Indie track. Theme: "Build for Your World".
+Meta Global AI Developer Hackathon. **Track: Indie Developer.** **Theme: Build for Your World.**
+**Submit at:** https://cerebralvalley.ai/e/meta-ai-developer-hackathon/hackathon/submit
 
 > **Provenance warning.** The official rules text is **not stored in this repository**. This checklist is assembled from
 > what the repo records about them (`PLAN.md`, `HARDENING.md` D1, `README.md`, `mme/milestones.yaml`). Each item names its
@@ -13,13 +14,13 @@ Meta Global AI Developer Hackathon, Indie track. Theme: "Build for Your World".
 | What | When |
 |---|---|
 | **Internal deadline: submit** | Wed 2026-11-04, **18:00** Buenos Aires (GMT-3) |
-| **Official deadline** | Wed 2026-11-04, 21:00 GMT-5 = **23:00** Buenos Aires |
+| **Official deadline** | Wed 2026-11-04, **9:00 PM ET** (21:00 GMT-5) = **23:00** Buenos Aires |
 | Feature freeze | Mon 2026-11-02 (PLAN day 8): fixes, polish and recording only |
 | Demo recorded | Mon 2026-11-02 to Tue 11-03 |
 | Deploy, README, final video | Tue 2026-11-03 |
 
-Source: `docs/PLAN.md`, `AGENTS.md`. 21:00 GMT-5 is 23:00 in Buenos Aires (GMT-3, a 2-hour gap). **VERIFY** the deadline
-the submission portal itself displays, in its own time zone, when you first open it.
+Source: the organizers (Discord), confirmed by the human. 9:00 PM ET on Nov 4 is 21:00 GMT-5 (US daylight saving ended
+Nov 1) and 23:00 in Buenos Aires (GMT-3). **VERIFY** the deadline the submission page itself displays when you open it.
 
 ## Judging criteria (what the submission text and video must serve)
 
@@ -44,18 +45,24 @@ rules) and **Best Creative Build** (sketch to staged material list). Mention bot
       placeholder would fail it.
 - [ ] **Text description** (project name and tagline, problem, solution, Meta models used, what is built, what is next).
       Reuse README sections; keep the tagline with the name ("Maqet: from sketch to AR to staged materials").
-- [ ] **Track selected: Indie.** **VERIFY** team-size and eligibility rules for the track.
+- [ ] **Track selected: Indie Developer.** **VERIFY** team-size and eligibility rules for the track.
 - [ ] **Working access for judges**: either a deployed URL or the replay-mode instructions in the README. If a URL is
       deployed, it must be HTTPS (AR, camera, mic) and work in `MME_MODE=replay` so judges spend no credits.
 - [ ] **Submitted before 18:00 ART**, not at 22:50. Take a screenshot of the confirmation page.
 
 ## Rules-driven disclosures
 
-- [ ] **Pre-kickoff material is disclosed.** The README section "What was built during the hackathon" lists the planning
-      docs and dev-tooling config in the first commit, none of it product code; the video opens with the required
-      sentence: *"Planning docs and agent tooling were prepared before kickoff; all code you'll see was built this week."*
-      The README records that the organizers confirmed this is acceptable. **VERIFY** that the confirmation is saved
-      (screenshot or link to the Discord message) and keep it with the submission materials.
+- [ ] **Identify your contributions.** The README section "Built during the hackathon" states that the product
+      (`server/`, `web/`, `assets/`, `samples/`) was built Oct 26 to Nov 4, 2026, with first commit `9af461d`
+      (2026-10-26) as evidence: it has no product code. It also lists what was prepared before kickoff: planning docs,
+      agent config, and `mme/` (config for a pre-existing personal dev-tooling harness, not part of the product). The demo
+      shows only Maqet. The video opens with the required sentence: *"Planning docs and agent tooling were prepared before
+      kickoff; all code you'll see was built this week."* **VERIFY** the exact wording of the rule once `RULES.md` exists,
+      and keep any written organizer confirmation (screenshot or Discord link) with the submission materials.
+- [ ] **Disclose the `mme.client` dependency.** The product's Meta calls import `mme.client` (`server/intake/read_plan.py`,
+      `server/intake/voice.py`), a module of the pre-existing harness that is installed separately and is not in
+      `server/requirements.txt`. Decide before submitting whether to vendor a minimal client into this repo (so a fresh
+      clone runs) or disclose it as a pre-existing personal tool; the README currently discloses it.
 - [ ] **Repository created after kickoff** (Oct 26, 2026) with no pre-existing product code. Check `git log --reverse | head`
       and make sure no history was rewritten or imported.
 - [ ] **AI usage disclosure** is complete and linked: [`AI_USAGE.md`](AI_USAGE.md) records the harness and provider per

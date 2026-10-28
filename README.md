@@ -98,7 +98,7 @@ Status as of 2026-10-28 (Day 3). This table is updated as features land; the dem
 | Run the API and the full server test suite offline | **Works.** See [Run it](#run-it). |
 | Read a plan or a hand sketch into a proposed Scene (`POST /intake`) | **Works** in replay with the recorded inputs; live with your own Meta key. |
 | Upload a plan or sketch on the phone, correct walls, mark doors and windows, set the scale | **Works** (Capture screen → `POST /intake`). |
-| Measure a room in AR on Android (mode A): corners, ceiling height, door and window taps | **Works**, verified on Android Chrome on 2026-10-28; needs HTTPS ([`docs/HARDENING.md`](docs/HARDENING.md) I14, I18). |
+| Measure a room in AR on Android (mode A): corners, ceiling height, door and window taps | **In progress.** Needs HTTPS and an Android phone with Google Play Services for AR ([`docs/HARDENING.md`](docs/HARDENING.md) I14, I18); stays "In progress" until it passes a phone test. |
 | Transcribe Spanish or English speech (`POST /transcribe`) | **Works** (Muse Voice Transcribe, replay or live). |
 | Export a measured DXF of the walls | **Works.** Blocked until the scale is confirmed. |
 | Ask the agent for an expansion by voice | **In progress.** Stage-scoped tools and executor exist; the chat route and UI are next. |
@@ -149,21 +149,24 @@ certificate warning. HTTPS is required for AR measuring (WebXR `immersive-ar`), 
 Needs `MODEL_API_KEY` and `MME_MODE=live`. Use only synthetic or consented, non-personal images: contributor-tier models
 may train on inputs ([`docs/HARDENING.md`](docs/HARDENING.md) P1).
 
-## What was built during the hackathon
+## Built during the hackathon
 
-This repository was created after the kickoff (Oct 26, 2026) and contains no pre-existing product code. All code,
-including the synthetic test-data generator, was written during the event.
+**The product was built between Oct 26 and Nov 4, 2026:** `server/`, `web/`, `assets/` and `samples/` (including the
+synthetic test-data generator). The repository's first commit, `9af461d` (2026-10-26), contains no product code: no
+`server/`, `web/` or `assets/`, and `samples/` holds only two `.gitkeep` placeholders. Verify with
+`git show --stat 9af461d`.
 
-The **first commit** also carries material prepared before kickoff, none of it product code (confirmed acceptable by the
-organizers when disclosed):
+That first commit does carry material prepared before kickoff, none of it product code:
 
 - **Planning docs:** `docs/PLAN.md`, `docs/PRODUCT.md`, `docs/DECISIONS.md`, `docs/CUTLIST.md`, `docs/RUNBOOK.md`.
-- **Dev tooling config:** `AGENTS.md`, `mme/` and `.claude/` (agent instructions, budgets, MME hooks) plus third-party
-  ECC rule packs in `.claude/rules/ecc/` (MIT, see their `LICENSE`). MME itself is a separate dev tool, not part of
-  this submission.
+- **`mme/`:** configuration (budget, policy, milestones) for a pre-existing personal dev-tooling harness, a budget guard
+  for AI spend. It is not part of the product. Transparency note: the product's Meta calls go through `mme.client`, the
+  client module of that same harness, which is installed separately from this repo and is not in
+  `server/requirements.txt` (see [`docs/RUNBOOK.md`](docs/RUNBOOK.md), Level 0).
+- **Agent config:** `AGENTS.md`, `CLAUDE.md` and `.claude/` (agent instructions and hooks), plus third-party ECC rule
+  packs in `.claude/rules/ecc/` (MIT, see their `LICENSE`).
 
-The demo video opens by stating this split and only shows features built during the event. AI usage is disclosed in
-[`docs/AI_USAGE.md`](docs/AI_USAGE.md).
+The demo shows only Maqet. AI usage is disclosed in [`docs/AI_USAGE.md`](docs/AI_USAGE.md).
 
 ## Roadmap
 
