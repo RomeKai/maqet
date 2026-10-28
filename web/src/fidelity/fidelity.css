@@ -1,0 +1,80 @@
+/* Fidelity badges. Tokens come from styles.css (warm technical palette). */
+.fidelity-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #d9d5ce;
+  border-radius: 14px;
+  background: var(--surface, #fff);
+  color: var(--ink);
+}
+
+.fidelity-title {
+  margin: 0;
+}
+
+.fidelity-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fidelity-chip,
+.fidelity-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.fidelity-chip-measured,
+.fidelity-ok {
+  border: 1px solid var(--accent-2);
+  color: var(--accent-2);
+}
+
+.fidelity-chip-preliminary,
+.fidelity-warn {
+  border: 1px solid #b7791f;
+  background: #fdf3dc;
+  color: #5c3b00;
+}
+
+.fidelity-chip-concept {
+  border: 1px dashed var(--concept);
+  color: var(--concept);
+}
+
+.fidelity-counts,
+.fidelity-estimated-walls ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fidelity-counts li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fidelity-count,
+.fidelity-wall-id {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+.fidelity-estimated-walls {
+  padding: 10px 12px;
+  border-radius: 14px;
+}
+
+.fidelity-estimated-walls p {
+  margin: 0 0 6px;
+}

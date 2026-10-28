@@ -1,0 +1,35 @@
+/* AR maquette viewer. Tokens come from styles.css (warm technical palette). */
+.ar-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+.ar-viewer model-viewer {
+  width: 100%;
+  height: 60dvh;
+  border-radius: 14px;
+  background: linear-gradient(#f1efeb, #dedad3);
+}
+
+.ar-fallback {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 160px;
+  padding: 16px;
+  border: 1px dashed var(--muted);
+  border-radius: 14px;
+  color: var(--ink);
+}
+
+.ar-fallback p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.ar-caption {
+  color: var(--muted);
+  font-size: 0.8125rem;
+}

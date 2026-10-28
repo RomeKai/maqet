@@ -73,3 +73,11 @@ Known gaps (open): Door/Window taps don't snap to traced walls yet; multi-room t
 | T8 | L | Windows: gates/missions now run through Git Bash; scripts expect LF | done |
 | T9 | M | `mme night prep` gives the agent 600 s and 10 turns; on Spark contributor the briefing timed out (2026-10-26 night), so no mission ran. Fixed on the way: npm `claude.cmd` shim not found by Popen, cp1252 I/O, briefing JSON misparsed as "no questions" | open: raise the prep timeout or brief on the standard tier; rehearse `prep` in the afternoon, not at bedtime |
 | T10 | L | `mme today`/`mme gate` crash with `UnicodeEncodeError` when stdout is piped on Windows (cp1252 + emoji) | open: reconfigure stdout to utf-8 in the CLI; workaround `PYTHONIOENCODING=utf-8` |
+
+## Web review debt (branch day/web-missions, deferred 2026-10-28)
+| # | Pri | Assumption or patch | Why it matters | Hardening |
+|---|---|---|---|---|
+| W1 | M | `web/src/agent/agentApi.ts:68` casts `payload.scene` to `Scene` after only checking it is an object | A malformed or version-skewed server scene reaches the store and 3D view unvalidated, violating "validate at the boundary" | Validate the scene shape (or use the generated API types plus a runtime schema) before `as Scene` |
+| W2 | M | Maquette (`web/src/ar/` model-viewer and `web/src/view3d/SceneView.tsx`) dispose path does not release every GPU resource on unmount (review finding; exact line not recorded) | Geometry/texture leaks across repeated AR/3D sessions on low-memory phones | Audit dispose of geometries, materials and textures on unmount; add a mount/unmount leak check on device |
+| W3 | L | `web/src/fidelity/` label scope: the "Measured / Preliminary" summary labels the whole Scene rather than the part that was actually measured (review finding; exact line not recorded) | A mixed Scene (some walls estimated) may read as more measured than it is | Scope the label to the measured subset, or show the worst-provenance wall as the headline |
+| W4 | M | `web/src/agent/agentApi.ts:82` `fetch` to the turn endpoint has no timeout or abort | A hung server leaves the chat stuck in `pending` with no way out | `AbortController` with a timeout (e.g. 60 s) and a retry affordance in `ChatSheet` |
