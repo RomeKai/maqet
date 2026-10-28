@@ -100,7 +100,7 @@ missions:
       (wired into web/src/i18n by day); do not edit web/src/i18n/*. Append any assumption or shortcut to
       .mission/PROGRESS.md under "HARDENING candidates".
     context: [AGENTS.md, .claude/skills/meta-ingest/SKILL.md, .claude/skills/mobile-ui/SKILL.md, .claude/skills/scene-model/SKILL.md, web/src/measure/ArMeasure.tsx, web/src/measure/cornerMath.ts, web/src/measure/openingMath.ts, web/src/measure/ArOverlay.tsx, web/src/measure/xrAdapter.ts, web/src/view3d/sceneToMeshes.ts, web/src/scene/types.ts]
-    scope: ["web/src/measure/**", "web/src/view3d/**", "web/src/styles.css"]
+    scope: ["web/src/measure/**", "web/src/view3d/**", "web/src/styles.css", "web/src/scene/store.ts", "web/src/scene/store.test.ts"]
     verify: "cd web && npx vitest run src/measure src/view3d && npx tsc --noEmit"
 
   # 1. Day 4 (Reform) core: the tool-calling loop over the merged executor
