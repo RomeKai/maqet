@@ -226,7 +226,8 @@ export function ArHud({
           locale={locale}
         />
       )}
-      <div className="ar-hud-crosshair" aria-hidden="true" />
+      {/* No static DOM crosshair: the SVG reticle projected at the hit point
+          (ArOverlay) is the only reticle — a centered circle doubles it. */}
       <p
         className={`ar-hud-surface${surfaceFound ? " ar-hud-surface-found" : ""}`}
         role="status"

@@ -459,8 +459,10 @@ describe("ArHud (live session overlay)", () => {
 
   it("during a session only the HUD renders, nothing else from the app", () => {
     const html = hudHtml();
-    // HUD content: crosshair, surface line, hint, step, readout, bar with Undo/Done/Cancel.
-    expect(html).toContain("ar-hud-crosshair");
+    // HUD content: NO static crosshair (the SVG reticle projected at the hit
+    // point is the only reticle — a centered DOM circle doubles it on the
+    // phone). Surface line, hint, step, readout, bar with Undo/Done/Cancel.
+    expect(html).not.toContain("ar-hud-crosshair");
     expect(html).toContain("ar-hud-surface");
     expect(html).toContain("ar-hud-readout");
     expect(html).toContain("ar-hud-bar");

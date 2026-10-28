@@ -245,13 +245,7 @@ body {
   pointer-events: none;
 }
 
-.ar-hud-crosshair {
-  width: 44px;
-  height: 44px;
-  border: 3px solid #ffffff;
-  border-radius: 50%;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
-}
+/* .ar-hud-crosshair removed: the SVG reticle is the only reticle. */
 
 /* Plan B AR feedback: the <svg> fills the HUD root under the text lines
    (z-order: svg first, content after — no pointer events, taps pass
