@@ -4,6 +4,7 @@ import {
   ArHud,
   ArMeasure,
   createArStartHandler,
+  createStartGuard,
   startErrorMessage,
 } from "./ArMeasure";
 import { applySceneOp, createEmptyScene } from "../scene/store";
@@ -137,6 +138,17 @@ describe("ArMeasure", () => {
     const err = Object.assign(new Error("boom"), { name: "SecurityError" });
     expect(startErrorMessage(err)).toBe("SecurityError: boom");
     expect(startErrorMessage("gone")).toBe("gone");
+  });
+
+  it("createStartGuard blocks a double start until reset", () => {
+    // A fast double-tap on Start AR (before the `starting` re-render
+    // disables the button) must not create two sessions: every later tap
+    // would emit twice, duplicating the traced walls.
+    const guard = createStartGuard();
+    expect(guard.tryStart()).toBe(true);
+    expect(guard.tryStart()).toBe(false);
+    guard.reset();
+    expect(guard.tryStart()).toBe(true);
   });
 
   it("the XR host is not rendered before a session (Start button uncovered)", () => {

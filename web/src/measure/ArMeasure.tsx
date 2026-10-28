@@ -62,6 +62,31 @@ function defaultStuckMessage(step: ArTraceStep | null): string {
   return `AR stuck at: ${step ?? "?"}`;
 }
 
+/**
+ * Re-entrancy guard for AR session start. A fast double-tap on Start AR
+ * (before the `starting` re-render disables the button) would otherwise
+ * create TWO live sessions, and every later tap would emit TWICE —
+ * duplicated overlapping walls from a single trace. The guard is a tiny
+ * pure object so it stays unit-testable without DOM clicks; the component
+ * resets it on failure and on session end so re-tap keeps working.
+ */
+export function createStartGuard(): {
+  tryStart: () => boolean;
+  reset: () => void;
+} {
+  let started = false;
+  return {
+    tryStart: (): boolean => {
+      if (started) return false;
+      started = true;
+      return true;
+    },
+    reset: (): void => {
+      started = false;
+    },
+  };
+}
+
 export function createArStartHandler(
   active: XrHitTestAdapter,
   callbacks: XrTapCallbacks,
@@ -381,6 +406,9 @@ export function ArMeasure({
   onSessionChangeRef.current = onSessionChange;
   // Production adapter owned by this component when no test fake is injected.
   const prodAdapterRef = useRef<XrHitTestAdapter | null>(null);
+  // Start re-entrancy guard: persists across renders (a ref, not state) so
+  // the synchronous double-tap check works before any re-render lands.
+  const startGuardRef = useRef(createStartGuard());
   // Adapter taps arrive through the start() subscription: keep a ref to
   // the latest scene so each tap emits its addWall onto current walls.
   const sceneRef = useRef<Scene>(scene);
@@ -414,6 +442,11 @@ export function ArMeasure({
     // Runs SYNCHRONOUSLY inside the button onClick: no await (not even
     // detection) before adapter.start() so the browser counts it as the
     // user gesture that requestSession requires.
+    // Double-tap guard: a second tap before the `starting` re-render lands
+    // must not create a second session (every later tap would emit twice,
+    // duplicating the traced walls). Reset on failure and on session end so
+    // re-tap keeps working.
+    if (!startGuardRef.current.tryStart()) return;
     const notify = onSessionChangeRef.current;
     const callbacks: XrTapCallbacks = {
       onTapCorner: (corner) => appendCorner(corner, target?.id ?? null),
@@ -422,6 +455,7 @@ export function ArMeasure({
       onEnd: () => {
         notify?.(false);
         if (adapter === undefined) prodAdapterRef.current = null;
+        startGuardRef.current.reset();
         setSurfaceFound(false);
         setSupport("ar-ready");
       },
@@ -458,6 +492,7 @@ export function ArMeasure({
       // supports AR and something else failed.
       notify?.(false);
       if (adapter === undefined) prodAdapterRef.current = null;
+      startGuardRef.current.reset();
       setStartError(message);
       setSupport("failed");
     };

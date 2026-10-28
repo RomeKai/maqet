@@ -12,6 +12,7 @@ import {
   type Vec3,
 } from "./cornerMath";
 import type { Scene, Wall } from "../scene/types";
+import { applySceneOp } from "../scene/store";
 import { wallHeightM } from "../view3d/sceneToMeshes";
 
 describe("cornerMath", () => {
@@ -258,5 +259,41 @@ describe("cornerMath", () => {
     trace = traceCornerTap(trace, [0, 0, 0], 2);
     trace = traceCornerTap(trace, [4, 0, 0], 2);
     expect(trace.lastWall?.id).toBe("wall-3");
+  });
+
+  it("tracing one closed room yields N walls with shared endpoints, no duplicates", () => {
+    // The full production path: traceCornerTap (one emission per tap, like
+    // ArMeasure's appendCorner) + applySceneOp(addWall) onto the running
+    // scene. The 3D view showed duplicated overlapping walls — this test
+    // pins the contract: wall[i].b equals wall[i+1].a, the loop closes, and
+    // no two walls share the same (a,b) pair.
+    let trace: CornerTrace = emptyCornerTrace();
+    let scene: Scene = { id: "s", walls: [] };
+    const taps: Vec3[] = [
+      [0, 0, 0],
+      [4, 0, 0],
+      [4, 0, -3],
+      [0, 0, -3],
+    ];
+    for (const tap of taps) {
+      trace = traceCornerTap(trace, tap, scene.walls?.length ?? 0);
+      if (trace.lastWall !== null) {
+        scene = applySceneOp(scene, { type: "addWall", wall: trace.lastWall });
+      }
+    }
+    trace = traceCornerTap(trace, [0.08, 0, 0.06], scene.walls?.length ?? 0);
+    expect(trace.closed).toBe(true);
+    if (trace.lastWall !== null) {
+      scene = applySceneOp(scene, { type: "addWall", wall: trace.lastWall });
+    }
+    const walls = scene.walls ?? [];
+    expect(walls).toHaveLength(4);
+    for (let i = 0; i < walls.length; i++) {
+      const wall = walls[i]!;
+      const next = walls[(i + 1) % walls.length]!;
+      expect(wall.b).toEqual(next.a);
+    }
+    const keys = walls.map((w) => `${w.a.join(",")}>${w.b.join(",")}`);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 });
