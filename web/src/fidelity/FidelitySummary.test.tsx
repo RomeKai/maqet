@@ -49,6 +49,19 @@ describe("FidelitySummary", () => {
     expect(html).not.toContain("fidelity-estimated-walls");
   });
 
+  it("scopes the measured label to walls, since openings carry no provenance", () => {
+    const withOpening: Scene = {
+      ...measuredScene,
+      openings: [{ id: "o1", wall_id: "w1", kind: "door", offset_m: 1, width_m: 0.9, height_m: 2.05 }],
+    };
+    const en = renderToString(<FidelitySummary scene={withOpening} locale="en" />);
+    expect(en).toContain("Walls measured");
+    expect(en).not.toContain(">Measured<");
+    const es = renderToString(<FidelitySummary scene={withOpening} locale="es-AR" />);
+    expect(es).toContain("Muros medidos");
+    expect(es).not.toContain(">Medido<");
+  });
+
   it("shows the Preliminary chip and flags the estimated walls when mixed", () => {
     const t = getFidelityStrings("en");
     const html = renderToString(<FidelitySummary scene={mixedScene} locale="en" />);
