@@ -1,0 +1,466 @@
+"""Stage-scoped tool executor (reform-agent skill). No model calls.
+
+`execute(scene, history, stage, tool, args)` is the only entry point; tests
+call it directly. Order: unknown stage -> unknown tool -> out-of-stage
+refusal -> anchor resolution -> exactly one pure op in server/scene/ops.py,
+validated by server/scene/rules.py. On success the OpRecord (plus a
+namespaced `_undo` snapshot) is appended to `history`; on failure nothing is
+touched. `undo` inverts the last record purely and is global across stages.
+Ops missing from ops.py report `op.not_implemented` — never invented here.
+"""
+
+from __future__ import annotations
+
+import json
+import math
+from dataclasses import replace
+from pathlib import Path
+from typing import Any
+
+from pydantic import BaseModel, Field, ValidationError
+
+from server.agent import stages as stage_table
+from server.agent import tools as tool_contracts
+from server.scene import ops
+from server.scene.models import Opening, Room, Scene, Wall
+from server.scene.rules import (
+    DOOR_WIDTH_M,
+    PRO_FLAG_SECOND_FLOOR,
+    PRO_FLAG_SOIL,
+)
+
+_DEFAULT_WINDOW_WIDTH_M = 1.20
+_DEFAULT_DOOR_HEIGHT_M = 2.10
+_DEFAULT_WINDOW_HEIGHT_M = 1.10
+
+
+class ToolError(BaseModel):
+    code: str
+    message: str
+
+
+class ToolResult(BaseModel):
+    ok: bool
+    errors: list[ToolError] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    flags: list[str] = Field(default_factory=list)
+    changed_ids: list[str] = Field(default_factory=list)
+    version: int = 0
+    data: dict[str, Any] | None = None
+
+
+def _fail(scene: Scene, code: str, message: str) -> tuple[Scene, ToolResult]:
+    return scene, ToolResult(
+        ok=False, errors=[ToolError(code=code, message=message)], version=scene.version
+    )
+
+
+def _op_fail(scene: Scene, result: ops.OpResult) -> tuple[Scene, ToolResult]:
+    # Finding is a str subclass carrying .code; plain-string op errors map to op.invalid.
+    return scene, ToolResult(
+        ok=False,
+        errors=[
+            ToolError(code=getattr(e, "code", "op.invalid"), message=str(e))
+            for e in result.errors
+        ],
+        version=scene.version,
+    )
+
+
+def _unique_id(prefix: str, taken: list[str]) -> str:
+    owned = set(taken)
+    n = len(owned) + 1
+    while f"{prefix}{n}" in owned:
+        n += 1
+    return f"{prefix}{n}"
+
+
+def _match_id(items: list, attr: str, ref: str) -> list:
+    want = ref.strip().casefold()
+    return [it for it in items if getattr(it, attr).casefold() == want]
+
+
+def _rooms_named(scene: Scene, ref: str) -> list[Room]:
+    want = ref.strip().casefold()
+    return [
+        r for r in scene.rooms if r.name.casefold() == want or r.id.casefold() == want
+    ]
+
+
+# --- Reform handlers: exactly one op each ---------------------------------------
+
+
+def _handle_add_room(
+    scene: Scene, history: list, a: tool_contracts.AddRoomInput
+) -> tuple[Scene, ToolResult]:
+    if a.polygon is not None:
+        poly = [(float(x), float(y)) for x, y in a.polygon]
+    else:
+        ref = a.next_to or a.room
+        if a.selected is not None and a.selected.kind.casefold() == "room":
+            ref = a.selected.id
+        if ref is not None:
+            matches = _rooms_named(scene, ref)
+            if not matches:
+                return _fail(scene, "anchor.unknown", f"no room matches {ref!r}; Scene unchanged")
+            if len(matches) > 1:
+                return _fail(
+                    scene,
+                    "anchor.ambiguous",
+                    f"{len(matches)} rooms match {ref!r}; say which one; Scene unchanged",
+                )
+            anchor = matches[0]
+            xs = [p[0] for p in anchor.polygon]
+            ys = [p[1] for p in anchor.polygon]
+            w, h = a.size_m
+            ex, miy = max(xs), min(ys)
+            poly = [(ex, miy), (ex + w, miy), (ex + w, miy + h), (ex, miy + h)]
+        else:
+            w, h = a.size_m
+            poly = [(0.0, 0.0), (w, 0.0), (w, h), (0.0, h)]
+    rid = a.room_id or _unique_id("r", [r.id for r in scene.rooms])
+    room = Room(id=rid, name=a.name or a.function, polygon=poly, function=a.function)
+    new_scene, res = ops.add_room(scene, room)
+    if not res.ok:
+        return _op_fail(scene, res)
+    flags = [str(f) for f in res.flags]
+    if a.level > 1 and PRO_FLAG_SECOND_FLOOR not in flags:
+        flags.append(PRO_FLAG_SECOND_FLOOR)
+    if a.foundation_unknown_soil and PRO_FLAG_SOIL not in flags:
+        flags.append(PRO_FLAG_SOIL)
+    history.append(
+        replace(
+            res.record,
+            args={**res.record.args, "_undo": {"kind": "room", "added_ids": [rid]}},
+        )
+    )
+    return new_scene, ToolResult(
+        ok=True,
+        warnings=[str(w) for w in res.warnings],
+        flags=flags,
+        changed_ids=[rid],
+        version=new_scene.version,
+    )
+
+
+def _handle_add_wall(
+    scene: Scene, history: list, a: tool_contracts.AddWallInput
+) -> tuple[Scene, ToolResult]:
+    wid = a.wall_id or _unique_id("w", [w.id for w in scene.walls])
+    wall = Wall(
+        id=wid,
+        a=(float(a.a[0]), float(a.a[1])),
+        b=(float(a.b[0]), float(a.b[1])),
+        thickness_m=a.thickness_m,
+        kind=a.kind,
+    )
+    new_scene, res = ops.add_wall(scene, wall)
+    if not res.ok:
+        return _op_fail(scene, res)
+    history.append(
+        replace(
+            res.record,
+            args={**res.record.args, "_undo": {"kind": "wall", "added_ids": [wid]}},
+        )
+    )
+    return new_scene, ToolResult(
+        ok=True,
+        warnings=[str(w) for w in res.warnings],
+        flags=[str(f) for f in res.flags],
+        changed_ids=[wid],
+        version=new_scene.version,
+    )
+
+
+def _resolve_wall_id(scene: Scene, a: tool_contracts.RemoveWallInput) -> str | None:
+    """Explicit id (case-insensitive) -> selected -> between/and fragment match."""
+    ref = a.wall_id or a.wall
+    if ref is not None:
+        return _match_id(scene.walls, "id", ref)[0].id if _match_id(scene.walls, "id", ref) else None
+    if a.selected is not None and a.selected.kind.casefold() == "wall":
+        found = _match_id(scene.walls, "id", a.selected.id)
+        return found[0].id if found else None
+    if a.between is not None and a.and_ is not None:
+        frags = [a.between.strip().casefold(), a.and_.strip().casefold()]
+        hits = [w for w in scene.walls if all(f in w.id.casefold() for f in frags)]
+        if len(hits) == 1:
+            return hits[0].id
+        return None  # 0 hits -> unknown, 2+ -> ambiguous; caller distinguishes
+    return None
+
+
+def _handle_remove_wall(
+    scene: Scene, history: list, a: tool_contracts.RemoveWallInput
+) -> tuple[Scene, ToolResult]:
+    wid = _resolve_wall_id(scene, a)
+    if wid is None:
+        if a.between is not None and a.and_ is not None:
+            frags = [a.between.strip().casefold(), a.and_.strip().casefold()]
+            n = sum(1 for w in scene.walls if all(f in w.id.casefold() for f in frags))
+            if n > 1:
+                return _fail(
+                    scene,
+                    "anchor.ambiguous",
+                    f"{n} walls sit between {a.between!r} and {a.and_!r}; say which one; Scene unchanged",
+                )
+        ref = a.wall_id or a.wall or a.between or (a.selected.id if a.selected else "?")
+        return _fail(scene, "anchor.unknown", f"no wall matches {ref!r}; Scene unchanged")
+    idx = next(i for i, w in enumerate(scene.walls) if w.id == wid)
+    wall = scene.walls[idx]
+    doomed = [(i, o) for i, o in enumerate(scene.openings) if o.wall_id == wid]
+    new_scene, res = ops.remove_wall(scene, wid)
+    if not res.ok:
+        return _op_fail(scene, res)
+    history.append(
+        replace(
+            res.record,
+            args={
+                **res.record.args,
+                "_undo": {
+                    "wall": wall.model_dump(),
+                    "wall_index": idx,
+                    "openings": [o.model_dump() for _, o in doomed],
+                    "opening_indices": [i for i, _ in doomed],
+                },
+            },
+        )
+    )
+    return new_scene, ToolResult(
+        ok=True,
+        warnings=[str(w) for w in res.warnings],
+        flags=[str(f) for f in res.flags],  # load-bearing flag arrives via validation
+        changed_ids=[wid, *[o.id for _, o in doomed]],
+        version=new_scene.version,
+    )
+
+
+def _wall_length(wall: Wall) -> float:
+    return math.hypot(wall.b[0] - wall.a[0], wall.b[1] - wall.a[1])
+
+
+def _handle_add_opening(
+    scene: Scene, history: list, a: tool_contracts.AddOpeningInput
+) -> tuple[Scene, ToolResult]:
+    ref = a.wall_id or a.wall
+    if a.selected is not None and a.selected.kind.casefold() == "wall":
+        ref = a.selected.id
+    found = _match_id(scene.walls, "id", ref) if ref else []
+    if not found:
+        return _fail(scene, "anchor.unknown", f"no wall matches {ref!r}; Scene unchanged")
+    wall = found[0]
+    length = _wall_length(wall)
+    width = a.width_m if a.width_m is not None else (
+        DOOR_WIDTH_M if a.kind == "door" else _DEFAULT_WINDOW_WIDTH_M
+    )
+    height = a.height_m if a.height_m is not None else (
+        _DEFAULT_DOOR_HEIGHT_M if a.kind == "door" else _DEFAULT_WINDOW_HEIGHT_M
+    )
+    offset = a.offset_m if a.offset_m is not None else a.at_ratio * max(length - width, 0.0)
+    oid = a.opening_id or _unique_id("o", [o.id for o in scene.openings])
+    opening = Opening(
+        id=oid, wall_id=wall.id, kind=a.kind,
+        offset_m=offset, width_m=width, height_m=height, sill_m=a.sill_m,
+    )
+    new_scene, res = ops.add_opening(scene, opening)
+    if not res.ok:
+        return _op_fail(scene, res)
+    history.append(
+        replace(
+            res.record,
+            args={**res.record.args, "_undo": {"kind": "opening", "added_ids": [oid]}},
+        )
+    )
+    return new_scene, ToolResult(
+        ok=True,
+        warnings=[str(w) for w in res.warnings],
+        flags=[str(f) for f in res.flags],
+        changed_ids=[oid],
+        version=new_scene.version,
+    )
+
+
+def _handle_move_opening(
+    scene: Scene, history: list, a: tool_contracts.MoveOpeningInput
+) -> tuple[Scene, ToolResult]:
+    ref = a.opening_id or a.opening
+    if a.selected is not None and a.selected.kind.casefold() == "opening":
+        ref = a.selected.id
+    found = _match_id(scene.openings, "id", ref) if ref else []
+    if not found:
+        return _fail(scene, "anchor.unknown", f"no opening matches {ref!r}; Scene unchanged")
+    opening = found[0]
+    wall = next((w for w in scene.walls if w.id == opening.wall_id), None)
+    if wall is None:  # unreachable post-validation; guard anyway
+        return _fail(scene, "op.invalid", f"opening {opening.id!r} has no wall; Scene unchanged")
+    if a.new_offset_m is not None:
+        target = a.new_offset_m
+    else:
+        ratio = a.at_ratio if a.at_ratio is not None else 0.5
+        target = ratio * max(_wall_length(wall) - opening.width_m, 0.0)
+    new_scene, res = ops.move_opening(scene, opening.id, target)
+    if not res.ok:
+        return _op_fail(scene, res)
+    history.append(
+        replace(
+            res.record,
+            args={**res.record.args, "_undo": {"previous_offset_m": opening.offset_m}},
+        )
+    )
+    return new_scene, ToolResult(
+        ok=True,
+        warnings=[str(w) for w in res.warnings],
+        flags=[str(f) for f in res.flags],
+        changed_ids=[opening.id],
+        version=new_scene.version,
+    )
+
+
+def _handle_undo(scene: Scene, history: list, args: dict) -> tuple[Scene, ToolResult]:
+    if not history:
+        return _fail(scene, "history.empty", "nothing to undo; history is empty")
+    record = history.pop()
+    snap = dict(record.args).get("_undo", {}) or {}
+    if record.op in ("add_room", "add_wall", "add_opening"):
+        kind = snap.get(
+            "kind",
+            {"add_room": "room", "add_wall": "wall", "add_opening": "opening"}[record.op],
+        )
+        dropped = set(snap.get("added_ids", []))
+        if kind == "room":
+            rebuilt = scene.model_copy(update={"rooms": [r for r in scene.rooms if r.id not in dropped]})
+        elif kind == "wall":
+            rebuilt = scene.model_copy(update={"walls": [w for w in scene.walls if w.id not in dropped]})
+        else:
+            rebuilt = scene.model_copy(
+                update={"openings": [o for o in scene.openings if o.id not in dropped]}
+            )
+        changed = sorted(dropped)
+    elif record.op == "remove_wall":
+        wall = Wall.model_validate(snap["wall"])
+        walls = list(scene.walls)
+        walls.insert(min(snap["wall_index"], len(walls)), wall)
+        openings = list(scene.openings)
+        pairs = sorted(zip(snap["opening_indices"], snap["openings"]), key=lambda p: p[0])
+        for i, dump in pairs:
+            openings.insert(min(i, len(openings)), Opening.model_validate(dump))
+        rebuilt = scene.model_copy(update={"walls": walls, "openings": openings})
+        changed = [wall.id, *[Opening.model_validate(d).id for d in snap["openings"]]]
+    elif record.op == "move_opening":
+        oid = record.args.get("opening_id")
+        rebuilt = scene.model_copy(
+            update={
+                "openings": [
+                    o.model_copy(update={"offset_m": snap["previous_offset_m"]})
+                    if o.id == oid
+                    else o
+                    for o in scene.openings
+                ]
+            }
+        )
+        changed = [oid]
+    else:  # pragma: no cover - histories only ever hold the five ops above
+        history.append(record)
+        return _fail(scene, "history.unknown_op", f"cannot undo unknown op {record.op!r}")
+    rebuilt = rebuilt.model_copy(update={"version": max(scene.version - 1, 0)})
+    return rebuilt, ToolResult(ok=True, changed_ids=changed, version=rebuilt.version)
+
+
+# --- Design read-only + stubs ----------------------------------------------------
+
+
+_CATALOG_CANDIDATES = (
+    Path("assets/catalog.json"),
+    Path(__file__).resolve().parents[2] / "assets" / "catalog.json",
+)
+
+
+def _catalog_items(data: object) -> list:
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        found: list = []
+        for key in ("items", "furniture", "materials"):
+            if isinstance(data.get(key), list):
+                found.extend(data[key])
+        return found
+    return []
+
+
+def _handle_list_catalog(scene: Scene, args: dict) -> tuple[Scene, ToolResult]:
+    items: list | None = None
+    for candidate in _CATALOG_CANDIDATES:
+        if candidate.is_file():
+            items = _catalog_items(json.loads(candidate.read_text(encoding="utf-8")))
+            break
+    if items is None:
+        return scene, ToolResult(
+            ok=True,
+            warnings=["catalog.missing: assets/catalog.json not found; empty catalog"],
+            version=scene.version,
+            data={"items": []},
+        )
+    query = args.get("query")
+    if isinstance(query, str) and query.strip():
+        needle = query.strip().casefold()
+        items = [it for it in items if needle in json.dumps(it).casefold()]
+    return scene, ToolResult(ok=True, version=scene.version, data={"items": items})
+
+
+_MISSING_OP = {
+    "place_furniture": "place_furniture",
+    "move_item": "move_item",
+    "rotate_item": "rotate_item",
+    "remove_item": "remove_item",
+    "create_variant": "create_variant",
+    "render_view": "render_view",
+}
+
+_HANDLERS = {
+    "add_room": _handle_add_room,
+    "add_wall": _handle_add_wall,
+    "remove_wall": _handle_remove_wall,
+    "add_opening": _handle_add_opening,
+    "move_opening": _handle_move_opening,
+}
+
+
+def execute(
+    scene: Scene, history: list, stage: str, tool: str, args: dict | None = None
+) -> tuple[Scene, ToolResult]:
+    """Run one stage-scoped tool call. Pure except appending to `history` on success."""
+    raw = dict(args or {})
+    if stage not in stage_table.STAGES:
+        return _fail(scene, "stage.unknown_stage", f"unknown stage {stage!r}")
+    model_cls = tool_contracts.TOOL_MODELS.get(tool)
+    if model_cls is None:
+        return _fail(scene, "tool.unknown_tool", f"unknown tool {tool!r}")
+    allowed = stage_table.allowed_tools(stage)
+    if tool not in allowed:
+        return _fail(
+            scene,
+            "stage.tool_not_allowed",
+            f"tool {tool!r} not allowed in stage {stage!r}; allowed: {', '.join(allowed)}",
+        )
+    if tool == "undo":
+        return _handle_undo(scene, history, raw)
+    if tool == "list_catalog":
+        return _handle_list_catalog(scene, raw)
+    if tool in _MISSING_OP:
+        missing = _MISSING_OP[tool]
+        return _fail(
+            scene,
+            "op.not_implemented",
+            f"op {missing!r} is not implemented in server/scene/ops.py yet; "
+            "Scene and history unchanged",
+        )
+    try:
+        parsed = model_cls(**raw)
+    except ValidationError as exc:
+        details = "; ".join(
+            f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in exc.errors()
+        )
+        return _fail(scene, "tool.invalid_args", f"invalid args for {tool!r}: {details}")
+    return _HANDLERS[tool](scene, history, parsed)
+
+
+__all__ = ["ToolError", "ToolResult", "execute"]
