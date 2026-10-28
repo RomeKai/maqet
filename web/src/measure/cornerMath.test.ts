@@ -11,12 +11,15 @@ import {
   type CornerTrace,
   type Vec3,
 } from "./cornerMath";
-import type { Wall } from "../scene/types";
+import type { Scene, Wall } from "../scene/types";
+import { wallHeightM } from "../view3d/sceneToMeshes";
 
 describe("cornerMath", () => {
   it("computes a 3-4-5 triangle as 5m", () => {
+    // Floor-plane 3-4-5: the 4 m run is on z (device: toward viewer), not y
+    // (up) — tap height never counts toward wall length.
     const a: Vec3 = [0, 0, 0];
-    const b: Vec3 = [3, 4, 0];
+    const b: Vec3 = [3, 0, 4];
     expect(distanceM(a, b)).toBeCloseTo(5, 9);
     expect(wallLengthFromCorners(a, b)).toBeCloseTo(5, 9);
   });
@@ -43,7 +46,7 @@ describe("cornerMath", () => {
     const update = pairCornersToWallUpdate(
       [
         [0, 0, 0],
-        [3, 4, 0],
+        [3, 0, 4],
       ],
       "w7",
     );
@@ -63,6 +66,44 @@ describe("cornerMath", () => {
         "w7",
       ),
     ).toBeNull();
+  });
+
+  it("tap height never leaks into wall geometry (y=0 vs y=1.2)", () => {
+    // Acceptance criterion: corners tapped at different heights produce the
+    // SAME wall — same plan endpoints, same length, same height. Fails while
+    // length math uses 3D Euclidean (sqrt(9 + 1.44 + 16) ~= 5.14, not 5).
+    const low = pairCornersToNewWall(
+      [
+        [0, 0, 0],
+        [3, 0, 4],
+      ],
+      "wY",
+    );
+    const high = pairCornersToNewWall(
+      [
+        [0, 1.2, 0],
+        [3, 0.9, 4],
+      ],
+      "wY",
+    );
+    expect(low).not.toBeNull();
+    expect(high).not.toBeNull();
+    expect(high?.wall.a).toEqual(low?.wall.a);
+    expect(high?.wall.b).toEqual(low?.wall.b);
+    expect(high?.lengthM).toBeCloseTo(5, 9);
+    expect(high?.lengthM).toBeCloseTo(low?.lengthM ?? NaN, 9);
+    expect(high?.wall.measured_length_m).toBeCloseTo(5, 9);
+    // Height never comes from taps: no override is stored, so the ceiling
+    // default wins (server/scene/rules.py: DEFAULT_CEILING_HEIGHT_M = 2.6).
+    expect(low?.wall.height_m).toBeUndefined();
+    expect(high?.wall.height_m).toBeUndefined();
+    expect(
+      wallHeightM(high!.wall, { id: "s", ceiling_height_m: 2.6 } as Scene),
+    ).toBe(2.6);
+  });
+
+  it("wallLengthFromCorners ignores tap height", () => {
+    expect(wallLengthFromCorners([0, 0, 0], [3, 1.2, 4])).toBeCloseTo(5, 9);
   });
 
   it("pairCornersToNewWall projects floor taps to a measured_ar wall", () => {

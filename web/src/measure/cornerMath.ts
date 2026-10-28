@@ -32,12 +32,30 @@ export function distanceM(a: Vec3, b: Vec3): number {
 }
 
 /**
- * Length in meters of the wall segment between two tapped corners.
- * Returns null for degenerate pairs (zero-length, non-finite) — the caller
- * keeps the wall estimated and asks the user to tap again.
+ * Floor-plane (x/z) distance in meters between two AR corners. NaN when
+ * invalid. This is the ONLY distance wall geometry may use: the Scene stores
+ * plan walls ([x east, y north], scene-model skill), so a tap's height (phone
+ * held at chest height, reticle at varying heights) must never leak into
+ * wall lengths. `distanceM` stays true-3D for the close-room tap proximity
+ * check, which is a spatial gesture, not plan geometry.
+ */
+export function floorPlaneDistanceM(a: Vec3, b: Vec3): number {
+  if (!isValidCorner(a) || !isValidCorner(b)) return NaN;
+  const dx = b[0] - a[0];
+  const dz = b[2] - a[2];
+  return Math.sqrt(dx * dx + dz * dz);
+}
+
+/**
+ * Length in meters of the wall segment between two tapped corners, measured
+ * on the floor plane (x/z only). Returns null for degenerate pairs
+ * (zero-length, non-finite) — the caller keeps the wall estimated and asks
+ * the user to tap again. Wall height never comes from here: it is resolved
+ * by wallHeightM's fallback chain (wall.height_m ?? scene.ceiling_height_m
+ * ?? 2.6, mirroring server/scene/rules.py DEFAULT_CEILING_HEIGHT_M).
  */
 export function wallLengthFromCorners(a: Vec3, b: Vec3): number | null {
-  const d = distanceM(a, b);
+  const d = floorPlaneDistanceM(a, b);
   if (!Number.isFinite(d) || d <= 0) return null;
   return d;
 }

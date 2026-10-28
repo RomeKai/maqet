@@ -197,10 +197,11 @@ describe("ArMeasure", () => {
 
   it("3-4-5 corners through the real path emit measured_ar length 5m", () => {
     // Same functions the component wires: corner pair -> op -> store.
+    // Floor-plane 3-4-5 taps (4 m on z, not y): tap height never counts.
     const update = pairCornersToWallUpdate(
       [
         [0, 0, 0],
-        [3, 4, 0],
+        [3, 0, 4],
       ],
       "w0",
     );
