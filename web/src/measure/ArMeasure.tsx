@@ -236,7 +236,12 @@ export function ArHud({
           ? t["measure.ar.surface.found"]
           : t["measure.ar.surface.searching"]}
       </p>
-      <p className="ar-hud-hint">{t["measure.ar.hint"]}</p>
+      {/* The static wall-corner hint shows only in wall mode: door/window
+          modes carry their own step prompt (edgeFirst/edgeSecond/pickWall)
+          and the wall copy misleads there. */}
+      {traceMode === "wall" && (
+        <p className="ar-hud-hint">{t["measure.ar.hint"]}</p>
+      )}
       <div className="ar-hud-modes" role="group" aria-label={t["measure.ar.title"]}>
         {HUD_MODES.map((mode) => (
           <button

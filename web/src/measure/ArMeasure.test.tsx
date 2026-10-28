@@ -457,6 +457,15 @@ describe("ArHud (live session overlay)", () => {
     );
   }
 
+  it("hint follows the mode: wall hint only in wall mode", () => {
+    // Bug: Door selected still said "Point at a wall corner". The static
+    // wall-corner hint must not render outside wall mode; the mode-specific
+    // step label carries the prompt instead.
+    expect(hudHtml({ traceMode: "wall" })).toContain("wall corner");
+    expect(hudHtml({ traceMode: "door" })).not.toContain("wall corner");
+    expect(hudHtml({ traceMode: "window" })).not.toContain("wall corner");
+  });
+
   it("during a session only the HUD renders, nothing else from the app", () => {
     const html = hudHtml();
     // HUD content: NO static crosshair (the SVG reticle projected at the hit
