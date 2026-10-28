@@ -1,0 +1,303 @@
+{
+  "furniture": [
+    {
+      "clearance_only": false,
+      "dims_m": {
+        "d": 1.9,
+        "h": 0.55,
+        "w": 0.9
+      },
+      "id": "bed-single-90x190",
+      "kind": "furniture",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Single bed 90x190",
+      "name_es_AR": "Cama de una plaza 90x190",
+      "source_url": "https://kenney.nl/assets/furniture-kit",
+      "asset_status": "pending"
+    },
+    {
+      "clearance_only": false,
+      "dims_m": {
+        "d": 0.75,
+        "h": 0.75,
+        "w": 1.2
+      },
+      "id": "table-120x75",
+      "kind": "furniture",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Table 120x75",
+      "name_es_AR": "Mesa 120x75",
+      "source_url": "https://kenney.nl/assets/furniture-kit",
+      "asset_status": "pending"
+    },
+    {
+      "clearance_only": false,
+      "dims_m": {
+        "d": 0.45,
+        "h": 0.9,
+        "w": 0.45
+      },
+      "id": "chair-45x45",
+      "kind": "furniture",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Chair 45x45",
+      "name_es_AR": "Silla 45x45",
+      "source_url": "https://kenney.nl/assets/furniture-kit",
+      "asset_status": "pending"
+    },
+    {
+      "clearance_only": false,
+      "dims_m": {
+        "d": 0.6,
+        "h": 0.9,
+        "w": 0.6
+      },
+      "id": "stove-60x60",
+      "kind": "furniture",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Cooker 60x60",
+      "name_es_AR": "Cocina 60x60",
+      "source_url": "https://poly.pizza/model/Lowpoly-Stove",
+      "asset_status": "pending"
+    },
+    {
+      "clearance_only": false,
+      "dims_m": {
+        "d": 0.6,
+        "h": 2.0,
+        "w": 1.2
+      },
+      "id": "wardrobe-120x60",
+      "kind": "furniture",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Wardrobe 120x60",
+      "name_es_AR": "Placard 120x60",
+      "source_url": "https://kenney.nl/assets/furniture-kit",
+      "asset_status": "pending"
+    },
+    {
+      "clearance_only": true,
+      "diameter_m": 0.9,
+      "dims_m": {
+        "d": 0.9,
+        "h": 0.0,
+        "w": 0.9
+      },
+      "id": "door-swing-arc-90",
+      "kind": "clearance",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Door swing clearance, 0.90 m leaf (no model)",
+      "name_es_AR": "Barrido de puerta de 0,90 m (sin modelo)",
+      "source_url": null,
+      "asset_status": "n/a"
+    }
+  ],
+  "materials": [
+    {
+      "id": "brick-solid-common-20",
+      "kind": "masonry",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Solid common brick wall, 0.20 m",
+      "name_es_AR": "Ladrillo común macizo, muro de 0,20 m",
+      "recipe": {
+        "basis": "m2_wall",
+        "qty": 108,
+        "wall_thickness_m": 0.2
+      },
+      "recipe_source": "provisional estimate (~100-120 pieces/m2 for a 0.20 m solid common-brick wall); no verified Argentine yield table cited - confirm with mason",
+      "source_url": null,
+      "unit": "piece",
+      "waste_factor": 1.05
+    },
+    {
+      "id": "brick-hollow-12-10",
+      "kind": "masonry",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Hollow ceramic brick 12x18x33, 0.10 m wall",
+      "name_es_AR": "Ladrillo cerámico hueco 12x18x33, muro de 0,10 m",
+      "recipe": {
+        "basis": "m2_wall",
+        "qty": 15,
+        "wall_thickness_m": 0.1
+      },
+      "recipe_source": "provisional: estimate, to be reviewed by a master builder",
+      "source_url": null,
+      "unit": "piece",
+      "waste_factor": 1.05
+    },
+    {
+      "id": "brick-hollow-18-18",
+      "kind": "masonry",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Hollow ceramic brick 12x18x33 laid flat, 0.18 m wall",
+      "name_es_AR": "Ladrillo cerámico hueco 12x18x33 acostado, muro de 0,18 m",
+      "recipe": {
+        "basis": "m2_wall",
+        "qty": 15,
+        "wall_thickness_m": 0.18
+      },
+      "recipe_source": "provisional estimate (~13-16 pieces/m2 for a 0.18 m hollow-brick wall); no verified Argentine yield table cited - confirm with mason",
+      "source_url": null,
+      "unit": "piece",
+      "waste_factor": 1.05
+    },
+    {
+      "id": "mortar-13",
+      "kind": "binder",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Laying mortar 1:3 (cement:sand)",
+      "name_es_AR": "Mortero de asiento 1:3 (cemento:arena)",
+      "recipe": {
+        "basis": "m2_wall",
+        "qty": 0.03,
+        "wall_thickness_m": 0.2
+      },
+      "recipe_source": "provisional: estimate, to be reviewed by a master builder",
+      "source_url": null,
+      "unit": "m3",
+      "waste_factor": 1.1
+    },
+    {
+      "id": "cement-bag-50kg",
+      "kind": "binder",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Portland cement, 50 kg bag",
+      "name_es_AR": "Cemento Portland, bolsa de 50 kg",
+      "recipe": {
+        "basis": "m3_mortar",
+        "mix": "1:3",
+        "qty": 9
+      },
+      "recipe_source": "provisional: estimate, to be reviewed by a master builder",
+      "source_url": null,
+      "unit": "bag",
+      "waste_factor": 1.05
+    },
+    {
+      "id": "sand-m3",
+      "kind": "aggregate",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Coarse sand",
+      "name_es_AR": "Arena gruesa",
+      "recipe": {
+        "basis": "m3_mortar",
+        "mix": "1:3",
+        "qty": 1.1
+      },
+      "recipe_source": "provisional: estimate, to be reviewed by a master builder",
+      "source_url": null,
+      "unit": "m3",
+      "waste_factor": 1.1
+    },
+    {
+      "id": "gravel-m3",
+      "kind": "aggregate",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Crushed stone 6-20 (granite)",
+      "name_es_AR": "Canto rodado / piedra partida 6-20",
+      "recipe": {
+        "basis": "m3_concrete",
+        "mix": "1:2:3",
+        "qty": 0.7
+      },
+      "recipe_source": "provisional: estimate, to be reviewed by a master builder",
+      "source_url": null,
+      "unit": "m3",
+      "waste_factor": 1.1
+    },
+    {
+      "id": "steel-bar-6mm",
+      "kind": "steel",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Steel bar ADN 420, 6 mm (stirrups)",
+      "name_es_AR": "Barra de acero ADN 420 de 6 mm (estribos)",
+      "recipe": {
+        "basis": "m_beam",
+        "qty": 5
+      },
+      "recipe_source": "provisional: estimate, to be reviewed by a master builder",
+      "source_url": null,
+      "unit": "m",
+      "waste_factor": 1.1
+    },
+    {
+      "id": "steel-bar-8mm",
+      "kind": "steel",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Steel bar ADN 420, 8 mm (bond beam)",
+      "name_es_AR": "Barra de acero ADN 420 de 8 mm (encadenado)",
+      "recipe": {
+        "basis": "m_beam",
+        "qty": 4
+      },
+      "recipe_source": "provisional: estimate, to be reviewed by a master builder",
+      "source_url": null,
+      "unit": "m",
+      "waste_factor": 1.1
+    },
+    {
+      "id": "roofing-sheet-galv",
+      "kind": "roofing",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Galvanized corrugated roofing sheet",
+      "name_es_AR": "Chapa galvanizada acanalada para techo",
+      "recipe": {
+        "basis": "m2_roof",
+        "qty": 1.15
+      },
+      "recipe_source": "provisional: estimate, to be reviewed by a master builder",
+      "source_url": null,
+      "unit": "m2",
+      "waste_factor": 1.05
+    },
+    {
+      "id": "door-90",
+      "kind": "opening",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Interior/exterior door 0.90 m with frame",
+      "name_es_AR": "Puerta de 0,90 m con marco",
+      "recipe": {
+        "basis": "piece",
+        "qty": 1
+      },
+      "recipe_source": "provisional: estimate, to be reviewed by a master builder",
+      "source_url": null,
+      "unit": "piece",
+      "waste_factor": 1.0
+    },
+    {
+      "id": "window-120",
+      "kind": "opening",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Aluminium window 1.20 m with frame",
+      "name_es_AR": "Ventana de aluminio de 1,20 m con marco",
+      "recipe": {
+        "basis": "piece",
+        "qty": 1
+      },
+      "recipe_source": "provisional: estimate, to be reviewed by a master builder",
+      "source_url": null,
+      "unit": "piece",
+      "waste_factor": 1.0
+    }
+  ],
+  "schema_version": 1
+}
