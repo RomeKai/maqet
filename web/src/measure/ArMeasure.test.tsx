@@ -458,8 +458,9 @@ describe("ArHud (live session overlay)", () => {
 
   it("during a session only the HUD renders, nothing else from the app", () => {
     const html = hudHtml();
-    // HUD content: crosshair, hint, step, readout, bar with Undo/Done/Cancel.
+    // HUD content: crosshair, surface line, hint, step, readout, bar with Undo/Done/Cancel.
     expect(html).toContain("ar-hud-crosshair");
+    expect(html).toContain("ar-hud-surface");
     expect(html).toContain("ar-hud-readout");
     expect(html).toContain("ar-hud-bar");
     // Nothing else from the app may render inside the overlay root: no
@@ -496,5 +497,92 @@ describe("ArHud (live session overlay)", () => {
     expect(html).toContain('class="ar-hud"');
     expect(html).not.toContain("ar-hud-bar");
     expect(html).not.toContain("ar-hud-crosshair");
+    expect(html).not.toContain("ar-hud-surface");
+  });
+
+  it("surface line: searching copy by default, found copy when reported", () => {
+    // Initial state is searching (no surface yet); the adapter flips it via
+    // the transition-only onSurfaceChange seam. No WebXR needed: renderToString.
+    expect(hudHtml()).toContain("Move the phone slowly to find the floor");
+    expect(hudHtml({ surfaceFound: true })).toContain("Surface found ✓");
+    expect(hudHtml({ surfaceFound: false })).not.toContain("Surface found");
+  });
+
+  it("surface line renders the es-AR copy under es-AR", () => {
+    const html = renderToString(
+      <ArHud
+        locale="es-AR"
+        hudRef={{ current: null }}
+        previewM={null}
+        targetLengthM={2}
+        stepLabel="Tocá la primera esquina"
+        canConfirm={false}
+      />,
+    );
+    expect(html).toContain("Mové el teléfono despacio para encontrar el piso");
+    const found = renderToString(
+      <ArHud
+        locale="es-AR"
+        hudRef={{ current: null }}
+        previewM={null}
+        targetLengthM={2}
+        stepLabel="Tocá la primera esquina"
+        canConfirm={false}
+        surfaceFound
+      />,
+    );
+    expect(found).toContain("Superficie encontrada ✓");
+  });
+
+  it("adapter surface transitions reach the HUD wiring (no WebXR)", () => {
+    // Fake adapter mimics WebXrHitTestAdapter's transition-only contract:
+    // onSurfaceChange fires only on found<->lost edges, never per frame.
+    // The HUD reads the resulting boolean, so drive the callbacks object
+    // the way handleStart wires it (onSurfaceChange -> surface state).
+    let captured: XrTapCallbacks | null = null;
+    const adapter: XrHitTestAdapter = {
+      start: async (callbacks) => {
+        captured = callbacks;
+      },
+      end: () => undefined,
+    };
+    let surfaceFound = false;
+    const seen: boolean[] = [];
+    const tapCallbacks: XrTapCallbacks = {
+      onTapCorner: () => undefined,
+      onEnd: () => undefined,
+      onSurfaceChange: (found) => {
+        surfaceFound = found;
+        seen.push(found);
+      },
+    };
+    const handleClick = createArStartHandler(adapter, tapCallbacks, () => undefined, {
+      onStarted: () => undefined,
+      onFailed: () => {
+        throw new Error("must not fail");
+      },
+    });
+    handleClick();
+    const callbacks = captured as XrTapCallbacks | null;
+    expect(callbacks).not.toBeNull();
+    // Transition-only: repeated identical reports are swallowed by the
+    // adapter, so only edges reach the HUD state.
+    let last = false;
+    const report = (found: boolean): void => {
+      if (found === last) return;
+      last = found;
+      callbacks?.onSurfaceChange?.(found);
+    };
+    report(true);
+    report(true);
+    report(false);
+    report(false);
+    report(true);
+    expect(seen).toEqual([true, false, true]);
+    expect(surfaceFound).toBe(true);
+    // And the found copy is what the HUD shows once the state flips.
+    expect(hudHtml({ surfaceFound })).toContain("Surface found ✓");
+    // The seam stays optional: old fakes without onSurfaceChange still start.
+    expect(captured).not.toBeNull();
   });
 });

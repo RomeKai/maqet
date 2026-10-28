@@ -67,6 +67,20 @@ describe("xrAdapter", () => {
     expect(onTapCorner).not.toHaveBeenCalled();
     expect(onEnd).not.toHaveBeenCalled();
   });
+
+  it("onSurfaceChange is optional: fakes without it still satisfy the seam", async () => {
+    // A caller may pass onSurfaceChange and an old fake may ignore it; the
+    // seam stays non-breaking because the member is optional.
+    const adapter = new FakeAdapter();
+    const seen: boolean[] = [];
+    await adapter.start({
+      onTapCorner: () => undefined,
+      onEnd: () => undefined,
+      onSurfaceChange: (found) => seen.push(found),
+    });
+    adapter.end();
+    expect(seen).toEqual([]);
+  });
 });
 
 describe("hitTestPoseToCorner", () => {

@@ -68,6 +68,8 @@ export const esAR = {
   "measure.ar.unsupported": "AR no disponible en este dispositivo",
   "measure.ar.starting": "Iniciando AR…",
   "measure.ar.stuck": "AR trabado en:",
+  "measure.ar.surface.searching": "Mové el teléfono despacio para encontrar el piso",
+  "measure.ar.surface.found": "Superficie encontrada ✓",
   "measure.ar.done": "Listo",
   "measure.ar.cancel": "Cancelar",
 } as const;

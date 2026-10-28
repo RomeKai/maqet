@@ -140,6 +140,8 @@ interface ArHudProps {
   targetLengthM?: number | null;
   /** Step prompt: tap-first / tap-second. */
   stepLabel?: string;
+  /** Hit-test presence: false = still searching (initial), true = floor seen. */
+  surfaceFound?: boolean;
   canConfirm?: boolean;
   onConfirm?: () => void;
   onReset?: () => void;
@@ -165,6 +167,7 @@ export function ArHud({
   previewM = null,
   targetLengthM = null,
   stepLabel = "",
+  surfaceFound = false,
   canConfirm = false,
   onConfirm = noopArHudAction,
   onReset = noopArHudAction,
@@ -179,6 +182,14 @@ export function ArHud({
   return (
     <div ref={hudRef} className="ar-hud" role="dialog" aria-label={t["measure.ar.title"]}>
       <div className="ar-hud-crosshair" aria-hidden="true" />
+      <p
+        className={`ar-hud-surface${surfaceFound ? " ar-hud-surface-found" : ""}`}
+        role="status"
+      >
+        {surfaceFound
+          ? t["measure.ar.surface.found"]
+          : t["measure.ar.surface.searching"]}
+      </p>
       <p className="ar-hud-hint">{t["measure.ar.hint"]}</p>
       <p className="ar-hud-step">{stepLabel}</p>
       <p className="ar-hud-readout">{formatMeasureM(locale, shownM)}</p>
@@ -249,6 +260,10 @@ export function ArMeasure({
   const startStepRef = useRef<ArTraceStep | null>(null);
   const [corners, setCorners] = useState<Vec3[]>([]);
   const [previewM, setPreviewM] = useState<number | null>(null);
+  // Surface presence from the adapter's onSurfaceChange (transition-only:
+  // false = searching, the initial state until the first report). Passed to
+  // ArHud as a prop so renderToString tests cover the wiring without WebXR.
+  const [surfaceFound, setSurfaceFound] = useState(false);
   const cornersRef = useRef<Vec3[]>([]);
   cornersRef.current = corners;
   // Host for the XR canvas (production path): the device stream renders
@@ -310,13 +325,20 @@ export function ArMeasure({
       onEnd: () => {
         notify?.(false);
         if (adapter === undefined) prodAdapterRef.current = null;
+        setSurfaceFound(false);
         setSupport("ar-ready");
+      },
+      // Transition-only from the adapter: one setState per surface event,
+      // never per XR frame. Reset on every start so a re-tap begins searching.
+      onSurfaceChange: (found) => {
+        setSurfaceFound(found);
       },
     };
     const active = adapter ?? new WebXrHitTestAdapter();
     if (adapter === undefined) prodAdapterRef.current = active;
     startStepRef.current = null;
     setStartStep(null);
+    setSurfaceFound(false);
     setSupport("starting");
     const onStarted = (): void => {
       notify?.(true);
@@ -593,6 +615,7 @@ export function ArMeasure({
         previewM={previewM}
         targetLengthM={target !== null ? wallDisplayLengthM(target) : null}
         stepLabel={stepLabel}
+        surfaceFound={surfaceFound}
         canConfirm={previewM !== null}
         onConfirm={handleConfirm}
         onReset={handleReset}

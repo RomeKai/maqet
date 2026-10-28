@@ -8,6 +8,17 @@ import { isValidCorner } from "./cornerMath";
 export interface XrTapCallbacks {
   onTapCorner: (corner: Vec3) => void;
   onEnd: () => void;
+  /**
+   * Surface presence, reported only on found<->lost transitions (never every
+   * frame) so the HUD re-renders once per surface event instead of 60x/s.
+   * Optional: fakes and NoopAdapter omit it and the HUD stays on its
+   * "searching" copy until the first report — never a breaking change to
+   * the seam. Chosen over reusing the onStep progress channel because start
+   * steps are one-shot diagnostics ("session requested … granted") while
+   * surface presence flaps for the whole session; mixing them would corrupt
+   * the stuck-at watchdog trace.
+   */
+  onSurfaceChange?: (found: boolean) => void;
 }
 
 /**
@@ -272,6 +283,12 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
       reticle.matrixAutoUpdate = false;
       reticle.visible = false;
       scene.add(reticle);
+      // Transition-only mirror of the frame loop's hit state: the HUD must
+      // show surface feedback even when the 3D ring is invisible (compositor
+      // covered it, material culled, opaque overlay on top). Updated on
+      // found<->lost edges only so React state changes once per event, not
+      // once per XR frame.
+      let surfaceFound = false;
 
       const camera = new THREE.PerspectiveCamera();
       this.session = session;
@@ -288,11 +305,16 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
       renderer.setAnimationLoop((_, frame) => {
         if (frame) {
           const hit = this.hitFromFrame(frame);
+          const found = hit !== null;
           if (hit === null) {
             reticle.visible = false;
           } else {
             reticle.visible = true;
             reticle.matrix.fromArray(hit.transform.matrix);
+          }
+          if (found !== surfaceFound) {
+            surfaceFound = found;
+            callbacks.onSurfaceChange?.(found);
           }
         }
         renderer.render(scene, camera);
