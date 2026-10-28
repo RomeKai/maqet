@@ -10,6 +10,7 @@ from server.agent.executor import ToolResult, execute
 from server.agent.stages import STAGES, allowed_tools
 from server.scene import ops
 from server.scene.models import Room, Scene, Wall
+from server.scene.ops import OpRecord
 from server.scene.rules import (
     DOOR_WIDTH_M,
     PRO_FLAG_LOAD_BEARING,

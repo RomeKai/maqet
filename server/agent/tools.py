@@ -9,7 +9,7 @@ east-adjacent to the anchor bbox, opening offsets from `at_ratio`).
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -27,8 +27,10 @@ class AddRoomInput(BaseModel):
     room_id: str | None = None
     next_to: str | None = None
     room: str | None = None
-    polygon: list[tuple[float, float]] | None = None
-    size_m: tuple[float, float] = (3.0, 3.0)
+    polygon: list[tuple[float, float]] | None = Field(default=None, min_length=3)
+    size_m: tuple[
+        Annotated[float, Field(gt=0)], Annotated[float, Field(gt=0)]
+    ] = (3.0, 3.0)
     level: int = 1
     foundation_unknown_soil: bool = False
     selected: SelectedRef | None = None

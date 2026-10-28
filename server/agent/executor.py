@@ -97,7 +97,14 @@ def _handle_add_room(
         poly = [(float(x), float(y)) for x, y in a.polygon]
     else:
         ref = a.next_to or a.room
-        if a.selected is not None and a.selected.kind.casefold() == "room":
+        if ref is None and a.selected is not None:
+            if a.selected.kind.casefold() != "room":
+                return _fail(
+                    scene,
+                    "anchor.unknown",
+                    f"selected {a.selected.kind} {a.selected.id!r} is not a room; "
+                    "say which room; Scene unchanged",
+                )
             ref = a.selected.id
         if ref is not None:
             matches = _rooms_named(scene, ref)
@@ -242,7 +249,7 @@ def _handle_add_opening(
     scene: Scene, history: list, a: tool_contracts.AddOpeningInput
 ) -> tuple[Scene, ToolResult]:
     ref = a.wall_id or a.wall
-    if a.selected is not None and a.selected.kind.casefold() == "wall":
+    if ref is None and a.selected is not None and a.selected.kind.casefold() == "wall":
         ref = a.selected.id
     found = _match_id(scene.walls, "id", ref) if ref else []
     if not found:
@@ -283,7 +290,11 @@ def _handle_move_opening(
     scene: Scene, history: list, a: tool_contracts.MoveOpeningInput
 ) -> tuple[Scene, ToolResult]:
     ref = a.opening_id or a.opening
-    if a.selected is not None and a.selected.kind.casefold() == "opening":
+    if (
+        ref is None
+        and a.selected is not None
+        and a.selected.kind.casefold() == "opening"
+    ):
         ref = a.selected.id
     found = _match_id(scene.openings, "id", ref) if ref else []
     if not found:
@@ -319,13 +330,23 @@ def _handle_undo(scene: Scene, history: list, args: dict) -> tuple[Scene, ToolRe
     if not history:
         return _fail(scene, "history.empty", "nothing to undo; history is empty")
     record = history.pop()
-    snap = dict(record.args).get("_undo", {}) or {}
+    raw_args = record.args if isinstance(record.args, dict) else {}
+    snap = raw_args.get("_undo", {})
+    if not isinstance(snap, dict):
+        snap = {}
     if record.op in ("add_room", "add_wall", "add_opening"):
         kind = snap.get(
             "kind",
             {"add_room": "room", "add_wall": "wall", "add_opening": "opening"}[record.op],
         )
         dropped = set(snap.get("added_ids", []))
+        if not dropped:  # foreign record without our snapshot: never silently version-1
+            history.append(record)
+            return _fail(
+                scene,
+                "history.corrupt",
+                f"cannot undo {record.op!r}: missing snapshot; history unchanged",
+            )
         if kind == "room":
             rebuilt = scene.model_copy(update={"rooms": [r for r in scene.rooms if r.id not in dropped]})
         elif kind == "wall":
@@ -336,6 +357,13 @@ def _handle_undo(scene: Scene, history: list, args: dict) -> tuple[Scene, ToolRe
             )
         changed = sorted(dropped)
     elif record.op == "remove_wall":
+        if not all(k in snap for k in ("wall", "wall_index", "openings", "opening_indices")):
+            history.append(record)
+            return _fail(
+                scene,
+                "history.corrupt",
+                "cannot undo 'remove_wall': missing snapshot; history unchanged",
+            )
         wall = Wall.model_validate(snap["wall"])
         walls = list(scene.walls)
         walls.insert(min(snap["wall_index"], len(walls)), wall)
@@ -346,7 +374,21 @@ def _handle_undo(scene: Scene, history: list, args: dict) -> tuple[Scene, ToolRe
         rebuilt = scene.model_copy(update={"walls": walls, "openings": openings})
         changed = [wall.id, *[Opening.model_validate(d).id for d in snap["openings"]]]
     elif record.op == "move_opening":
-        oid = record.args.get("opening_id")
+        if "previous_offset_m" not in snap or not isinstance(raw_args.get("opening_id"), str):
+            history.append(record)
+            return _fail(
+                scene,
+                "history.corrupt",
+                "cannot undo 'move_opening': missing snapshot; history unchanged",
+            )
+        oid = raw_args["opening_id"]
+        if not any(o.id == oid for o in scene.openings):
+            history.append(record)
+            return _fail(
+                scene,
+                "history.corrupt",
+                f"cannot undo 'move_opening': opening {oid!r} is gone; history unchanged",
+            )
         rebuilt = scene.model_copy(
             update={
                 "openings": [
@@ -389,13 +431,16 @@ def _catalog_items(data: object) -> list:
 def _handle_list_catalog(scene: Scene, args: dict) -> tuple[Scene, ToolResult]:
     items: list | None = None
     for candidate in _CATALOG_CANDIDATES:
-        if candidate.is_file():
-            items = _catalog_items(json.loads(candidate.read_text(encoding="utf-8")))
-            break
+        try:
+            if candidate.is_file():
+                items = _catalog_items(json.loads(candidate.read_text(encoding="utf-8")))
+                break
+        except (OSError, ValueError):
+            continue  # corrupt/unreadable file degrades like a missing one
     if items is None:
         return scene, ToolResult(
             ok=True,
-            warnings=["catalog.missing: assets/catalog.json not found; empty catalog"],
+            warnings=["catalog.missing: assets/catalog.json not found or unreadable; empty catalog"],
             version=scene.version,
             data={"items": []},
         )
@@ -428,9 +473,18 @@ def execute(
     scene: Scene, history: list, stage: str, tool: str, args: dict | None = None
 ) -> tuple[Scene, ToolResult]:
     """Run one stage-scoped tool call. Pure except appending to `history` on success."""
-    raw = dict(args or {})
-    if stage not in stage_table.STAGES:
+    if args is None:
+        raw: dict = {}
+    elif isinstance(args, dict):
+        raw = dict(args)
+    else:
+        return _fail(
+            scene, "tool.invalid_args", f"args must be an object, got {type(args).__name__}"
+        )
+    if not isinstance(stage, str) or stage not in stage_table.STAGES:
         return _fail(scene, "stage.unknown_stage", f"unknown stage {stage!r}")
+    if not isinstance(tool, str):
+        return _fail(scene, "tool.unknown_tool", f"unknown tool {tool!r}")
     model_cls = tool_contracts.TOOL_MODELS.get(tool)
     if model_cls is None:
         return _fail(scene, "tool.unknown_tool", f"unknown tool {tool!r}")
