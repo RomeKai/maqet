@@ -1,0 +1,82 @@
+{
+  "preliminary": true,
+  "flags": [
+    { "code": "second_floor" },
+    { "code": "span_over_limit" }
+  ],
+  "stages": {
+    "finishes": [
+      {
+        "material_id": "paint-interior-latex",
+        "name": "Interior latex paint, 2 coats",
+        "quantity": 41.25,
+        "unit": "m2",
+        "waste_factor": 1.1,
+        "recipe_source": "provisional: coverage taken from a manufacturer data sheet; confirm with the supplier",
+        "estimated": true
+      }
+    ],
+    "foundations": [
+      {
+        "material_id": "gravel-m3",
+        "name": "Crushed stone 6-20 (granite)",
+        "quantity": 1.8,
+        "unit": "m3",
+        "waste_factor": 1.1,
+        "recipe_source": "provisional: estimate, to be reviewed by a master builder",
+        "estimated": true
+      },
+      {
+        "material_id": "cement-bag-50kg",
+        "name": "Portland cement, 50 kg bag",
+        "quantity": 14,
+        "unit": "bag",
+        "waste_factor": 1.05,
+        "recipe_source": "provisional: estimate, to be reviewed by a master builder",
+        "estimated": false
+      }
+    ],
+    "openings": [
+      {
+        "material_id": "door-frame-90",
+        "name": "Door frame, 0.90 m",
+        "quantity": 2,
+        "unit": "unit",
+        "waste_factor": 1,
+        "recipe_source": "one per door opening in the Scene",
+        "estimated": false
+      }
+    ],
+    "walls": [
+      {
+        "material_id": "brick-hollow-18-18",
+        "name": "Hollow ceramic brick 12x18x33, \"flat\", 0.18 m wall",
+        "quantity": 1234.5,
+        "unit": "piece",
+        "waste_factor": 1.05,
+        "recipe_source": "provisional: estimate, to be reviewed by a master builder",
+        "estimated": true
+      },
+      {
+        "material_id": "mortar-13",
+        "name": "Laying mortar 1:3 (cement:sand)",
+        "quantity": 0.75,
+        "unit": "m3",
+        "waste_factor": 1.1,
+        "recipe_source": "=1:3 cement to sand by volume; confirm with mason",
+        "estimated": false
+      }
+    ],
+    "bond_beams_roof": [
+      {
+        "material_id": "steel-bar-8mm",
+        "name": "Steel bar 8 mm, 12 m",
+        "quantity": 9,
+        "unit": "bar",
+        "waste_factor": 1.1,
+        "recipe_source": "provisional: 4 longitudinal bars per bond beam metre run",
+        "estimated": true
+      }
+    ]
+  }
+}
