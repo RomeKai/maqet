@@ -85,7 +85,8 @@ def test_brick_recipes_cover_required_wall_thicknesses() -> None:
 def test_every_file_asset_is_cc0_with_source() -> None:
     entries = _catalog()["materials"] + _catalog()["furniture"]
     file_assets = [e for e in entries if e.get("local_path")]
-    assert file_assets, "expected at least one file asset"
+    # Zero file assets is allowed (e.g. GLBs not yet produced); any that
+    # exist must be CC0 with a declared source.
     for entry in file_assets:
         assert entry["license"] == "CC0", entry["id"]
         assert entry["source_url"], entry["id"]
@@ -106,3 +107,27 @@ def test_door_swing_arc_is_clearance_only_with_no_model() -> None:
     assert arc["clearance_only"] is True
     assert arc["local_path"] is None
     assert arc["diameter_m"] == 0.9
+
+
+def test_solid_common_brick_yield_for_020_wall() -> None:
+    brick = next(
+        m for m in _catalog()["materials"] if m["id"] == "brick-solid-common-20"
+    )
+    assert brick["recipe"]["wall_thickness_m"] == 0.2
+    assert 100 <= brick["recipe"]["qty"] <= 120, brick["recipe"]["qty"]
+
+
+def test_hollow_18_brick_id_matches_thickness_and_yield() -> None:
+    brick = next(
+        m for m in _catalog()["materials"] if m["id"] == "brick-hollow-18-18"
+    )
+    assert brick["recipe"]["wall_thickness_m"] == 0.18
+    assert 13 <= brick["recipe"]["qty"] <= 16, brick["recipe"]["qty"]
+
+
+def test_furniture_without_glb_is_marked_pending() -> None:
+    for item in _catalog()["furniture"]:
+        status = item.get("asset_status")
+        assert status in {"ready", "pending", "n/a"}, item["id"]
+        if status == "pending":
+            assert item["local_path"] is None, item["id"]
