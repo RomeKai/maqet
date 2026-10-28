@@ -4,6 +4,9 @@ No model calls anywhere: the stage-scoped executor is called directly.
 Written first (TDD); server/agent/{stages,tools,executor}.py make them pass.
 """
 
+import json
+from pathlib import Path
+
 import pytest
 
 from server.agent.executor import ToolResult, execute
@@ -365,8 +368,20 @@ def test_list_catalog_shape() -> None:
     _, res = execute(scene, history, "design", "list_catalog", {})
     assert isinstance(res, ToolResult)
     assert res.ok is True  # read-only: never mutates
-    assert res.data == {"items": []}  # assets/catalog.json does not exist yet
-    assert any("catalog" in w for w in res.warnings)
+    items = res.data["items"]
+    assert items, "assets/catalog.json now ships the construction catalog"
+    for item in items:
+        assert {"id", "kind", "name"} <= set(item), item.get("id")
+    catalog = json.loads(
+        (Path(__file__).resolve().parents[2] / "assets" / "catalog.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    expected_ids = {m["id"] for m in catalog["materials"]} | {
+        f["id"] for f in catalog["furniture"]
+    }
+    assert {i["id"] for i in items} == expected_ids
+    assert not any("catalog" in w for w in res.warnings)  # catalog found, no warning
     assert res.version == scene.version
     assert history == []
 
