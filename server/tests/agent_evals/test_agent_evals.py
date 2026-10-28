@@ -1,6 +1,6 @@
 """Agent evals runner (Day task, TDD test-first).
 
-Ten scripted conversations live as data in server/tests/agent_evals/*.yaml.
+Ten scripted conversations live as data (*.yaml next to this file).
 Each case: starting Scene (a samples/plans truth file + optional patch),
 stage, user utterance, scripted model behavior (tool calls + final reply),
 and must-mention phrases the reply has to contain.
@@ -29,9 +29,7 @@ import yaml
 
 from server.scene.models import Scene
 
-loop = pytest.importorskip("server.agent.loop", reason="agent-loop lands tonight")
-
-CASES_DIR = Path(__file__).resolve().parent / "agent_evals"
+CASES_DIR = Path(__file__).resolve().parent
 PLANS_DIR = CASES_DIR.parents[2] / "samples" / "plans"
 
 CASE_FILES = sorted(CASES_DIR.glob("*.yaml"))
@@ -126,6 +124,7 @@ def _expected_tools(case: dict[str, Any]) -> list[dict[str, Any]]:
 
 @pytest.mark.parametrize("case_file", CASE_FILES, ids=[p.stem for p in CASE_FILES])
 def test_agent_eval(case_file: Path) -> None:
+    loop = pytest.importorskip("server.agent.loop", reason="agent-loop lands tonight")
     case = yaml.safe_load(case_file.read_text(encoding="utf-8"))
     scene = _load_scene(case)
     before = scene.model_dump()
