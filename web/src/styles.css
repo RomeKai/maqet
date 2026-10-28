@@ -288,6 +288,24 @@ body {
   pointer-events: auto;
 }
 
+/* Guided AR HUD mode selector (Wall / Door / Window) + wall picker chips.
+   Reuses .chip/.chip-active; the containers re-enable taps (root passes
+   them through) and wrap so small phones still fit three 44px targets. */
+.ar-hud-modes {
+  display: flex;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.ar-hud-walls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  max-width: 100%;
+  pointer-events: auto;
+}
+
 /* While the XR session runs the app hides its chrome (topbar, 3D, sheet)
    so opaque backgrounds never cover the camera. visibility (not display)
    keeps the HUD subtree mounted — it lives inside the sheet, and unmounting

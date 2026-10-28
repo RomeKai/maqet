@@ -8,6 +8,7 @@ import {
 } from "./ArMeasure";
 import { applySceneOp, createEmptyScene } from "../scene/store";
 import { pairCornersToWallUpdate, traceCornerTap, emptyCornerTrace } from "./cornerMath";
+import { openingDefaults, projectEdgesToOpening } from "./openingMath";
 import type { XrHitTestAdapter, XrTapCallbacks } from "./xrAdapter";
 import {
   AR_START_WATCHDOG_MS,
@@ -584,5 +585,127 @@ describe("ArHud (live session overlay)", () => {
     expect(hudHtml({ surfaceFound })).toContain("Surface found ✓");
     // The seam stays optional: old fakes without onSurfaceChange still start.
     expect(captured).not.toBeNull();
+  });
+
+  it("renders the Wall / Door / Window selector, Wall default", () => {
+    const html = hudHtml({});
+    expect(html).toContain("Wall");
+    expect(html).toContain("Door");
+    expect(html).toContain("Window");
+  });
+
+  it("renders the Spanish selector copy under es-AR", () => {
+    const html = renderToString(
+      <ArHud locale="es-AR" hudRef={{ current: null }} />,
+    );
+    expect(html).toContain("Pared");
+    expect(html).toContain("Puerta");
+    expect(html).toContain("Ventana");
+  });
+
+  it("door mode shows the wall picker and the edge prompts", () => {
+    const picker = hudHtml({
+      traceMode: "door",
+      pickerWalls: [
+        { id: "w0", a: [0, 0], b: [2, 0], thickness_m: 0.2, kind: "exterior" },
+        { id: "w1", a: [2, 0], b: [2, 2], thickness_m: 0.1, kind: "interior" },
+      ],
+      pickerWallId: null,
+    });
+    // Pick-a-wall step first: no wall selected yet.
+    expect(picker).toContain("Pick a wall");
+    const both = hudHtml({
+      traceMode: "door",
+      pickerWalls: [
+        { id: "w0", a: [0, 0], b: [2, 0], thickness_m: 0.2, kind: "exterior" },
+      ],
+      pickerWallId: "w0",
+      stepLabel: "Tap the left edge",
+      previewM: null,
+      targetLengthM: null,
+    });
+    // Wall chosen, no edge taps yet: first-edge prompt + wall chip.
+    expect(both).toContain("Tap the left edge");
+    expect(both).toContain("W1");
+  });
+
+  it("window edge taps through the real openingMath path emit markOpening", () => {
+    // Same functions the component wires: edge pair -> projection -> op.
+    const wall = scene.walls?.[0];
+    if (wall === undefined) throw new Error("fixture needs a wall");
+    const projection = projectEdgesToOpening(
+      wall,
+      [0.5, 0, 0],
+      [1.5, 0, 0],
+    );
+    expect(projection).not.toBeNull();
+    const defaults = openingDefaults("window");
+    const op: SceneOp = {
+      type: "markOpening",
+      opening: {
+        id: "opening-1",
+        wall_id: wall.id,
+        kind: "window",
+        offset_m: projection?.offset_m ?? 0,
+        width_m: projection?.width_m ?? 0,
+        height_m: defaults.height_m,
+        sill_m: defaults.sill_m,
+      },
+    };
+    const seen: SceneOp[] = [];
+    const next = applySceneOp(scene, op);
+    seen.push(op);
+    expect(next.openings).toHaveLength(1);
+    expect(next.openings?.[0]?.kind).toBe("window");
+    expect(next.openings?.[0]?.offset_m).toBeCloseTo(0.5, 9);
+    expect(next.openings?.[0]?.width_m).toBeCloseTo(1, 9);
+    expect(next.openings?.[0]?.height_m).toBe(1.2);
+    expect(next.openings?.[0]?.sill_m).toBe(0.9);
+    expect(seen[0]?.type).toBe("markOpening");
+  });
+
+  it("door edge taps produce the full-height door default with no sill", () => {
+    const wall = scene.walls?.[0];
+    if (wall === undefined) throw new Error("fixture needs a wall");
+    // Reversed tap order: same opening, width still positive.
+    const projection = projectEdgesToOpening(
+      wall,
+      [1.5, 1.2, 0],
+      [0.5, 0.9, 0],
+    );
+    expect(projection?.width_m).toBeCloseTo(1, 9);
+    const defaults = openingDefaults("door");
+    expect(defaults).toEqual({ height_m: 2.0, sill_m: null });
+    const next = applySceneOp(scene, {
+      type: "markOpening",
+      opening: {
+        id: "opening-1",
+        wall_id: wall.id,
+        kind: "door",
+        offset_m: projection?.offset_m ?? 0,
+        width_m: projection?.width_m ?? 0,
+        height_m: defaults.height_m,
+        sill_m: defaults.sill_m,
+      },
+    });
+    expect(next.openings?.[0]?.height_m).toBe(2.0);
+    expect(next.openings?.[0]?.sill_m).toBeNull();
+  });
+
+  it("close-room hint appears on the wall step label while tracing", () => {
+    const html = hudHtml({
+      stepLabel: "Tap the other corner · Tap near the first corner to close the room",
+    });
+    expect(html).toContain("Tap near the first corner to close the room");
+    const spanish = renderToString(
+      <ArHud
+        locale="es-AR"
+        hudRef={{ current: null }}
+        stepLabel="Tocá la otra esquina · Tocá cerca de la primera esquina para cerrar el cuarto"
+      />,
+    );
+    expect(spanish).toContain(
+      "Tocá cerca de la primera esquina para cerrar el cuarto",
+    );
   });
 });

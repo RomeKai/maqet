@@ -73,4 +73,11 @@ export const en: Record<keyof typeof esAR, string> = {
   "measure.ar.surface.found": "Surface found ✓",
   "measure.ar.done": "Done",
   "measure.ar.cancel": "Cancel",
+  "measure.ar.mode.wall": "Wall",
+  "measure.ar.mode.door": "Door",
+  "measure.ar.mode.window": "Window",
+  "measure.ar.pickWall": "Pick a wall",
+  "measure.ar.edgeFirst": "Tap the left edge",
+  "measure.ar.edgeSecond": "Tap the right edge",
+  "measure.ar.closeHint": "Tap near the first corner to close the room",
 };

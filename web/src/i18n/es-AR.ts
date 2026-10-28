@@ -72,4 +72,11 @@ export const esAR = {
   "measure.ar.surface.found": "Superficie encontrada ✓",
   "measure.ar.done": "Listo",
   "measure.ar.cancel": "Cancelar",
+  "measure.ar.mode.wall": "Pared",
+  "measure.ar.mode.door": "Puerta",
+  "measure.ar.mode.window": "Ventana",
+  "measure.ar.pickWall": "Elegí una pared",
+  "measure.ar.edgeFirst": "Tocá el borde izquierdo",
+  "measure.ar.edgeSecond": "Tocá el borde derecho",
+  "measure.ar.closeHint": "Tocá cerca de la primera esquina para cerrar el cuarto",
 } as const;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Scene } from "../scene/types";
+import type { Opening, Scene, Wall } from "../scene/types";
 import {
   allWallsMeasured,
   applySceneOp,
@@ -15,6 +15,7 @@ import {
   type CornerTrace,
   type Vec3,
 } from "./cornerMath";
+import { openingDefaults, projectEdgesToOpening } from "./openingMath";
 import {
   AR_START_WATCHDOG_MS,
   isARSupported,
@@ -122,6 +123,9 @@ interface ArMeasureProps {
   onFallbackC?: () => void;
 }
 
+/** Guided AR HUD tracing mode: walls (current behavior) or openings. */
+export type ArHudMode = "wall" | "door" | "window";
+
 interface ArHudProps {
   locale: Locale;
   /** Ref to the HUD root: the dedicated domOverlay.root while live. */
@@ -143,6 +147,14 @@ interface ArHudProps {
   /** Hit-test presence: false = still searching (initial), true = floor seen. */
   surfaceFound?: boolean;
   canConfirm?: boolean;
+  /** Active tracing mode + setter for the Wall / Door / Window selector. */
+  traceMode?: ArHudMode;
+  onTraceModeChange?: (mode: ArHudMode) => void;
+  /** Walls available as opening targets (door/window mode wall picker). */
+  pickerWalls?: Wall[];
+  /** Selected opening target wall id, or null until the tech picks one. */
+  pickerWallId?: string | null;
+  onPickerWallChange?: (wallId: string) => void;
   onConfirm?: () => void;
   onReset?: () => void;
   onEnd?: () => void;
@@ -152,14 +164,21 @@ interface ArHudProps {
 /**
  * Dedicated AR HUD: the ONLY app content rendered while the XR session runs,
  * and the domOverlay.root passed to requestSession. Transparent full-screen
- * root (the camera shows through), centered crosshair + readout, and a small
- * bottom bar with its own semi-opaque background holding Undo / Done /
+ * root (the camera shows through), centered crosshair + readout, mode
+ * selector (Wall / Door / Window), an optional wall picker for openings, and
+ * a small bottom bar with its own semi-opaque background holding Undo / Done /
  * Cancel (plus Confirm while a length is previewed — wall-target mode needs
  * it to emit the setWallLength op). Shell mode renders the empty element so
  * the overlay root exists (and keeps its DOM node) before the session
  * starts. Exported for tests.
  */
 function noopArHudAction(): void {}
+function noopArHudModeChange(_mode: ArHudMode): void {}
+function noopArHudWallChange(_wallId: string): void {}
+const HUD_MODES: ArHudMode[] = ["wall", "door", "window"];
+function hudModeKey(mode: ArHudMode): `measure.ar.mode.${ArHudMode}` {
+  return `measure.ar.mode.${mode}`;
+}
 export function ArHud({
   locale,
   hudRef,
@@ -169,6 +188,11 @@ export function ArHud({
   stepLabel = "",
   surfaceFound = false,
   canConfirm = false,
+  traceMode = "wall",
+  onTraceModeChange = noopArHudModeChange,
+  pickerWalls = [],
+  pickerWallId = null,
+  onPickerWallChange = noopArHudWallChange,
   onConfirm = noopArHudAction,
   onReset = noopArHudAction,
   onEnd = noopArHudAction,
@@ -191,6 +215,32 @@ export function ArHud({
           : t["measure.ar.surface.searching"]}
       </p>
       <p className="ar-hud-hint">{t["measure.ar.hint"]}</p>
+      <div className="ar-hud-modes" role="group" aria-label={t["measure.ar.title"]}>
+        {HUD_MODES.map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            className={`chip${traceMode === mode ? " chip-active" : ""}`}
+            onClick={() => onTraceModeChange(mode)}
+          >
+            {t[hudModeKey(mode)]}
+          </button>
+        ))}
+      </div>
+      {traceMode !== "wall" && pickerWalls.length > 0 && (
+        <div className="ar-hud-walls" role="group" aria-label={t["measure.ar.pickWall"]}>
+          {pickerWalls.map((wall, index) => (
+            <button
+              key={wall.id}
+              type="button"
+              className={`chip${pickerWallId === wall.id ? " chip-active" : ""}`}
+              onClick={() => onPickerWallChange(wall.id)}
+            >
+              {`W${index + 1}`}
+            </button>
+          ))}
+        </div>
+      )}
       <p className="ar-hud-step">{stepLabel}</p>
       <p className="ar-hud-readout">{formatMeasureM(locale, shownM)}</p>
       <div className="ar-hud-bar">
@@ -260,6 +310,21 @@ export function ArMeasure({
   const startStepRef = useRef<ArTraceStep | null>(null);
   const [corners, setCorners] = useState<Vec3[]>([]);
   const [previewM, setPreviewM] = useState<number | null>(null);
+  // Guided HUD tracing mode: walls (corner trace, current behavior) or
+  // openings (pick a measured wall, tap its two edges, emit markOpening).
+  // Stays across rooms/confirmations: the tech traces several openings in a
+  // row without re-selecting Door/Window. Resets only on explicit Undo.
+  const [traceMode, setTraceMode] = useState<ArHudMode>("wall");
+  // Opening target wall for door/window mode. Defaults to the wall under
+  // measure (wallId prop, else the first estimated wall, else the first
+  // wall) — the same rule that picks the wall-target flow's `target`.
+  const [openingWallId, setOpeningWallId] = useState<string | null>(
+    target?.id ?? null,
+  );
+  const traceModeRef = useRef<ArHudMode>("wall");
+  traceModeRef.current = traceMode;
+  const openingWallIdRef = useRef<string | null>(null);
+  openingWallIdRef.current = openingWallId;
   // Surface presence from the adapter's onSurfaceChange (transition-only:
   // false = searching, the initial state until the first report). Passed to
   // ArHud as a prop so renderToString tests cover the wiring without WebXR.
@@ -376,7 +441,82 @@ export function ArMeasure({
     )();
   }
 
+  function handleTraceModeChange(mode: ArHudMode): void {
+    setTraceMode(mode);
+    // Pending corner taps belong to the old mode: drop them so a wall
+    // trace never leaks into an opening (and vice versa).
+    traceRef.current = emptyCornerTrace();
+    setCorners([]);
+    setPreviewM(null);
+  }
+
+  function handleOpeningWallChange(wallId: string): void {
+    setOpeningWallId(wallId);
+    // A new target wall invalidates pending edge taps from the old wall.
+    setCorners([]);
+    setPreviewM(null);
+  }
+
+  /**
+   * Build the markOpening op for two edge taps on a measured wall. Pure
+   * geometry lives in openingMath (floor-plane projection); defaults by
+   * kind come from openingDefaults. Ids are stable within the scene
+   * (`opening-<n>` over the current opening count), mirroring the wall
+   * trace's `wall-<n>` scheme.
+   */
+  function buildOpeningOp(
+    current: Scene,
+    kind: "door" | "window",
+    wallId: string,
+    edges: [Vec3, Vec3],
+  ): SceneOp | null {
+    const wall = (current.walls ?? []).find((w) => w.id === wallId);
+    if (wall === undefined) return null;
+    const projection = projectEdgesToOpening(wall, edges[0], edges[1]);
+    if (projection === null) return null;
+    const defaults = openingDefaults(kind);
+    const opening: Opening = {
+      id: `opening-${(current.openings ?? []).length + 1}`,
+      wall_id: wallId,
+      kind,
+      offset_m: projection.offset_m,
+      width_m: projection.width_m,
+      height_m: defaults.height_m,
+      sill_m: defaults.sill_m,
+    };
+    return { type: "markOpening", opening };
+  }
+
   function appendCorner(corner: Vec3, targetId: string | null): void {
+    // Door/Window mode: the first edge tap selects the pending opening;
+    // the second tap resolves it through the real openingMath path and
+    // emits markOpening immediately. Taps stay pending on the same wall so
+    // the tech can trace openings back to back.
+    if (traceModeRef.current !== "wall") {
+      const wallId = openingWallIdRef.current ?? targetId;
+      if (wallId === null) return;
+      const next = [...cornersRef.current, corner];
+      setCorners(next);
+      if (next.length === 2) {
+        const op = buildOpeningOp(
+          sceneRef.current,
+          traceModeRef.current,
+          wallId,
+          [next[0] as Vec3, next[1] as Vec3],
+        );
+        if (op !== null && op.type === "markOpening") {
+          setPreviewM(op.opening.width_m);
+          onChange(applySceneOp(sceneRef.current, op), op);
+          setCorners([]);
+        } else {
+          // Degenerate pair (coincident taps): keep the first edge so the
+          // tech only re-taps the second one.
+          setCorners(next.slice(0, 1));
+          setPreviewM(null);
+        }
+      }
+      return;
+    }
     if (targetId === null && !isEmptyStart) return;
     if (isEmptyStart) {
       // Each new tap completes one wall (the segment ending at it), emitted
@@ -480,6 +620,9 @@ export function ArMeasure({
     traceRef.current = emptyCornerTrace();
     setCorners([]);
     setPreviewM(null);
+    // Undo also returns to Wall mode so the next session starts from the
+    // default; the mode selector is one tap away.
+    setTraceMode("wall");
   }
 
   // Production path: the XR host renders ONLY while a session is active.
@@ -597,8 +740,20 @@ export function ArMeasure({
     );
   }
 
+  // Step copy follows the tracing mode. Wall mode keeps the current
+  // tap-first/tap-second flow; empty-start adds the close-room hint while
+  // tracing so the tech learns the gesture without a manual. Door/Window
+  // mode prompts for the wall first, then the two opening edges.
   const stepLabel =
-    corners.length === 0 ? t["measure.ar.tapFirst"] : t["measure.ar.tapSecond"];
+    traceMode === "wall"
+      ? `${corners.length === 0 ? t["measure.ar.tapFirst"] : t["measure.ar.tapSecond"]}${
+          isEmptyStart && corners.length > 0 ? ` · ${t["measure.ar.closeHint"]}` : ""
+        }`
+      : openingWallId === null
+        ? t["measure.ar.pickWall"]
+        : corners.length === 0
+          ? t["measure.ar.edgeFirst"]
+          : t["measure.ar.edgeSecond"];
 
   // Live session: ONLY the HUD renders (transparent root = domOverlay.root,
   // camera shows through). No sheet copy, no confirm footers, nothing else
@@ -606,17 +761,25 @@ export function ArMeasure({
   // Same child order as the other branches so the HUD div keeps the DOM
   // node captured at start(). The parent hides the sheet + 3D via
   // onSessionChange and restores them on end.
+  // Door/Window taps produce openings, so there is nothing to Confirm:
+  // markOpening is emitted on the second edge tap. Undo resets the mode.
+  const openingPreview = traceMode !== "wall" && previewM !== null ? previewM : null;
   return (
     <>
       {xrHost}
       <ArHud
         locale={locale}
         hudRef={hudRef}
-        previewM={previewM}
+        previewM={traceMode === "wall" ? previewM : openingPreview}
         targetLengthM={target !== null ? wallDisplayLengthM(target) : null}
         stepLabel={stepLabel}
         surfaceFound={surfaceFound}
-        canConfirm={previewM !== null}
+        canConfirm={traceMode === "wall" && previewM !== null}
+        traceMode={traceMode}
+        onTraceModeChange={handleTraceModeChange}
+        pickerWalls={traceMode === "wall" ? [] : walls}
+        pickerWallId={openingWallId}
+        onPickerWallChange={handleOpeningWallChange}
         onConfirm={handleConfirm}
         onReset={handleReset}
         onEnd={handleEnd}
