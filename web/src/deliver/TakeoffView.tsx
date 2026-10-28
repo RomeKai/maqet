@@ -1,7 +1,7 @@
 import type { Locale } from "../i18n";
 import "./deliver.css";
 import { getDeliverStrings, unitLabel, type DeliverStrings } from "./deliver.i18n";
-import { buildTakeoffCsv, downloadCsv, formatQuantity, orderedStages } from "./takeoffFormat";
+import { buildTakeoffCsv, downloadCsv, flagLabel, formatQuantity, orderedStages } from "./takeoffFormat";
 import type { Takeoff, TakeoffLine } from "./takeoffTypes";
 
 const CSV_FILENAME = "maqet-takeoff.csv";
@@ -54,8 +54,8 @@ export function TakeoffView({ takeoff, locale }: TakeoffViewProps): React.JSX.El
         <div className="deliver-flags" role="alert">
           <strong>{t["flags.title"]}</strong>
           <ul>
-            {takeoff.flags.map((flag) => (
-              <li key={flag.code}>{t[`flag.${flag.code}`]}</li>
+            {takeoff.flags.map((flag, index) => (
+              <li key={`${flag.code}-${index}`}>{flagLabel(flag.code, locale)}</li>
             ))}
           </ul>
         </div>
@@ -67,8 +67,8 @@ export function TakeoffView({ takeoff, locale }: TakeoffViewProps): React.JSX.El
         <section key={stage} className="deliver-stage" aria-labelledby={`deliver-stage-${stage}`}>
           <h3 id={`deliver-stage-${stage}`}>{t[`stage.${stage}`]}</h3>
           <ul className="deliver-lines">
-            {lines.map((line) => (
-              <LineItem key={line.material_id} line={line} locale={locale} t={t} />
+            {lines.map((line, index) => (
+              <LineItem key={`${line.material_id}-${index}`} line={line} locale={locale} t={t} />
             ))}
           </ul>
         </section>

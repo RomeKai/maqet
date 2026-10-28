@@ -34,7 +34,8 @@ export interface TakeoffLine {
 }
 
 export interface ProfessionalFlag {
-  code: ProfessionalFlagCode;
+  /** A known code, or an unrecognised one kept as-is so a newer server never breaks the screen. */
+  code: ProfessionalFlagCode | (string & {});
 }
 
 export interface Takeoff {

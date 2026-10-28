@@ -89,4 +89,10 @@ describe("TakeoffView", () => {
     expect(html.toLowerCase()).not.toContain("price");
     expect(html).not.toMatch(/[$€]|ARS/);
   });
+
+  it("shows the generic label for an unknown professional flag", () => {
+    const t = getDeliverStrings("en");
+    const html = renderToString(<TakeoffView takeoff={{ ...takeoff, flags: [{ code: "asbestos" }] }} locale="en" />);
+    expect(html).toContain(t["flag.generic"]);
+  });
 });

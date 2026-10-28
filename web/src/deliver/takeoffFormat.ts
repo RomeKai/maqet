@@ -1,9 +1,10 @@
 import type { Locale } from "../i18n";
+import { getDeliverStrings } from "./deliver.i18n";
+import type { DeliverKey } from "./deliver.i18n";
 import {
   PROFESSIONAL_FLAG_CODES,
   TAKEOFF_STAGES,
   type ProfessionalFlag,
-  type ProfessionalFlagCode,
   type Takeoff,
   type TakeoffLine,
   type TakeoffStage,
@@ -57,8 +58,11 @@ function isStage(key: string): key is TakeoffStage {
   return (TAKEOFF_STAGES as readonly string[]).includes(key);
 }
 
-function isFlagCode(code: unknown): code is ProfessionalFlagCode {
-  return (PROFESSIONAL_FLAG_CODES as readonly unknown[]).includes(code);
+/** Localised flag text; unknown codes get the generic label. */
+export function flagLabel(code: string, locale: Locale): string {
+  const strings = getDeliverStrings(locale);
+  const known = (PROFESSIONAL_FLAG_CODES as readonly string[]).includes(code);
+  return known ? strings[`flag.${code}` as DeliverKey] : strings["flag.generic"];
 }
 
 /** Validate a takeoff payload at the network boundary. Throws on anything unexpected. */
@@ -69,7 +73,7 @@ export function parseTakeoff(raw: unknown): Takeoff {
   if (!isRecord(raw.stages)) fail("stages must be an object");
 
   const flags: ProfessionalFlag[] = raw.flags.map((flag: unknown) => {
-    if (!isRecord(flag) || !isFlagCode(flag.code)) fail("unknown professional flag");
+    if (!isRecord(flag) || typeof flag.code !== "string") fail("professional flag without a code");
     return { code: flag.code };
   });
 
@@ -107,8 +111,11 @@ export function buildTakeoffCsv(takeoff: Takeoff): string {
       ].join(","),
     ),
   );
-  return [CSV_HEADER, ...rows, PRELIMINARY_NOTE].join(CSV_EOL) + CSV_EOL;
+  const flagRows = takeoff.flags.map((flag) => `flag,${csvText(flag.code)},${csvText(flagLabel(flag.code, "en"))}`);
+  return [CSV_HEADER, ...rows, PRELIMINARY_NOTE, ...flagRows].join(CSV_EOL) + CSV_EOL;
 }
+
+const REVOKE_DELAY_MS = 1000;
 
 /** Trigger a browser download of the CSV. UTF-8 BOM so spreadsheets keep accents. */
 export function downloadCsv(csv: string, filename: string): void {
@@ -116,6 +123,9 @@ export function downloadCsv(csv: string, filename: string): void {
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
+  // Firefox ignores clicks on detached anchors; revoke late so the download can start.
+  document.body.appendChild(link);
   link.click();
-  URL.revokeObjectURL(url);
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
 }

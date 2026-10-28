@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import fixture from "./__fixtures__/takeoff.sample.json";
-import { PRELIMINARY_NOTE, buildTakeoffCsv, formatQuantity, orderedStages, parseTakeoff } from "./takeoffFormat";
+import { PRELIMINARY_NOTE, buildTakeoffCsv, downloadCsv, flagLabel, formatQuantity, orderedStages, parseTakeoff } from "./takeoffFormat";
 import { TAKEOFF_STAGES } from "./takeoffTypes";
 
 const takeoff = parseTakeoff(fixture);
@@ -38,6 +38,16 @@ describe("parseTakeoff", () => {
     expect(takeoff.flags.map((f) => f.code)).toEqual(["second_floor", "span_over_limit"]);
   });
 
+  it("keeps an unknown professional flag code instead of failing", () => {
+    const parsed = parseTakeoff({ ...fixture, flags: [{ code: "second_floor" }, { code: "asbestos" }] });
+    expect(parsed.flags.map((f) => f.code)).toEqual(["second_floor", "asbestos"]);
+    expect(flagLabel("asbestos", "en")).toBe("Another flagged condition");
+  });
+
+  it("still rejects a flag without a string code", () => {
+    expect(() => parseTakeoff({ ...fixture, flags: [{}] })).toThrow(/flag/i);
+  });
+
   it("rejects payloads that are not a takeoff", () => {
     expect(() => parseTakeoff(null)).toThrow(/takeoff/i);
     expect(() => parseTakeoff({ ...fixture, stages: { garden: [] } })).toThrow(/stage/i);
@@ -53,7 +63,7 @@ describe("buildTakeoffCsv", () => {
 
   it("starts with a header, then one row per line in stage order", () => {
     expect(rows[0]).toBe("stage,material_id,name,quantity,unit,waste_factor,estimated,recipe_source");
-    const stages = rows.slice(1, -1).map((r) => r.split(",")[0]);
+    const stages = rows.slice(1, -3).map((r) => r.split(",")[0]);
     expect(stages).toEqual([
       "foundations",
       "foundations",
@@ -78,9 +88,49 @@ describe("buildTakeoffCsv", () => {
     expect(csv).toContain("'=1:3 cement to sand by volume");
   });
 
+  it("appends one flag row per licensed-professional flag after the preliminary note", () => {
+    expect(rows.slice(-2)).toEqual(["flag,second_floor,A second floor", "flag,span_over_limit,A span over the limit"]);
+  });
+
+  it("writes an unknown flag with the generic text", () => {
+    const out = buildTakeoffCsv({ ...takeoff, flags: [{ code: "asbestos" }] });
+    expect(out).toContain("flag,asbestos,Another flagged condition");
+  });
+
   it("ends with the preliminary label and carries no price column", () => {
-    expect(rows[rows.length - 1]).toBe(PRELIMINARY_NOTE);
+    expect(rows[rows.length - 3]).toBe(PRELIMINARY_NOTE);
     expect(PRELIMINARY_NOTE).toBe("Preliminary: not a structural certification");
     expect(rows[0].toLowerCase()).not.toContain("price");
+  });
+});
+
+describe("downloadCsv", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it("attaches the anchor to the body, clicks it, removes it and revokes the URL later", () => {
+    vi.useFakeTimers();
+    const calls: string[] = [];
+    const link = {
+      href: "",
+      download: "",
+      click: () => calls.push("click"),
+      remove: () => calls.push("remove"),
+    };
+    const body = { appendChild: vi.fn((node: unknown) => calls.push(node === link ? "append" : "?")) };
+    vi.stubGlobal("document", { createElement: () => link, body });
+    const revoke = vi.fn();
+    vi.stubGlobal("URL", { createObjectURL: () => "blob:x", revokeObjectURL: revoke });
+
+    downloadCsv("a,b", "takeoff.csv");
+
+    expect(calls).toEqual(["append", "click", "remove"]);
+    expect(link.href).toBe("blob:x");
+    expect(link.download).toBe("takeoff.csv");
+    expect(revoke).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1000);
+    expect(revoke).toHaveBeenCalledWith("blob:x");
   });
 });
