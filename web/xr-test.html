@@ -1,7 +1,9 @@
 <!doctype html>
 <!-- DEV-ONLY diagnostic page. Not part of the app build (vite only bundles index.html).
      Ports three.js webxr_ar_hittest to isolate "three renders nothing in AR" on the test phone.
-     Usage: https://<laptop-ip>:5173/xr-test.html?v=0.186.1  (vite dev, --host, basicSsl) -->
+     three is CDN-pinned (static import map below); no ?v= selector (Vite rewrites bare
+     specifiers in served HTML, so a dynamic version switch can't work here — and it's not needed).
+     Usage: https://<laptop-ip>:5173/xr-test.html[?classic=1]  (vite dev, --host, basicSsl) -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -22,28 +24,33 @@
   </head>
   <body>
     <div id="hud">boot…</div>
-    <script>
-      // Classic script: resolve ?v= BEFORE any module loads, then inject the import map.
-      var ALLOWED = ["0.186.1", "0.175.0", "0.165.0", "0.155.0", "0.150.0"];
-      var v = new URLSearchParams(location.search).get("v") || "0.186.1";
-      if (ALLOWED.indexOf(v) === -1) v = "0.186.1";
-      window.__XR_TEST_V = v;
-      var map = document.createElement("script");
-      map.type = "importmap";
-      map.textContent = JSON.stringify({
-        imports: {
-          three: "https://cdn.jsdelivr.net/npm/three@" + v + "/build/three.module.js",
-          "three/addons/": "https://cdn.jsdelivr.net/npm/three@" + v + "/examples/jsm/",
-        },
-      });
-      document.head.appendChild(map);
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+        }
+      }
     </script>
     <script type="module">
       import * as THREE from "three";
       import { ARButton } from "three/addons/webxr/ARButton.js";
 
+      const classic = new URLSearchParams(location.search).has("classic");
+      // Hypothesis: on this phone/Chrome, three 0.186 picks XRProjectionLayer
+      // (createProjectionLayer exists) but the compositor never presents it.
+      // ?classic=1 deletes the method BEFORE renderer.xr.setSession runs (ARButton
+      // calls setSession), forcing three's WebXRManager onto the XRWebGLLayer path
+      // — the same path the working immersive-web sample uses.
+      if (classic && window.XRWebGLBinding?.prototype) {
+        delete window.XRWebGLBinding.prototype.createProjectionLayer;
+      }
+
       const hud = document.getElementById("hud");
-      const lines = { v: "requested three: " + window.__XR_TEST_V + " / loaded REVISION: " + THREE.REVISION };
+      const lines = {
+        mode: "layer mode: " + (classic ? "CLASSIC (XRWebGLLayer forced)" : "default (three picks)"),
+        v: "three 0.186.1 (CDN-pinned) / loaded REVISION: " + THREE.REVISION,
+      };
       const draw = () => {
         hud.textContent = Object.values(lines).join("\n");
       };
@@ -99,7 +106,8 @@
         const session = renderer.xr.getSession();
         const rs = session.renderState;
         const layerCount = rs.layers ? rs.layers.length : 0;
-        lines.session = "session: live | baseLayer: " + (!!rs.baseLayer) + " | layers: " + layerCount;
+        const layer = rs.baseLayer ? "baseLayer" : layerCount ? "projection" : "NONE";
+        lines.session = "session: live | layer: " + layer + " (layers: " + layerCount + ")";
         draw();
       });
       renderer.xr.addEventListener("sessionend", () => {
