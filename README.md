@@ -151,16 +151,27 @@ may train on inputs ([`docs/HARDENING.md`](docs/HARDENING.md) P1).
 
 ## Built during the hackathon
 
-**The product was built between Oct 26 and Nov 4, 2026:** `server/`, `web/`, `assets/` and `samples/` (including the
-synthetic test-data generator). The repository's first commit, `9af461d` (2026-10-26), contains no product code: no
-`server/`, `web/` or `assets/`, and `samples/` holds only two `.gitkeep` placeholders. Verify with
-`git show --stat 9af461d`.
+Kickoff was 2026-10-26 12:00 GMT-5 (14:00 Buenos Aires, ART). Anything written before that counts as pre-existing, so
+this section lists all of it.
 
-That first commit does carry material prepared before kickoff, none of it product code:
+**Before kickoff (pre-existing).** Three commits on 2026-10-26, dated 13:38 to 13:58 ART: `9af461d`, `6af0e64` and
+`a4ee4f8`. They contain only:
 
 - **Planning docs:** `docs/PLAN.md`, `docs/PRODUCT.md`, `docs/DECISIONS.md`, `docs/CUTLIST.md`, `docs/RUNBOOK.md`.
-- **`mme/`:** this repo's configuration (budget, policy, milestones) for MME, a dev-tooling harness (a budget guard for
-  AI spend). The config is not part of the product.
+- **Agent skills, rules and config:** `AGENTS.md`, `CLAUDE.md` and `.claude/` (instructions, skills and hooks), including
+  third-party ECC rule packs in `.claude/rules/ecc/` (MIT, see their `LICENSE`).
+- **`mme/`:** this repo's configuration (budget, policy, milestones, night missions) for MME, a dev-tooling harness
+  (a budget guard for AI spend). The config is not part of the product.
+- **Housekeeping:** `LICENSE`, `.gitignore`, `.gitattributes`, `.env.example`, empty `samples/` placeholders
+  (`.gitkeep`), and a `setup.sh` that was removed in `27c73f9`.
+
+There is **no product code** in those commits: no `server/`, `web/` or `assets/`. Verify with
+`git show --stat 9af461d 6af0e64 a4ee4f8`.
+
+**Built this week.** The product (`server/`, `web/`, `assets/`, `samples/`) was built between Oct 26 and Nov 4, 2026.
+Every product commit starts at `33d3db3` (14:35 ART on 2026-10-26, after kickoff). The synthetic sample generator
+(`samples/tools/make_samples.py`) first appears in `2cb8896` (14:44 ART, after kickoff); the organizers asked that any
+pre-kickoff script be rewritten after kickoff rather than copied in, and that rewrite is in progress.
 
 **Pre-existing open-source dependency: [MME](https://github.com/RomeKai/mme)** (MIT, `mme-harness`). It is a dev-tooling
 package whose development started on 2026-10-22, before kickoff (earliest commit in its public history; the GitHub
@@ -168,10 +179,14 @@ repository was published on 2026-10-28). Maqet uses it as a **library**: `mme.cl
 the replay cache behind every model call. It is pinned to an exact commit in `server/requirements.txt`, so a fresh clone
 installs it with `pip install -r server/requirements.txt`. None of Maqet's product code (Scene, rules, intake, agent,
 export, web) lives in MME.
-- **Agent config:** `AGENTS.md`, `CLAUDE.md` and `.claude/` (agent instructions and hooks), plus third-party ECC rule
-  packs in `.claude/rules/ecc/` (MIT, see their `LICENSE`).
 
-The demo shows only Maqet. AI usage is disclosed in [`docs/AI_USAGE.md`](docs/AI_USAGE.md).
+**Organizers' reply** (Discord, 2026-10-28; screenshot in
+[`docs/evidence/organizer-reply-2026-10-28.png`](docs/evidence/organizer-reply-2026-10-28.png)): tooling and planning
+docs are fine if disclosed, anything written before kickoff counts as pre-existing work, and the 3-minute video must open
+with one line stating what was pre-existing and what was built this week. We kept this repository rather than starting a
+fresh one, so the pre-kickoff commits above remain in its history.
+
+The demo opens with that line and shows only Maqet. AI usage is disclosed in [`docs/AI_USAGE.md`](docs/AI_USAGE.md).
 
 ## Roadmap
 

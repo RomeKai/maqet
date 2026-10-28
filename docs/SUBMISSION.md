@@ -21,8 +21,8 @@ question the rules do not answer; ask the organizers in Discord and save the rep
 
 | Rule (from `RULES.md`) | Our status |
 |---|---|
-| **New work only.** "Everything you present has to be built during the hackathon, Oct 26 to Nov 4." | Product built in the window; first commit `9af461d` has no product code. Pre-kickoff planning docs and the MME dependency are listed and disclosed, see "Identify your contributions" |
-| **Identify your contributions.** The demo shows only what was built during the event; "if they can't [tell what's new], the project is disqualified." | README section "Built during the hackathon" + the video's opening sentence + git history |
+| **New work only.** "Everything you present has to be built during the hackathon, Oct 26 to Nov 4." | Product built in the window; every product commit starts at `33d3db3` (14:35 ART, after the 14:00 ART kickoff). Pre-kickoff planning docs, agent config and MME are listed and disclosed; the organizers' reply covers them (see "Identify your contributions"). The fresh-repo clause is an accepted risk |
+| **Identify your contributions.** The demo shows only what was built during the event; "if they can't [tell what's new], the project is disqualified." | README section "Built during the hackathon" + the video's opening line (required by the organizers) + git history |
 | **Public repo.** | Make the repo public and confirm from a logged-out browser |
 | **Teams.** Max 4, solo allowed. One track only (Indie Developer or Startup). One person submits; every team member is added. | Indie Developer. Add every member on the submission form |
 | **Demo video, 3 minutes**, required; "a working demo video link". | [`DEMO.md`](DEMO.md), target 2:50, hard cap 3:00 |
@@ -31,7 +31,7 @@ question the rules do not answer; ask the organizers in Discord and save the rep
 | **Waiver:** 18+ and of legal age where you live; Meta or CV staff, contractors, government-affiliated people and their households cannot participate. | Every team member confirms; submitter confirms for the team |
 | **Submission content:** public repo, working demo video link, every team member added. | No deployed URL is required by the rules. Replay-mode instructions in the README are enough; a deployed URL is optional |
 
-## Judging criteria (our own, from `PLAN.md`; not in `RULES.md`)
+## Judging criteria (our working assumption from `PLAN.md`; not in `RULES.md`)
 
 | Criterion | Weight | Where we answer it |
 |---|---|---|
@@ -40,15 +40,16 @@ question the rules do not answer; ask the organizers in Discord and save the rep
 | Technical depth | 20% | One measured Scene as source of truth, validated tools, construction rules in code, replay tests, DXF audited in tests |
 | Demo (3-minute video) | 25% | [`DEMO.md`](DEMO.md) |
 
-The weights and the bonus prizes we target (**Best Agentic Use-Case**, **Best Creative Build**) are recorded in `PLAN.md`
-and `PRODUCT.md` but are not in `RULES.md`. **VERIFY** them against the Discord announcement before putting them in the
+The weights and the bonus prizes we target (**Best Agentic Use-Case**, **Best Creative Build**) are our working
+assumption, recorded in `PLAN.md` and `PRODUCT.md`. They are not in `RULES.md`, so do not present them as official in the
 submission text.
 
 ## Deliverables
 
 - [ ] **Repository public.** Contains source, `LICENSE` (MIT, present) and a README that runs in replay mode without a key.
 - [ ] **Demo video, 3:00 maximum**, publicly viewable at a link (YouTube, Loom, Vimeo or Drive; the rules only ask for a
-      working link). Spoken Spanish, English subtitles burned in. See [`DEMO.md`](DEMO.md).
+      working link). Spoken Spanish, English subtitles burned in. **It opens with one line stating what was pre-existing
+      and what was built this week** (organizers' reply). See [`DEMO.md`](DEMO.md).
 - [ ] **README links the video**: replace the placeholder under the title. The Day 9 gate greps for
       `youtu|loom|vimeo|drive.google`, `muse` and `preliminary|not a structural` (`mme/milestones.yaml`); today the link
       placeholder would fail it.
@@ -60,30 +61,44 @@ submission text.
 
 ## Identify your contributions
 
-The rule is a disqualifier, so this section is the most important one. A judge must be able to tell in two minutes what is
-new. What we claim and where the evidence is:
+The rule is a disqualifier. A judge must be able to tell in two minutes what is new.
 
-- [ ] **Product built in the window.** The README section "Built during the hackathon" states that the product (`server/`,
-      `web/`, `assets/`, `samples/`) was built Oct 26 to Nov 4, 2026. Evidence: first commit `9af461d` (2026-10-26) has no
-      `server/`, `web/` or `assets/`, and `samples/` holds only two `.gitkeep` files (`git show --stat 9af461d`). Check
-      `git log --reverse | head` and make sure no history was rewritten or imported.
-- [ ] **Pre-kickoff material is listed, not hidden.** In the first commit: planning docs (`docs/PLAN.md`, `PRODUCT.md`,
-      `DECISIONS.md`, `CUTLIST.md`, `RUNBOOK.md`), agent config (`AGENTS.md`, `CLAUDE.md`, `.claude/`) and the `mme/`
-      config. None of it is product code. The video opens with the required sentence: *"Planning docs and agent tooling were
-      prepared before kickoff; all code you'll see was built this week."*
-- [ ] **MME is disclosed as a pre-existing dependency.** The product's Meta calls import `mme.client`
-      (`server/intake/read_plan.py`, `server/intake/voice.py`). MME is an open-source dev-tooling package (MIT,
-      https://github.com/RomeKai/mme, development started 2026-10-22, GitHub repo published 2026-10-28) that Maqet uses as a
-      library for the Meta API client and replay cache. It is pinned to commit `e24c418` in `server/requirements.txt`
-      (added in `4225340`). The README discloses it. Keep the submission text consistent with that wording.
+**Organizers' reply** (Discord, 2026-10-28; screenshot saved at
+[`evidence/organizer-reply-2026-10-28.png`](evidence/organizer-reply-2026-10-28.png)). What it says:
+
+1. Tooling and planning docs are fine if disclosed.
+2. Anything written before kickoff counts as pre-existing work.
+3. The 3-minute video must **open** with one line stating what was pre-existing and what was built this week.
+4. The synthetic floor-plan script and any scaffolding written before kickoff should be rewritten after kickoff rather
+   than copied in. Pre-existing public datasets are fine if labeled.
+5. The submitted repo "must be a fresh public repo containing only work done during the event" (see the accepted risk
+   below).
+
+Kickoff was 2026-10-26 12:00 GMT-5 = 14:00 ART.
+
+- [x] **Planning docs and agent tooling: answered (point 1).** Disclosed in the README. They were written before kickoff
+      in three commits dated 13:38 to 13:58 ART: `9af461d`, `6af0e64`, `a4ee4f8`. They contain planning docs, agent
+      skills/rules/config and the `mme/` config, no product code. `setup.sh` from that first commit was removed in `27c73f9`.
+- [x] **MME: answered (point 1).** The reply responds to a message describing MME as a separate dev-tooling repo. MME is an
+      open-source package (MIT, https://github.com/RomeKai/mme, development started 2026-10-22, GitHub repo published
+      2026-10-28) that Maqet uses as a library for the Meta API client and replay cache (`server/intake/read_plan.py`,
+      `server/intake/voice.py`). Pinned to commit `e24c418` in `server/requirements.txt` (added in `4225340`). Disclosed in
+      the README.
+- [ ] **Product built in the window.** Every product commit starts at `33d3db3` (2026-10-26 14:35 ART, after kickoff).
+      Check `git log --reverse` on the final commit and make sure no history was rewritten or imported.
+- [ ] **Synthetic sample generator rewritten after kickoff (point 4), in progress.** `samples/tools/make_samples.py` first
+      appears in `2cb8896` (14:44 ART). Done when the rewrite lands: update the README line in "Built during the
+      hackathon" and tick this item. The README says "in progress" until then.
+- [ ] **Video opens with the required line (point 3).** Wording in [`DEMO.md`](DEMO.md) at 0:00: *"Before the event:
+      planning docs, agent skills and my open-source MME harness. Everything you'll see in Maqet was built this week."*
+      Keep it in sync with the README section.
 - [ ] **The demo shows only Maqet.** No MME screens, terminals or dashboards in the video; no pre-kickoff material
       presented as new.
-- [x] **Decision (human): MME is an ordinary dependency.** It is used like any other package, is not presented as hackathon
-      work, and is disclosed in the README. We do not ask the organizers about it. If a judge or organizer questions it, the
-      answer is the README section "Built during the hackathon" and the pinned commit. Optional fallback if that ever
-      changes: vendor a minimal client into this repo and drop the dependency.
-- [ ] **VERIFY:** the original README said the organizers confirmed the pre-kickoff planning docs were acceptable. That
-      confirmation is not in the repo. If it exists, save it with the submission materials.
+- [x] **Decision (human, 2026-10-28): keep this repository.** Accepted risk: point 5 says the submitted repo must be a fresh
+      repo containing only work done during the event, and this repo's history starts with the three pre-kickoff commits
+      above. They are disclosed, identified by commit and time, and contain no product code, but the reply does not say that
+      keeping them is acceptable. Fallback if an organizer rules otherwise: a fresh public repo holding only the product
+      history from `33d3db3` onward, with MME as a pip dependency and the planning docs and agent config left out.
 
 ## Banned projects
 
@@ -107,9 +122,10 @@ new. What we claim and where the evidence is:
 
 - [ ] [`AI_USAGE.md`](AI_USAGE.md) is complete and linked from the README. It records the harness and provider per session,
       including a `manual` row for Claude used outside the gateway; Claude Code is also used for development.
-- [ ] **VERIFY** the Discord answers to the three questions in `PLAN.md` (are non-Meta coding assistants allowed? must AI
-      use be declared? may we use our own open-source tooling such as MME?) and that `MME_POLICY` in `mme/policy.env`
-      (currently `meta-first`) matches the answer. If there was no answer, say so in the disclosure.
+- [x] **Own open-source tooling (MME):** answered by the organizers' reply (fine if disclosed).
+- [ ] **Not answered anywhere in `RULES.md` or the reply:** whether non-Meta coding assistants are allowed and whether AI
+      use must be declared. The disclosure stays voluntary. Keep `MME_POLICY` in `mme/policy.env` (currently `meta-first`)
+      consistent with what `AI_USAGE.md` says.
 
 ## Honesty and safety checks (our own)
 
@@ -146,8 +162,6 @@ new. What we claim and where the evidence is:
 
 ## Open questions for the human
 
-1. Is there a written organizer confirmation for the pre-kickoff planning docs? Where is it saved?
-2. What were the Discord answers on non-Meta coding assistants and AI disclosure? `AI_USAGE.md` must reflect them.
-3. Are the judging weights and bonus prizes in `PLAN.md` from an official announcement? Link it.
-4. Optional: should the video's opening sentence also name MME? It is a dependency, not hackathon work, so the required
-   sentence is left unchanged.
+1. Did anyone answer the questions on non-Meta coding assistants and AI disclosure? If not, `AI_USAGE.md` says the rules
+   are silent.
+2. When does the sample-generator rewrite land? Then update the README and tick the item above.
