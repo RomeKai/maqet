@@ -126,6 +126,76 @@ describe("parseTurnResponse", () => {
     expect(turn.tool_events[0]?.warnings).toEqual(["check span"]);
   });
 
+  describe("scene validation", () => {
+    const wall = { id: "w1", a: [0, 0], b: [4, 0], thickness_m: 0.2, kind: "exterior" };
+    const turnWith = (scene: unknown) => ({ scene, reply: "ok", tool_events: [] });
+
+    it("accepts a well-formed scene with every collection populated", () => {
+      const scene = {
+        id: "p1",
+        version: 2,
+        ceiling_height_m: 2.6,
+        walls: [wall],
+        openings: [{ id: "o1", wall_id: "w1", kind: "door", offset_m: 1, width_m: 0.9, height_m: 2.05 }],
+        rooms: [{ id: "r1", name: "Kitchen", polygon: [[0, 0], [4, 0], [4, 3]] }],
+        furniture: [{ id: "f1", room_id: "r1", position: [1, 1], size_m: [1, 1, 1] }],
+        surfaces: [],
+        materials: [],
+      };
+      expect(parseTurnResponse(turnWith(scene)).scene.id).toBe("p1");
+    });
+
+    it("rejects a scene without a string id", () => {
+      expect(() => parseTurnResponse(turnWith({ version: 1 }))).toThrow(AgentApiError);
+      expect(() => parseTurnResponse(turnWith({ id: 7 }))).toThrow(AgentApiError);
+    });
+
+    it.each(["walls", "openings", "rooms", "surfaces", "furniture", "materials"])(
+      "rejects a non-array %s collection with a clear error",
+      (field) => {
+        expect(() => parseTurnResponse(turnWith({ id: "p1", [field]: {} }))).toThrow(
+          new RegExp(`scene\\.${field}`),
+        );
+      },
+    );
+
+    it("rejects non-finite or non-numeric scalars", () => {
+      expect(() => parseTurnResponse(turnWith({ id: "p1", ceiling_height_m: "2.6" }))).toThrow(/ceiling_height_m/);
+      expect(() => parseTurnResponse(turnWith({ id: "p1", version: Number.POSITIVE_INFINITY }))).toThrow(AgentApiError);
+    });
+
+    it("rejects a wall with a bad coordinate or thickness", () => {
+      expect(() => parseTurnResponse(turnWith({ id: "p1", walls: [{ ...wall, a: [0, "x"] }] }))).toThrow(/walls\[0\]\.a/);
+      expect(() => parseTurnResponse(turnWith({ id: "p1", walls: [{ ...wall, b: [1] }] }))).toThrow(/walls\[0\]\.b/);
+      expect(() => parseTurnResponse(turnWith({ id: "p1", walls: [{ ...wall, thickness_m: null }] }))).toThrow(
+        /thickness_m/,
+      );
+    });
+
+    it("rejects an opening with a non-finite dimension", () => {
+      const opening = { id: "o1", wall_id: "w1", kind: "door", offset_m: 1, width_m: 0.9, height_m: 2 };
+      expect(() => parseTurnResponse(turnWith({ id: "p1", openings: [{ ...opening, width_m: "wide" }] }))).toThrow(
+        /openings\[0\]\.width_m/,
+      );
+    });
+
+    it("rejects a room polygon with a malformed vertex", () => {
+      expect(() =>
+        parseTurnResponse(turnWith({ id: "p1", rooms: [{ id: "r1", name: "K", polygon: [[0, 0], [1]] }] })),
+      ).toThrow(/rooms\[0\]\.polygon\[1\]/);
+    });
+
+    it("rejects furniture with a malformed position or size", () => {
+      const piece = { id: "f1", room_id: "r1", position: [1, 1], size_m: [1, 1, 1] };
+      expect(() => parseTurnResponse(turnWith({ id: "p1", furniture: [{ ...piece, position: [1, NaN] }] }))).toThrow(
+        AgentApiError,
+      );
+      expect(() => parseTurnResponse(turnWith({ id: "p1", furniture: [{ ...piece, size_m: [1, 1] }] }))).toThrow(
+        /furniture\[0\]\.size_m/,
+      );
+    });
+  });
+
   it("throws on a malformed payload", () => {
     expect(() => parseTurnResponse(null)).toThrow(AgentApiError);
     expect(() => parseTurnResponse({ scene: {}, reply: "x", tool_events: "no" })).toThrow(AgentApiError);

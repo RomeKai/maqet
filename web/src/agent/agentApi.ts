@@ -1,5 +1,6 @@
 import type { Scene } from "../scene/types";
 import type { SelectedRef, ToolErrorInfo, ToolEvent, TurnResponse } from "./agentTypes";
+import { validateScene } from "./validateScene";
 
 /**
  * Reform-agent API client (web). Base URL comes from `VITE_API_URL`, defaulting to the same-origin
@@ -64,8 +65,14 @@ export function parseTurnResponse(payload: unknown): TurnResponse {
   if (!Array.isArray(payload.tool_events)) {
     throw new AgentApiError("Malformed agent response: tool_events");
   }
+  let scene: Scene;
+  try {
+    scene = validateScene(payload.scene);
+  } catch (err) {
+    throw new AgentApiError(err instanceof Error ? err.message : "Malformed scene in agent response");
+  }
   return {
-    scene: payload.scene as unknown as Scene,
+    scene,
     reply: payload.reply,
     tool_events: payload.tool_events.map(parseToolEvent),
   };
