@@ -20,7 +20,6 @@ import {
   AR_START_WATCHDOG_MS,
   isARSupported,
   isArDebugEnabled,
-  preloadThree,
   WebXrHitTestAdapter,
   type XrHitTestAdapter,
   type XrSessionConfigStep,
@@ -371,12 +370,9 @@ export function ArMeasure({
   const traceRef = useRef<CornerTrace>(emptyCornerTrace());
 
   // Detection on mount: decides only whether the Start AR button shows.
-  // Never starts a session here — no user gesture exists yet. Also warms
-  // the three.js module cache so requestSession-first start() doesn't pay
-  // a cold import inside the transient-activation window.
+  // Never starts a session here — no user gesture exists yet.
   useEffect(() => {
     if (adapter) return;
-    preloadThree();
     let cancelled = false;
     isARSupported().then((ok) => {
       if (cancelled) return;
