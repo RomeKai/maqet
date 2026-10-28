@@ -49,6 +49,15 @@ missions:
     goal: |
       Rework Mode A AR capture (web/src/measure) into a predictable room-capture flow. Nobody can phone-test tonight, so
       every behavior must live in pure, unit-tested code; the React component only wires XR hits and taps to it.
+      Target flow (decided with the user; ONE room per session, multi-room is out of scope):
+      W1 Wall 1: tap the floor at the base of the wall (corner A), tap the floor at the other end (corner B) -> length;
+         then raise the camera and tap where the wall meets the ceiling -> that wall's real height (hit y - floorY,
+         sanity 2.0-4.0 m, out of range keeps the wall waiting for a re-tap). Wall 1 is now mapped with length + height.
+      W2 Each next wall chains from the previous end corner: one base tap (next corner) + one ceiling tap. A base tap
+         within 0.25 m of corner A closes the room (still followed by that wall's ceiling tap). Each wall stores its own
+         measured height (provenance measured_ar); there is no separate Height mode.
+      W3 Only after the room is closed (or the user taps "Finish walls") do Door and Window unlock; openings attach to
+         the mapped walls. Undo steps back one tap at a time (ceiling tap, then base tap) across the whole sequence.
       Phone-test findings (Android, 28 Oct) to fix:
       F1 Floating corners: wall-mode corners keep the y of whatever surface the hit-test touched (often a wall), and the
          floor datum is just the first tap's y, so the traced room is a 3D tangle. Fix: the floor datum comes only from a
@@ -60,25 +69,26 @@ missions:
          geometry; Cancel exits without writing anything to the Scene. Remove the "Use this measure" button unless it has
          a clear job; if it stays, document the job in the code.
       F3 Context lost on mode switch: switching to Height/Door/Window erases the traced lines. The overlay must always draw
-         every traced wall as a floor line plus a translucent vertical quad from floorY to the room height (2.60 m default
-         until measured), in every mode; in Door/Window mode the wall under the reticle is highlighted.
+         every traced wall as a floor line plus a translucent vertical quad from floorY to that wall's measured height (the
+         rubber-band quad follows the reticle while the ceiling tap is pending), in every mode; in Door/Window mode the wall under the reticle is highlighted.
       F4 Doors/windows can't be marked: the user tapped top-left then bottom (a vertical line) and got 0.14 m width; the
          "left edge / right edge" copy is ambiguous. New flow: two diagonal corners of the opening on the wall surface
          (bottom-left, then top-right, either order accepted). Both taps project onto the highlighted wall's plane; width
          and offset along the wall from the horizontal component, height from the vertical span, sill = lower tap y -
          floorY (doors: sill null, and a door's bottom snaps to the floor). A live rectangle preview follows the reticle
-         after the first tap. Validation errors (door < 0.80 m, opening outside the wall, height > room height) show in
+         after the first tap. Validation errors (door < 0.80 m, opening outside the wall, height > that wall's height) show in
          the step pill and keep the first corner. Placed openings render as rectangles on their wall in the overlay.
       F5 Openings in 3D: web/src/view3d/sceneToMeshes.ts subtracts the full wall height for an opening; render the lintel
          above it and, for windows, the wall below the sill, so doors and windows read correctly in the 3D view.
-      F6 HUD: the mode selector is one row (Wall | Height | Door | Window), actions are Undo / Start over / Done, and
-         nothing opaque covers the middle of the screen.
+      F6 HUD: the step pill always says the next tap ("Tap the base of the wall", "Tap the other end", "Tap where the
+         wall meets the ceiling", "Wall 2: tap the next corner"...); the selector is one row (Walls | Door | Window, the
+         last two disabled until W3); actions are Undo / Start over / Done; nothing opaque covers the middle.
       Architecture: extract the capture state machine from ArMeasure.tsx (994 lines) into a pure reducer
-      web/src/measure/captureSession.ts: captureReducer(state, event) -> state, with events such as floorHit, wallTap,
-      modeChange, undo, startOver, done, and a toSceneOps(state) projection that produces the SceneOps for Done. Keep
+      web/src/measure/captureSession.ts: captureReducer(state, event) -> state, with events such as floorHit, baseTap,
+      ceilingTap, finishWalls, modeChange, openingTap, undo, startOver, done, and a toSceneOps(state) projection that produces the SceneOps for Done. Keep
       cornerMath.ts and openingMath.ts as the geometry layer (one implementation each, no duplicates in the component).
-      Tests (vitest, RED first): F1-F5 each get reducer- or math-level tests, including a full scripted session (floor
-      hit, 4 corners closing the room, ceiling tap, one door, one window, Done) asserting the exact Scene ops; plus
+      Tests (vitest, RED first): F1-F5 each get reducer- or math-level tests, including a full scripted session (4 walls
+      as base, base+ceiling, ..., closing on corner A with different heights per wall, then one door, one window, Done) asserting the exact Scene ops; plus
       sceneToMeshes tests for lintel and sill segments. Strings: new en/es-AR copy goes in web/src/measure/measure.i18n.ts
       (wired into web/src/i18n by day); do not edit web/src/i18n/*. Append any assumption or shortcut to
       .mission/PROGRESS.md under "HARDENING candidates".

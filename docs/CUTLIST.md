@@ -11,3 +11,4 @@ Ideas and features moved off the critical path (date, why). Revisit only after t
 | 2026-10-26 | Consumer decorating (finish catalogs, imagined materials, concept pieces, brand kit) | Off the self-build critical path |
 | 2026-10-26 | Architect/agency licence tiers and billing-style gating | Replaced by the program licence hypothesis (ADR-016, ADR-022) |
 | 2026-10-27 | Mode B opening taps (tap a door or window on the room photo and type its width) | cut_if_late: mode B ships per-wall lengths only (`measured_tape`); openings are marked in the corner editor. SAM 3.1 opening widths (P1) cover the photo case |
+| 2026-10-28 | Mode A multi-room capture (several rooms in one AR session, shared walls between rooms) | P0 captures one room per session (ar-capture-v2); more rooms come later, the Scene already holds several |
