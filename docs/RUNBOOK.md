@@ -15,7 +15,7 @@ Usá dos terminales todo el tiempo:
 
 ## Nivel 0 — Instalación (15 min)
 ```bash
-cd ~/hackathon/maqet && ./setup.sh        # venv, instala ../mme, reglas ECC, mme init, mme doctor
+cd ~/hackathon/maqet && python -m venv .venv && source .venv/Scripts/activate && pip install -r server/requirements.txt && (cd web && npm install) && mme doctor
 source .venv/bin/activate                 # SIEMPRE antes de abrir claude (los hooks llaman a `mme`)
 eval "$(mme shell-init)"                  # y agregalo a ~/.zshrc o ~/.bashrc
 npx ecc-universal@2.2.3 setup             # una sola vez: scope project, hooks Standard
