@@ -134,6 +134,29 @@ export function photoToScene(cal: PhotoCalibration, px: number, py: number): Poi
   };
 }
 
+export interface DragPreview {
+  wallId: string;
+  end: "a" | "b";
+  point: Point;
+}
+
+/**
+ * Effective endpoint for rendering: the live finger position while a corner
+ * drag is in flight, else the stored Scene endpoint. Pure so the render
+ * branch is unit-testable; pointer handlers only set/clear the preview and
+ * commit one op on pointerup (no Scene/3D updates mid-drag).
+ */
+export function previewEndpoint(
+  wall: Wall,
+  end: "a" | "b",
+  preview: DragPreview | null,
+): [number, number] {
+  if (preview !== null && preview.wallId === wall.id && preview.end === end) {
+    return [preview.point.x, preview.point.y];
+  }
+  return end === "a" ? wall.a : wall.b;
+}
+
 /**
  * 2D plan corner editor (P0): SVG over the photo, draggable endpoints
  * (≥44 px touch targets), add/remove wall, mark door/window.
@@ -156,6 +179,8 @@ export function CornerEditor({
   const [tool, setTool] = useState<CornerTool>("select");
   const [selectedWall, setSelectedWall] = useState<string | null>(null);
   const [pendingStart, setPendingStart] = useState<Point | null>(null);
+  /** Live finger position mid-drag: local render only, never emitted. */
+  const [preview, setPreview] = useState<DragPreview | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
   const walls = useMemo(() => scene.walls ?? [], [scene.walls]);
@@ -338,8 +363,8 @@ export function CornerEditor({
             );
           })}
           {walls.map((w) => {
-            const a = toDisplay(w.a[0], w.a[1]);
-            const b = toDisplay(w.b[0], w.b[1]);
+            const a = toDisplay(...previewEndpoint(w, "a", preview));
+            const b = toDisplay(...previewEndpoint(w, "b", preview));
             const cls = selectedWall === w.id
               ? "wall wall-selected"
               : isWallEstimated(w)
@@ -388,7 +413,7 @@ export function CornerEditor({
         {/* 44 px HTML hit targets: SVG units scale with zoom, screen px don't */}
         {walls.map((w) =>
           (["a", "b"] as const).map((end) => {
-            const raw = end === "a" ? w.a : w.b;
+            const raw = previewEndpoint(w, end, preview);
             const p = toDisplay(raw[0], raw[1]);
             return (
               <button
@@ -404,10 +429,21 @@ export function CornerEditor({
                   e.stopPropagation();
                   (e.target as HTMLButtonElement).setPointerCapture(e.pointerId);
                 }}
+                onPointerMove={(e) => {
+                  if (!e.buttons) return;
+                  e.stopPropagation();
+                  setPreview({
+                    wallId: w.id,
+                    end,
+                    point: toSceneCoords(e.clientX, e.clientY),
+                  });
+                }}
                 onPointerUp={(e) => {
                   e.stopPropagation();
+                  setPreview(null);
                   handleEndpointDragEnd(w.id, end, e.clientX, e.clientY);
                 }}
+                onPointerCancel={() => setPreview(null)}
               />
             );
           }),

@@ -4,6 +4,7 @@ import {
   CornerEditor,
   calibratePhotoSpace,
   photoToScene,
+  previewEndpoint,
   sceneToPhoto,
 } from "./CornerEditor";
 import type { IntakeProposal } from "./api";
@@ -193,8 +194,7 @@ describe("CornerEditor proposal overlay (BUG1)", () => {
     expect(html).toContain('y2="3"');
   });
 
-  it("renders proposal openings on their wall spans", () => {
-    const withOpenings: IntakeProposal = {
+  it("renders proposal openings on their wall spans", () => {    const withOpenings: IntakeProposal = {
       ...proposal,
       openings: [{ wall_index: 0, t0: 0.2, t1: 0.5, kind: "door" }],
     };
@@ -215,5 +215,29 @@ describe("CornerEditor proposal overlay (BUG1)", () => {
     expect(html).toContain("proposal-opening-door");
     expect(html).toContain('x1="280"');
     expect(html).toContain('x2="400"');
+  });
+});
+
+describe("previewEndpoint (live drag preview)", () => {
+  const wall = scene.walls![0]!;
+
+  it("returns the finger point while its wall corner is dragged", () => {
+    expect(
+      previewEndpoint(wall, "a", { wallId: "w0", end: "a", point: { x: 1, y: 2 } }),
+    ).toEqual([1, 2]);
+  });
+
+  it("returns the stored endpoint when nothing is dragged", () => {
+    expect(previewEndpoint(wall, "a", null)).toEqual(wall.a);
+    expect(previewEndpoint(wall, "b", null)).toEqual(wall.b);
+  });
+
+  it("ignores a preview for another wall or the other end", () => {
+    expect(
+      previewEndpoint(wall, "a", { wallId: "w9", end: "a", point: { x: 1, y: 2 } }),
+    ).toEqual(wall.a);
+    expect(
+      previewEndpoint(wall, "a", { wallId: "w0", end: "b", point: { x: 1, y: 2 } }),
+    ).toEqual(wall.a);
   });
 });
