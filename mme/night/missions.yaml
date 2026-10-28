@@ -52,7 +52,8 @@ missions:
       Target flow (decided with the user; ONE room per session, multi-room is out of scope):
       W1 Wall 1: tap the floor at the base of the wall (corner A), tap the floor at the other end (corner B) -> length;
          then raise the camera and tap where the wall meets the ceiling -> that wall's real height (hit y - floorY,
-         sanity 2.0-4.0 m, out of range keeps the wall waiting for a re-tap). Wall 1 is now mapped with length + height.
+         2.0-4.0 m is the plausible range; outside it the value is KEPT and flagged
+         "check this" in the pill, never discarded; see F7). Wall 1 is now mapped with length + height.
       W2 Each next wall chains from the previous end corner: one base tap (next corner) + one ceiling tap. A base tap
          within 0.25 m of corner A closes the room (still followed by that wall's ceiling tap). Each wall stores its own
          measured height (provenance measured_ar); there is no separate Height mode.
@@ -76,18 +77,24 @@ missions:
          (bottom-left, then top-right, either order accepted). Both taps project onto the highlighted wall's plane; width
          and offset along the wall from the horizontal component, height from the vertical span, sill = lower tap y -
          floorY (doors: sill null, and a door's bottom snaps to the floor). A live rectangle preview follows the reticle
-         after the first tap. Validation errors (door < 0.80 m, opening outside the wall, height > that wall's height) show in
-         the step pill and keep the first corner. Placed openings render as rectangles on their wall in the overlay.
+         after the first tap. Only geometric impossibilities (opening outside the wall,
+         zero width) reject the tap and keep the first corner; rule issues (door < 0.80 m, height > the wall's height)
+         are KEPT and flagged "check this", never discarded. Placed openings render as rectangles on their wall in the overlay.
       F5 Openings in 3D: web/src/view3d/sceneToMeshes.ts subtracts the full wall height for an opening; render the lintel
          above it and, for windows, the wall below the sill, so doors and windows read correctly in the 3D view.
       F6 HUD: the step pill always says the next tap ("Tap the base of the wall", "Tap the other end", "Tap where the
          wall meets the ceiling", "Wall 2: tap the next corner"...); the selector is one row (Walls | Door | Window, the
          last two disabled until W3); actions are Undo / Start over / Done; nothing opaque covers the middle.
+      F7 Editable measurements (the camera can measure wrong): after Done, a review sheet lists every wall (length,
+         height) and opening (width, height, sill) with the flagged ones on top. Each value is a numeric input in meters;
+         an edit dispatches the existing store ops (setWallLength with provenance measured_tape, setWallHeight; an
+         opening edit is removeOpening + markOpening with the same id) and flips the wall's provenance badge. Nothing
+         captured is ever silently dropped. The review sheet is reachable again later from the measure screen.
       Architecture: extract the capture state machine from ArMeasure.tsx (994 lines) into a pure reducer
       web/src/measure/captureSession.ts: captureReducer(state, event) -> state, with events such as floorHit, baseTap,
       ceilingTap, finishWalls, modeChange, openingTap, undo, startOver, done, and a toSceneOps(state) projection that produces the SceneOps for Done. Keep
       cornerMath.ts and openingMath.ts as the geometry layer (one implementation each, no duplicates in the component).
-      Tests (vitest, RED first): F1-F5 each get reducer- or math-level tests, including a full scripted session (4 walls
+      Tests (vitest, RED first): F1-F5 and F7 each get reducer- or math-level tests (F7: a flagged value survives to toSceneOps; an edit emits the right ops), including a full scripted session (4 walls
       as base, base+ceiling, ..., closing on corner A with different heights per wall, then one door, one window, Done) asserting the exact Scene ops; plus
       sceneToMeshes tests for lintel and sill segments. Strings: new en/es-AR copy goes in web/src/measure/measure.i18n.ts
       (wired into web/src/i18n by day); do not edit web/src/i18n/*. Append any assumption or shortcut to
