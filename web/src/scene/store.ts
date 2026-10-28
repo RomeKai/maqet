@@ -15,6 +15,7 @@ export type SceneOp =
   | { type: "markOpening"; opening: Opening }
   | { type: "removeOpening"; openingId: string }
   | { type: "setWallLength"; wallId: string; lengthM: number; provenance: WallProvenance }
+  | { type: "setWallHeight"; wallId: string; heightM: number }
   | { type: "confirmScale" };
 
 export function createEmptyScene(id = "intake"): Scene {
@@ -107,6 +108,19 @@ export function applySceneOp(scene: Scene, op: SceneOp): Scene {
           const b: [number, number] = [w.a[0] + dir[0] * op.lengthM, w.a[1] + dir[1] * op.lengthM];
           return { ...w, b, measured_length_m: op.lengthM, provenance: op.provenance };
         }),
+      };
+    }
+
+    case "setWallHeight": {
+      if (!Number.isFinite(op.heightM) || op.heightM <= 0) return scene;
+      return {
+        ...scene,
+        version,
+        walls: walls.map((w) =>
+          w.id !== op.wallId
+            ? w
+            : { ...w, height_m: op.heightM, provenance: "measured_ar" as WallProvenance },
+        ),
       };
     }
 

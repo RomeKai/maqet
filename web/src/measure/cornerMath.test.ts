@@ -3,6 +3,7 @@ import {
   chainCornersToWalls,
   distanceM,
   emptyCornerTrace,
+  heightFromCeilingTap,
   pairCornersToNewWall,
   pairCornersToWallUpdate,
   shouldCloseRoom,
@@ -259,6 +260,23 @@ describe("cornerMath", () => {
     trace = traceCornerTap(trace, [0, 0, 0], 2);
     trace = traceCornerTap(trace, [4, 0, 0], 2);
     expect(trace.lastWall?.id).toBe("wall-3");
+  });
+
+  it("heightFromCeilingTap returns tap height above the floor in range", () => {
+    // Floor taps carry the device height (~chest); the floor plane is the
+    // first corner's y. Ceiling tap minus floor y is the room height.
+    expect(heightFromCeilingTap(0, 2.6)).toBeCloseTo(2.6, 9);
+    expect(heightFromCeilingTap(1.2, 3.8)).toBeCloseTo(2.6, 9);
+  });
+
+  it("heightFromCeilingTap rejects out-of-range heights (re-tap)", () => {
+    // Sanity range 2.0–4.0 m: a floor tap or a sky tap is a miss, not a room.
+    expect(heightFromCeilingTap(0, 1.5)).toBeNull();
+    expect(heightFromCeilingTap(0, 4.5)).toBeNull();
+    expect(heightFromCeilingTap(0, 2.0)).toBeCloseTo(2.0, 9);
+    expect(heightFromCeilingTap(0, 4.0)).toBeCloseTo(4.0, 9);
+    expect(heightFromCeilingTap(0, NaN)).toBeNull();
+    expect(heightFromCeilingTap(NaN, 2.6)).toBeNull();
   });
 
   it("tracing one closed room yields N walls with shared endpoints, no duplicates", () => {

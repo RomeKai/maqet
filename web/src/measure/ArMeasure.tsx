@@ -10,6 +10,7 @@ import { getStrings, type Locale } from "../i18n";
 import { formatMeasureM } from "../intake/ScaleTool";
 import {
   emptyCornerTrace,
+  heightFromCeilingTap,
   traceCornerTap,
   pairCornersToWallUpdate,
   type CornerTrace,
@@ -150,8 +151,8 @@ interface ArMeasureProps {
   onFallbackC?: () => void;
 }
 
-/** Guided AR HUD tracing mode: walls (current behavior) or openings. */
-export type ArHudMode = "wall" | "door" | "window";
+/** Guided AR HUD tracing mode: walls, room height, or openings. */
+export type ArHudMode = "wall" | "height" | "door" | "window";
 
 interface ArHudProps {
   locale: Locale;
@@ -211,7 +212,7 @@ interface ArHudProps {
 function noopArHudAction(): void {}
 function noopArHudModeChange(_mode: ArHudMode): void {}
 function noopArHudWallChange(_wallId: string): void {}
-const HUD_MODES: ArHudMode[] = ["wall", "door", "window"];
+const HUD_MODES: ArHudMode[] = ["wall", "height", "door", "window"];
 function hudModeKey(mode: ArHudMode): `measure.ar.mode.${ArHudMode}` {
   return `measure.ar.mode.${mode}`;
 }
@@ -367,6 +368,11 @@ export function ArMeasure({
   const startStepRef = useRef<ArTraceStep | null>(null);
   const [corners, setCorners] = useState<Vec3[]>([]);
   const [previewM, setPreviewM] = useState<number | null>(null);
+  // Captured room height in meters (Height mode), shown in the step pill.
+  const [roomHeightM, setRoomHeightM] = useState<number | null>(null);
+  // Height-tap error (no corners yet, or out-of-range tap): rendered in the
+  // step line until the next successful height tap clears it.
+  const [heightError, setHeightError] = useState<string | null>(null);
   // Guided HUD tracing mode: walls (corner trace, current behavior) or
   // openings (pick a measured wall, tap its two edges, emit markOpening).
   // Stays across rooms/confirmations: the tech traces several openings in a
@@ -413,6 +419,9 @@ export function ArMeasure({
   // the latest scene so each tap emits its addWall onto current walls.
   const sceneRef = useRef<Scene>(scene);
   sceneRef.current = scene;
+  // Wall ids emitted by this session's corner trace: Height mode applies the
+  // tapped ceiling height to exactly these walls. Reset with the trace.
+  const tracedWallIdsRef = useRef<string[]>([]);
 
   // Empty scene (no photo yet, ADR-025 Mode A entry): trace walls corner by
   // corner with stable incremental ids (wall-1, wall-2, ...). Each new tap
@@ -519,10 +528,13 @@ export function ArMeasure({
   function handleTraceModeChange(mode: ArHudMode): void {
     setTraceMode(mode);
     // Pending corner taps belong to the old mode: drop them so a wall
-    // trace never leaks into an opening (and vice versa).
+    // trace never leaks into an opening (and vice versa). Height state
+    // survives (it applies to the traced walls, not the pending taps), but a
+    // stale height error clears on every mode switch.
     traceRef.current = emptyCornerTrace();
     setCorners([]);
     setPreviewM(null);
+    setHeightError(null);
   }
 
   function handleOpeningWallChange(wallId: string): void {
@@ -563,6 +575,30 @@ export function ArMeasure({
   }
 
   function appendCorner(corner: Vec3, targetId: string | null): void {
+    // Height mode: one ceiling tap sets the room height on every wall traced
+    // this session (tracked in tracedWallIdsRef). Out-of-range taps are a
+    // miss, not a value: the HUD error asks for a re-tap.
+    if (traceModeRef.current === "height") {
+      const planted = cornersRef.current;
+      if (planted.length === 0) {
+        setHeightError(t["measure.ar.height.needCorners"]);
+        return;
+      }
+      const height = heightFromCeilingTap(planted[0]![1], corner[1]);
+      if (height === null) {
+        setHeightError(t["measure.ar.height.retap"]);
+        return;
+      }
+      setHeightError(null);
+      setRoomHeightM(height);
+      let next = sceneRef.current;
+      for (const wallId of tracedWallIdsRef.current) {
+        const op: SceneOp = { type: "setWallHeight", wallId, heightM: height };
+        next = applySceneOp(next, op);
+        onChange(next, op);
+      }
+      return;
+    }
     // Door/Window mode: the first edge tap selects the pending opening;
     // the second tap resolves it through the real openingMath path and
     // emits markOpening immediately. Taps stay pending on the same wall so
@@ -608,6 +644,7 @@ export function ArMeasure({
       setPreviewM(wall?.measured_length_m ?? null);
       if (wall !== null) {
         const op: SceneOp = { type: "addWall", wall };
+        tracedWallIdsRef.current = [...tracedWallIdsRef.current, wall.id];
         onChange(applySceneOp(sceneRef.current, op), op);
       }
       return;
@@ -671,8 +708,11 @@ export function ArMeasure({
       // Walls were already emitted per tap; confirm just clears the trace so
       // the technician can start the next room from a clean state.
       traceRef.current = emptyCornerTrace();
+      tracedWallIdsRef.current = [];
       setCorners([]);
       setPreviewM(null);
+      setRoomHeightM(null);
+      setHeightError(null);
       return;
     }
     if (target === null) return;
@@ -693,8 +733,11 @@ export function ArMeasure({
 
   function handleReset(): void {
     traceRef.current = emptyCornerTrace();
+    tracedWallIdsRef.current = [];
     setCorners([]);
     setPreviewM(null);
+    setRoomHeightM(null);
+    setHeightError(null);
     // Undo also returns to Wall mode so the next session starts from the
     // default; the mode selector is one tap away.
     setTraceMode("wall");
@@ -806,20 +849,25 @@ export function ArMeasure({
     );
   }
 
-  // Step copy follows the tracing mode. Wall mode keeps the current
-  // tap-first/tap-second flow; empty-start adds the close-room hint while
-  // tracing so the tech learns the gesture without a manual. Door/Window
-  // mode prompts for the wall first, then the two opening edges.
+  // Step copy follows the tracing mode. Wall keeps tap-first/tap-second
+  // (+ close hint on empty-start); height shows its own tap prompt, the
+  // captured value, or the re-tap error; door/window prompt for the wall
+  // then the two opening edges.
   const stepLabel =
-    traceMode === "wall"
-      ? `${corners.length === 0 ? t["measure.ar.tapFirst"] : t["measure.ar.tapSecond"]}${
-          isEmptyStart && corners.length > 0 ? ` · ${t["measure.ar.closeHint"]}` : ""
-        }`
-      : openingWallId === null
-        ? t["measure.ar.pickWall"]
-        : corners.length === 0
-          ? t["measure.ar.edgeFirst"]
-          : t["measure.ar.edgeSecond"];
+    traceMode === "height"
+      ? (heightError ??
+        (roomHeightM === null
+          ? t["measure.ar.height.tap"]
+          : `${t["measure.ar.height.done"]} ${formatMeasureM(locale, roomHeightM)}`))
+      : traceMode === "wall"
+        ? `${corners.length === 0 ? t["measure.ar.tapFirst"] : t["measure.ar.tapSecond"]}${
+            isEmptyStart && corners.length > 0 ? ` · ${t["measure.ar.closeHint"]}` : ""
+          }`
+        : openingWallId === null
+          ? t["measure.ar.pickWall"]
+          : corners.length === 0
+            ? t["measure.ar.edgeFirst"]
+            : t["measure.ar.edgeSecond"];
 
   // Live session: ONLY the HUD renders (transparent root = domOverlay.root,
   // camera shows through). No sheet copy, no confirm footers, nothing else

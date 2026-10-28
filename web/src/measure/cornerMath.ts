@@ -116,6 +116,23 @@ export function shouldCloseRoom(first: Vec3, tap: Vec3): boolean {
   return Number.isFinite(d) && d <= CLOSE_ROOM_M;
 }
 
+/** Sanity range for a tapped room height in meters (re-tap outside it). */
+export const MIN_ROOM_HEIGHT_M = 2.0;
+export const MAX_ROOM_HEIGHT_M = 4.0;
+
+/**
+ * Room height from a ceiling tap: the tap's y minus the floor y (the first
+ * corner tap's y — floor taps, not the device height, define the plane).
+ * Returns null outside 2.0–4.0 m or for non-finite input: the caller asks
+ * for a re-tap instead of applying a floor or sky tap as a room height.
+ */
+export function heightFromCeilingTap(floorY: number, tapY: number): number | null {
+  if (!Number.isFinite(floorY) || !Number.isFinite(tapY)) return null;
+  const height = tapY - floorY;
+  if (!(height >= MIN_ROOM_HEIGHT_M && height <= MAX_ROOM_HEIGHT_M)) return null;
+  return height;
+}
+
 /** Corner chain folded into connected walls (Mode A empty-start tracing). */
 export interface CornerChain {
   walls: Wall[];
