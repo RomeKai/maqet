@@ -1,0 +1,16 @@
+id: en_add_long_wall_span_flag
+scene: plano_70m_2dorm.truth.json
+stage: reform
+utterance: "Add an interior dividing wall across the living room, 5 meters long"
+script:
+  - calls:
+      - name: add_wall
+        arguments:
+          a: [0.0, 3.0]
+          b: [5.0, 3.0]
+          thickness_m: 0.1
+          kind: interior
+  - reply: "Done, I added the 5 m dividing wall. Heads-up: it spans more than the limit, so this needs a licensed professional to check the beam before building. This is preliminary, not a structural certification."
+must_mention: ["needs a licensed professional", "span", "preliminary"]
+expect:
+  flags_contain: ["needs_professional:span_over_limit"]

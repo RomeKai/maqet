@@ -1,0 +1,14 @@
+id: en_add_door
+scene: plano_48m_1ambiente.truth.json
+stage: reform
+utterance: "Add a door to the north wall of the living room"
+script:
+  - calls:
+      - name: add_opening
+        arguments:
+          wall_id: w_n1
+          kind: door
+  - reply: "Done, I added a door to the north wall of the living room. This is preliminary: not a structural certification."
+must_mention: ["door", "preliminary"]
+expect:
+  openings_delta: 1

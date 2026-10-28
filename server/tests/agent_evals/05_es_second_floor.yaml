@@ -1,0 +1,17 @@
+id: es_second_floor
+scene: plano_48m_1ambiente.truth.json
+stage: reform
+utterance: "Quiero construir un segundo piso con un dormitorio arriba"
+script:
+  - calls:
+      - name: add_room
+        arguments:
+          function: bedroom
+          name: Dormitorio arriba
+          level: 2
+          size_m: [3.0, 3.0]
+  - reply: "Agregué el dormitorio del segundo piso. Ojo: un segundo piso requiere un profesional matriculado que verifique la estructura, y esto es preliminar, no una certificación."
+must_mention: ["requiere un profesional matriculado", "segundo piso", "preliminar"]
+expect:
+  rooms_delta: 1
+  flags_contain: ["needs_professional:second_floor"]

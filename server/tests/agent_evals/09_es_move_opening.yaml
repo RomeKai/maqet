@@ -1,0 +1,12 @@
+id: es_move_opening
+scene: croquis_ampliacion.truth.json
+stage: reform
+utterance: "Mové la puerta del dormitorio más al centro de la pared"
+script:
+  - calls:
+      - name: move_opening
+        arguments:
+          opening_id: d_dorm
+          at_ratio: 0.5
+  - reply: "Listo, moví la puerta del dormitorio al centro de la pared. Esto es preliminar."
+must_mention: ["puerta", "preliminar"]

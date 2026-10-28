@@ -1,0 +1,12 @@
+id: es_out_of_stage
+scene: plano_48m_1ambiente.truth.json
+stage: reform
+utterance: "Poné una cama en el dormitorio"
+script:
+  - calls:
+      - name: place_furniture
+        arguments:
+          catalog_id: cama-doble-01
+          room_id: r_bed1
+  - reply: "Los muebles se colocan en la etapa de Diseño. Pasamos a Diseño con un toque y la agregamos ahí. Esto es preliminar."
+must_mention: ["Diseño", "preliminar"]

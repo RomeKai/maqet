@@ -1,0 +1,14 @@
+id: en_narrow_door
+scene: plano_48m_1ambiente.truth.json
+stage: reform
+utterance: "Put a 50 cm door on the south kitchen wall"
+script:
+  - calls:
+      - name: add_opening
+        arguments:
+          wall_id: w_s1
+          kind: door
+          offset_m: 2.0
+          width_m: 0.5
+  - reply: "I can't put a 0.50 m door there: the minimum door width is 0.80 m. I left the plan unchanged — want me to add the door at 0.80 m instead? This is preliminary."
+must_mention: ["minimum", "0.80", "preliminary"]

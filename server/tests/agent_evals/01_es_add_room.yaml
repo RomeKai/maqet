@@ -1,0 +1,23 @@
+id: es_add_room
+scene: plano_48m_1ambiente.truth.json
+stage: reform
+utterance: "Agregá un dormitorio para mi hija al lado de la cocina, de 3 por 3,5"
+script:
+  - calls:
+      - name: add_room
+        arguments:
+          function: bedroom
+          name: Dormitorio
+          next_to: Cocina
+          size_m: [3.0, 3.5]
+  - calls:
+      - name: add_opening
+        arguments:
+          wall_id: w_s2
+          kind: door
+          offset_m: 2.5
+  - reply: "Listo, agregué el dormitorio de 3 x 3,5 m al lado de la cocina, con su puerta de entrada. Esto es preliminar: no es una certificación estructural."
+must_mention: ["dormitorio", "preliminar"]
+expect:
+  rooms_delta: 1
+  openings_delta: 1

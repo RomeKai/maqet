@@ -1,0 +1,16 @@
+id: en_selected_wall
+scene: plano_48m_1ambiente.truth.json
+stage: reform
+utterance: "Add a window here"
+selected:
+  kind: wall
+  id: w_n2
+script:
+  - calls:
+      - name: add_opening
+        arguments:
+          kind: window
+  - reply: "Done, I added a window to the wall you selected. This is preliminary: not a structural certification."
+must_mention: ["window", "preliminary"]
+expect:
+  openings_delta: 1

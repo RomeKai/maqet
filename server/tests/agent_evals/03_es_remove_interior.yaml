@@ -1,0 +1,13 @@
+id: es_remove_interior
+scene: plano_48m_1ambiente.truth.json
+stage: reform
+utterance: "Sacá la pared entre la cocina y el baño"
+script:
+  - calls:
+      - name: remove_wall
+        arguments:
+          wall_id: w_i3
+  - reply: "Listo, saqué la pared entre la cocina y el baño. No era portante, así que no hay advertencia estructural. Esto es preliminar."
+must_mention: ["pared", "preliminar"]
+expect:
+  walls_removed: [w_i3]
