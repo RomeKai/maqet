@@ -39,7 +39,53 @@ missions:
     scope: ["server/agent/tools.py", "server/agent/executor.py", "server/agent/stages.py", "server/tests/test_agent_tools.py"]
     verify: "cd server && MME_MODE=replay python -m pytest -q tests/test_agent_tools.py"
 
-  # ---------------------------------------------------------------- Wed 28 night: 10 missions, disjoint scopes
+  # ---------------------------------------------------------------- Wed 28 night: 11 missions, disjoint scopes
+  # 0. Mode A capture v2 (runs first: primary demo path). Phone test 28 Oct showed the v1 flow is unusable.
+  - id: ar-capture-v2
+    status: draft
+    template: feature
+    budget_usd: 2.0
+    timeout_min: 150
+    goal: |
+      Rework Mode A AR capture (web/src/measure) into a predictable room-capture flow. Nobody can phone-test tonight, so
+      every behavior must live in pure, unit-tested code; the React component only wires XR hits and taps to it.
+      Phone-test findings (Android, 28 Oct) to fix:
+      F1 Floating corners: wall-mode corners keep the y of whatever surface the hit-test touched (often a wall), and the
+         floor datum is just the first tap's y, so the traced room is a 3D tangle. Fix: the floor datum comes only from a
+         horizontal-plane hit (hit normal mostly +Y; check what xrAdapter exposes, add the pose orientation if missing),
+         and every wall corner is projected onto y = floorY. A wall-mode tap on a vertical surface before the floor is
+         known shows "Point at the floor first" instead of adding a corner.
+      F2 Leftover geometry: retries pile up; Undo and Cancel leave earlier walls on screen. One AR session captures one
+         room: Undo removes the last corner (and the wall it closed), "Start over" (confirm step) clears the session
+         geometry; Cancel exits without writing anything to the Scene. Remove the "Use this measure" button unless it has
+         a clear job; if it stays, document the job in the code.
+      F3 Context lost on mode switch: switching to Height/Door/Window erases the traced lines. The overlay must always draw
+         every traced wall as a floor line plus a translucent vertical quad from floorY to the room height (2.60 m default
+         until measured), in every mode; in Door/Window mode the wall under the reticle is highlighted.
+      F4 Doors/windows can't be marked: the user tapped top-left then bottom (a vertical line) and got 0.14 m width; the
+         "left edge / right edge" copy is ambiguous. New flow: two diagonal corners of the opening on the wall surface
+         (bottom-left, then top-right, either order accepted). Both taps project onto the highlighted wall's plane; width
+         and offset along the wall from the horizontal component, height from the vertical span, sill = lower tap y -
+         floorY (doors: sill null, and a door's bottom snaps to the floor). A live rectangle preview follows the reticle
+         after the first tap. Validation errors (door < 0.80 m, opening outside the wall, height > room height) show in
+         the step pill and keep the first corner. Placed openings render as rectangles on their wall in the overlay.
+      F5 Openings in 3D: web/src/view3d/sceneToMeshes.ts subtracts the full wall height for an opening; render the lintel
+         above it and, for windows, the wall below the sill, so doors and windows read correctly in the 3D view.
+      F6 HUD: the mode selector is one row (Wall | Height | Door | Window), actions are Undo / Start over / Done, and
+         nothing opaque covers the middle of the screen.
+      Architecture: extract the capture state machine from ArMeasure.tsx (994 lines) into a pure reducer
+      web/src/measure/captureSession.ts: captureReducer(state, event) -> state, with events such as floorHit, wallTap,
+      modeChange, undo, startOver, done, and a toSceneOps(state) projection that produces the SceneOps for Done. Keep
+      cornerMath.ts and openingMath.ts as the geometry layer (one implementation each, no duplicates in the component).
+      Tests (vitest, RED first): F1-F5 each get reducer- or math-level tests, including a full scripted session (floor
+      hit, 4 corners closing the room, ceiling tap, one door, one window, Done) asserting the exact Scene ops; plus
+      sceneToMeshes tests for lintel and sill segments. Strings: new en/es-AR copy goes in web/src/measure/measure.i18n.ts
+      (wired into web/src/i18n by day); do not edit web/src/i18n/*. Append any assumption or shortcut to
+      .mission/PROGRESS.md under "HARDENING candidates".
+    context: [AGENTS.md, .claude/skills/meta-ingest/SKILL.md, .claude/skills/mobile-ui/SKILL.md, .claude/skills/scene-model/SKILL.md, web/src/measure/ArMeasure.tsx, web/src/measure/cornerMath.ts, web/src/measure/openingMath.ts, web/src/measure/ArOverlay.tsx, web/src/measure/xrAdapter.ts, web/src/view3d/sceneToMeshes.ts, web/src/scene/types.ts]
+    scope: ["web/src/measure/**", "web/src/view3d/**", "web/src/styles.css"]
+    verify: "cd web && npx vitest run src/measure src/view3d && npx tsc --noEmit"
+
   # 1. Day 4 (Reform) core: the tool-calling loop over the merged executor
   - id: agent-loop
     status: draft
