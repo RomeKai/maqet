@@ -19,6 +19,7 @@ import { openingDefaults, projectEdgesToOpening } from "./openingMath";
 import {
   AR_START_WATCHDOG_MS,
   isARSupported,
+  isArDebugEnabled,
   preloadThree,
   WebXrHitTestAdapter,
   type XrHitTestAdapter,
@@ -146,6 +147,11 @@ interface ArHudProps {
   stepLabel?: string;
   /** Hit-test presence: false = still searching (initial), true = floor seen. */
   surfaceFound?: boolean;
+  /**
+   * Debug frame count from the adapter's onDebugFrame (arDebug only).
+   * Null hides the debug line: the HUD never renders it in normal sessions.
+   */
+  debugFrames?: number | null;
   canConfirm?: boolean;
   /** Active tracing mode + setter for the Wall / Door / Window selector. */
   traceMode?: ArHudMode;
@@ -187,6 +193,7 @@ export function ArHud({
   targetLengthM = null,
   stepLabel = "",
   surfaceFound = false,
+  debugFrames = null,
   canConfirm = false,
   traceMode = "wall",
   onTraceModeChange = noopArHudModeChange,
@@ -243,6 +250,11 @@ export function ArHud({
       )}
       <p className="ar-hud-step">{stepLabel}</p>
       <p className="ar-hud-readout">{formatMeasureM(locale, shownM)}</p>
+      {debugFrames !== null && (
+        <p className="ar-hud-debug" role="status">
+          {`frames: ${debugFrames}`}
+        </p>
+      )}
       <div className="ar-hud-bar">
         {canConfirm && (
           <button type="button" className="btn-primary" onClick={onConfirm}>
@@ -329,17 +341,16 @@ export function ArMeasure({
   // false = searching, the initial state until the first report). Passed to
   // ArHud as a prop so renderToString tests cover the wiring without WebXR.
   const [surfaceFound, setSurfaceFound] = useState(false);
+  // Debug frame count (arDebug only): the adapter reports it throttled
+  // (~2/s). One setState per report by construction, never 60/s.
+  const [debugFrames, setDebugFrames] = useState<number | null>(null);
   const cornersRef = useRef<Vec3[]>([]);
   cornersRef.current = corners;
-  // Host for the XR canvas (production path): the device stream renders
-  // behind the bottom sheet. Mounts only while a session is active so it
-  // never swallows taps on the Start screen. Minimal positioning; stacking
-  // is refined later.
-  const xrHostRef = useRef<HTMLDivElement | null>(null);
-  // HUD root: the dedicated domOverlay.root while a session runs (see the
-  // session branch below). Rendered as an empty transparent shell on the
+  // HUD root: the domOverlay.root while a session runs (see the session
+  // branch below). Rendered as an empty transparent shell on the
   // Start/starting/failed screens so the element exists when start() reads
-  // it in the gesture handler.
+  // it in the gesture handler. The XR canvas is NOT hosted here: the
+  // adapter appends it to document.body, outside the overlay root.
   const hudRef = useRef<HTMLDivElement | null>(null);
   // Latest onSessionChange (parent hides the sheet + 3D while active).
   const onSessionChangeRef = useRef(onSessionChange);
@@ -398,12 +409,16 @@ export function ArMeasure({
       onSurfaceChange: (found) => {
         setSurfaceFound(found);
       },
+      // Debug frame counter (arDebug only, adapter-side throttled ~2/s).
+      // Reset on every start so a re-tap proves fresh frames, not stale ones.
+      onDebugFrame: isArDebugEnabled() ? setDebugFrames : undefined,
     };
     const active = adapter ?? new WebXrHitTestAdapter();
     if (adapter === undefined) prodAdapterRef.current = active;
     startStepRef.current = null;
     setStartStep(null);
     setSurfaceFound(false);
+    setDebugFrames(null);
     setSupport("starting");
     const onStarted = (): void => {
       notify?.(true);
@@ -430,13 +445,11 @@ export function ArMeasure({
     createArStartHandler(
       active,
       callbacks,
-      // The dedicated HUD root (transparent, camera shows through); it is
-      // mounted as an empty shell on the Start/starting screens so the
-      // element exists when start() reads it in the gesture handler.
-      () =>
-        (hudRef.current ?? xrHostRef.current ?? undefined) as
-          | HTMLElement
-          | undefined,
+      // The HUD div (transparent, camera shows through); it is mounted as
+      // an empty shell on the Start/starting screens so the element exists
+      // when start() reads it in the gesture handler. The adapter moves the
+      // canvas to document.body itself — the overlay root stays the HUD.
+      () => (hudRef.current ?? undefined) as HTMLElement | undefined,
       { onStarted, onFailed, onStep, stuckMessage },
     )();
   }
@@ -625,18 +638,11 @@ export function ArMeasure({
     setTraceMode("wall");
   }
 
-  // Production path: the XR host renders ONLY while a session is active.
-  // An always-mounted fixed full-screen host would swallow every tap on the
-  // Start screen (the button would look fine but requestSession never fires).
-  const xrHost = support === "session" && (
-    <div ref={xrHostRef} className="ar-xr-host" aria-hidden="true" />
-  );
-
   // HUD: the same ArHud element in shell mode on the Start/starting/
   // failed screens and full mode in the session, at the same tree position
-  // in every branch ({xrHost}{hud}{sheet}). Same component + position =
-  // same DOM node across the ar-ready -> starting -> session transitions,
-  // which the captured domOverlay.root depends on.
+  // in every branch ({hudShell} first, then the dialog). Same component +
+  // position = same DOM node across the ar-ready -> starting -> session
+  // transitions, which the captured domOverlay.root depends on.
   const hudShell = <ArHud locale={locale} hudRef={hudRef} shell />;
 
   // Start screen: detection passed (or a fake adapter was injected), but no
@@ -649,7 +655,6 @@ export function ArMeasure({
     const starting = support === "starting";
     return (
       <>
-        {xrHost}
         {hudShell}
         <div className="ar-measure" role="dialog" aria-label={t["measure.ar.title"]}>
         <h2 className="intake-title">{t["measure.ar.title"]}</h2>
@@ -683,7 +688,6 @@ export function ArMeasure({
   if (support === "failed") {
     return (
       <>
-        {xrHost}
         {hudShell}
         <div className="ar-measure" role="dialog" aria-label={t["measure.ar.title"]}>
         <h2 className="intake-title">{t["measure.ar.title"]}</h2>
@@ -758,33 +762,33 @@ export function ArMeasure({
   // Live session: ONLY the HUD renders (transparent root = domOverlay.root,
   // camera shows through). No sheet copy, no confirm footers, nothing else
   // from the app — opaque bottom-sheet backgrounds would cover the camera.
-  // Same child order as the other branches so the HUD div keeps the DOM
-  // node captured at start(). The parent hides the sheet + 3D via
-  // onSessionChange and restores them on end.
+  // The XR canvas lives on document.body (the adapter moves it there) so it
+  // stays OUTSIDE the overlay root. Same child order as the other branches
+  // ({hudShell} first) so the HUD div keeps the DOM node captured at start().
+  // The parent hides the sheet + 3D via onSessionChange and restores them
+  // on end.
   // Door/Window taps produce openings, so there is nothing to Confirm:
   // markOpening is emitted on the second edge tap. Undo resets the mode.
   const openingPreview = traceMode !== "wall" && previewM !== null ? previewM : null;
   return (
-    <>
-      {xrHost}
-      <ArHud
-        locale={locale}
-        hudRef={hudRef}
-        previewM={traceMode === "wall" ? previewM : openingPreview}
-        targetLengthM={target !== null ? wallDisplayLengthM(target) : null}
-        stepLabel={stepLabel}
-        surfaceFound={surfaceFound}
-        canConfirm={traceMode === "wall" && previewM !== null}
-        traceMode={traceMode}
-        onTraceModeChange={handleTraceModeChange}
-        pickerWalls={traceMode === "wall" ? [] : walls}
-        pickerWallId={openingWallId}
-        onPickerWallChange={handleOpeningWallChange}
-        onConfirm={handleConfirm}
-        onReset={handleReset}
-        onEnd={handleEnd}
-        onCancel={handleSessionCancel}
-      />
-    </>
+    <ArHud
+      locale={locale}
+      hudRef={hudRef}
+      previewM={traceMode === "wall" ? previewM : openingPreview}
+      targetLengthM={target !== null ? wallDisplayLengthM(target) : null}
+      stepLabel={stepLabel}
+      surfaceFound={surfaceFound}
+      debugFrames={debugFrames}
+      canConfirm={traceMode === "wall" && previewM !== null}
+      traceMode={traceMode}
+      onTraceModeChange={handleTraceModeChange}
+      pickerWalls={traceMode === "wall" ? [] : walls}
+      pickerWallId={openingWallId}
+      onPickerWallChange={handleOpeningWallChange}
+      onConfirm={handleConfirm}
+      onReset={handleReset}
+      onEnd={handleEnd}
+      onCancel={handleSessionCancel}
+    />
   );
 }

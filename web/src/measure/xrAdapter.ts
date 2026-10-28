@@ -19,6 +19,15 @@ export interface XrTapCallbacks {
    * the stuck-at watchdog trace.
    */
   onSurfaceChange?: (found: boolean) => void;
+  /**
+   * Debug frame counter, reported ONLY when `isArDebugEnabled()` is true
+   * (`?arDebug=1`): the adapter's setAnimationLoop calls it throttled
+   * (~2/s, see AR_DEBUG_REPORT_INTERVAL_MS) so the HUD can prove the first
+   * frame actually FLOWED. The start-step trace reports "render-loop-running"
+   * at REGISTRATION time, so a dead loop looks healthy without this.
+   * Optional: fakes omit it and the HUD shows no debug line.
+   */
+  onDebugFrame?: (frames: number) => void;
 }
 
 /**
@@ -65,6 +74,21 @@ export const XR_SESSION_CONFIG_STEPS = [
 ] as const;
 
 export type XrSessionConfigStep = (typeof XR_SESSION_CONFIG_STEPS)[number];
+
+/**
+ * True only when the URL carries the AR debug flag (`?arDebug=1`): the
+ * production adapter adds a red depthTest:false cube at (0,-0,-1)-ish and
+ * counts setAnimationLoop frames; ArMeasure surfaces the count in the HUD.
+ * Pure helper (no window access when `search` is passed), unit-tested.
+ */
+export function isArDebugEnabled(search?: string): boolean {
+  const query =
+    search ?? (typeof window !== "undefined" ? window.location.search : "");
+  return /(?:^|[?&])arDebug=1(?:&|$)/.test(query);
+}
+
+/** Throttle for the debug frame counter: ~2 HUD updates/s, never 60/s. */
+export const AR_DEBUG_REPORT_INTERVAL_MS = 500;
 
 /** Progress callback for start(): each start step plus the session-config outcome, in order. */
 export type XrStartProgress = (
@@ -115,10 +139,11 @@ export async function requestArSession(
 
 /**
  * Thin seam over WebXR hit-test: start a session, tap corners, end it.
- * The optional container hosts the XR canvas (production path); the optional
- * onStep reports each XR_START_STEPS entry in order (diagnostic trace).
- * Fakes used in tests keep a one-param start and still satisfy this
- * interface.
+ * The optional container is the domOverlay.root (HUD div, production path);
+ * the XR canvas itself is appended to document.body, OUTSIDE the overlay
+ * root — keep the two apart. The optional onStep reports each XR_START_STEPS
+ * entry in order (diagnostic trace). Fakes used in tests keep a one-param
+ * start and still satisfy this interface.
  */
 export interface XrHitTestAdapter {
   start: (
@@ -226,9 +251,7 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
     if (globalThis.isSecureContext === false) {
       throw new Error("WebXR needs a secure context (HTTPS).");
     }
-    const host =
-      container ?? (typeof document !== "undefined" ? document.body : null);
-    if (host === null) {
+    if (typeof document === "undefined") {
       throw new Error("WebXR needs a DOM container for the XR canvas.");
     }
     // requestSession FIRST, synchronously in the gesture handler: NOTHING is
@@ -236,16 +259,23 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
     // activation (~5 s, shorter on a cold LAN load) is still alive.
     // three.js should already be warm via preloadThree() at screen mount.
     // The xr guard above narrowed nav.xr to a defined XRSystem.
-    // The caller passes the visible AR controls element as `container`
-    // (domOverlay.root): End + the step trace stay visible and tappable
-    // over the camera feed. The DOM lib types requestSession's options
-    // loosely, so the root is cast to the HTMLElement three expects.
+    // The caller passes the HUD div as `container`: it becomes the
+    // domOverlay.root (End + the step trace stay visible and tappable over
+    // the camera feed). The DOM lib types requestSession's options loosely,
+    // so the root is cast to the HTMLElement three expects.
     // Device 1 rejects the overlay config with NotSupportedError: the
     // helper retries once with plain hit-test (see requestArSession).
     const xr = nav.xr as XRSystem;
-    const overlayRoot = (container ?? host) as HTMLElement;
+    const overlayRoot = (container ?? document.body) as HTMLElement;
     const sessionPromise = requestArSession(xr, overlayRoot, onStep);
-    // three.js stays out of the test bundle: only the phone path loads it.
+    // Canvas host: NOT `container`. The caller passes the HUD div as
+    // `container` and the HUD div is the domOverlay.root — appending the XR
+    // canvas INTO the overlay root puts the WebGL layer inside the DOM
+    // overlay subtree, so the compositor/overlay can swallow the paint while
+    // the hit-test (session-level, independent of the canvas) keeps working:
+    // taps land, nothing renders. The canvas belongs on document.body (like
+    // every official three.js immersive-ar sample), OUTSIDE the overlay
+    // root. domOverlay.root stays the HUD div.
     const THREE = await import("three");
     onStep?.("three-loaded");
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
@@ -254,7 +284,10 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
     // local everywhere, like the official immersive-web hit-test sample.
     // Corner distances are pure hit-test poses, floor height is irrelevant.
     renderer.xr.setReferenceSpaceType("local");
-    host.appendChild(renderer.domElement);
+    // Plain stacking (no z-index games with the opaque sheet): the canvas
+    // keeps the UA default (DOM order decides) — its parent chain carries
+    // no opaque background (checklist item 4: only .ar-hud-bar does).
+    document.body.appendChild(renderer.domElement);
     this.renderer = renderer;
     try {
       const session = await sessionPromise;
@@ -302,6 +335,20 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
       reticleDot.visible = false;
       reticleDot.renderOrder = 999;
       scene.add(reticleDot);
+      // ?arDebug=1 only: a bright-red depthTest:false cube at (0,0,-1) in
+      // local space, always rendered once frames flow. Proves the GL path
+      // presents with zero dependence on hit-test: if the cube shows but the
+      // reticle never does, hit-test (not the canvas) is the problem.
+      const arDebug = isArDebugEnabled();
+      if (arDebug) {
+        const debugCube = new THREE.Mesh(
+          new THREE.BoxGeometry(0.2, 0.2, 0.2),
+          new THREE.MeshBasicMaterial({ color: 0xff0000, depthTest: false }),
+        );
+        debugCube.position.set(0, 0, -1);
+        debugCube.renderOrder = 998;
+        scene.add(debugCube);
+      }
       // Transition-only mirror of the frame loop's hit state: the HUD must
       // show surface feedback even when the 3D ring is invisible (compositor
       // covered it, material culled, opaque overlay on top). Updated on
@@ -321,7 +368,19 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
         callbacks.onEnd();
         this.teardown();
       });
+      // Frame counter behind `onDebugFrame` (arDebug only, throttled to
+      // ~2 reports/s): proves the first frame FLOWED, not just that
+      // setAnimationLoop was registered. Same reporting shape as
+      // onSurfaceChange (throttled callback, never 60 setStates/s).
+      let frames = 0;
+      let lastDebugReport = 0;
       renderer.setAnimationLoop((_, frame) => {
+        // Official hit-test-sample shape: hit-test runs only on a live
+        // XRFrame, render() runs unconditionally. While the session is
+        // presenting, three.js re-seats `camera` from the session pose
+        // inside render() itself, so this plain PerspectiveCamera renders
+        // the headset view — no manual camera work, no setSize needed
+        // (three.js sizes the XR framebuffer from the session).
         if (frame) {
           const hit = this.hitFromFrame(frame);
           const found = hit !== null;
@@ -337,6 +396,14 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
           if (found !== surfaceFound) {
             surfaceFound = found;
             callbacks.onSurfaceChange?.(found);
+          }
+          if (arDebug) {
+            frames += 1;
+            const now = performance.now();
+            if (now - lastDebugReport >= AR_DEBUG_REPORT_INTERVAL_MS) {
+              lastDebugReport = now;
+              callbacks.onDebugFrame?.(frames);
+            }
           }
         }
         renderer.render(scene, camera);

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   hitTestPoseToCorner,
   isARSupported,
+  isArDebugEnabled,
   NoopAdapter,
   requestArSession,
   WebXrHitTestAdapter,
@@ -77,6 +78,34 @@ describe("xrAdapter", () => {
       onTapCorner: () => undefined,
       onEnd: () => undefined,
       onSurfaceChange: (found) => seen.push(found),
+    });
+    adapter.end();
+    expect(seen).toEqual([]);
+  });
+});
+
+describe("isArDebugEnabled", () => {
+  it("is true only for an exact ?arDebug=1 param", () => {
+    expect(isArDebugEnabled("?arDebug=1")).toBe(true);
+    expect(isArDebugEnabled("?foo=1&arDebug=1")).toBe(true);
+    expect(isArDebugEnabled("?arDebug=1&foo=2")).toBe(true);
+    expect(isArDebugEnabled("")).toBe(false);
+    expect(isArDebugEnabled("?arDebug=0")).toBe(false);
+    expect(isArDebugEnabled("?arDebug=1x")).toBe(false);
+    expect(isArDebugEnabled("?xarDebug=1")).toBe(false);
+  });
+});
+
+describe("onDebugFrame seam", () => {
+  it("stays optional: a fake without it still satisfies XrHitTestAdapter", async () => {
+    // Mirrors the onSurfaceChange optional-seam test above: callers may pass
+    // onDebugFrame, old fakes may ignore it, and the seam never breaks.
+    const adapter = new FakeAdapter();
+    const seen: number[] = [];
+    await adapter.start({
+      onTapCorner: () => undefined,
+      onEnd: () => undefined,
+      onDebugFrame: (frames) => seen.push(frames),
     });
     adapter.end();
     expect(seen).toEqual([]);

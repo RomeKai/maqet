@@ -203,14 +203,26 @@ body {
   margin-top: 8px;
 }
 
-/* Mode A XR canvas host: device AR stream behind the bottom sheet.
-   Rendered only while a session is active; pointer-events: none as
-   belt-and-braces so it can never swallow taps on the AR controls. */
+/* Mode A XR canvas host (legacy). The adapter appends the XR canvas to
+   document.body (outside the domOverlay.root) so the overlay subtree can
+   never swallow the WebGL paint while hit-test keeps working. Remove once
+   step 2+ of the AR sequence no longer mounts it. */
 .ar-xr-host {
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
+}
+
+/* Debug-only (?arDebug=1) frame counter: text over the camera feed, same
+   treatment as the other HUD lines. Debug strings stay untranslated. */
+.ar-hud-debug {
+  margin: 0;
+  color: #ffd2d2;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
 /* Dedicated AR HUD: the ONLY app content inside domOverlay.root while the

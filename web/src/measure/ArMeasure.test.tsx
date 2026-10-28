@@ -501,6 +501,13 @@ describe("ArHud (live session overlay)", () => {
     expect(html).not.toContain("ar-hud-surface");
   });
 
+  it("debug line: hidden by default, frames count under arDebug", () => {
+    expect(hudHtml()).not.toContain("ar-hud-debug");
+    expect(hudHtml({ debugFrames: null })).not.toContain("frames:");
+    expect(hudHtml({ debugFrames: 42 })).toContain("ar-hud-debug");
+    expect(hudHtml({ debugFrames: 42 })).toContain("frames: 42");
+  });
+
   it("surface line: searching copy by default, found copy when reported", () => {
     // Initial state is searching (no surface yet); the adapter flips it via
     // the transition-only onSurfaceChange seam. No WebXR needed: renderToString.
