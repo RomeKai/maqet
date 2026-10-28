@@ -376,7 +376,12 @@ def test_unmeasured_wall_stays_estimated() -> None:
     assert scene.scale_confirmed is False
 
 
-def test_conflicting_measures_warn_and_keep_min() -> None:
+def test_conflicting_measures_warn_and_leave_unmeasured() -> None:
+    """Genuine conflict with no supporting opposite wall: no silent min.
+
+    Neither value is invented as truth: the wall stays unmeasured (estimated)
+    and the warning carries both values for the human (ADR-002).
+    """
     from server.intake.cleanup import build_scaled_plan
 
     proposal = _proposal(
@@ -387,8 +392,123 @@ def test_conflicting_measures_warn_and_keep_min() -> None:
         ],
     )
     scaled = build_scaled_plan(proposal, 1000, 800)
-    assert scaled.walls[0].measured_m == pytest.approx(3.5)
-    assert any("contradiction" in w for w in scaled.warnings)
+    assert scaled.walls[0].measured_m is None
+    matches = [w for w in scaled.warnings if "contradiction" in w]
+    assert len(matches) == 1
+    assert "3.50" in matches[0] and "4.00" in matches[0]
+    assert any("estimated" in w for w in scaled.warnings)
+
+
+def _door_window_proposal() -> IntakeProposal:
+    """Exact failing phone case: 3x8 croquis, door + window labels, null dim."""
+    return IntakeProposal.model_validate(
+        {
+            "dimensions": [
+                {"a": [0.115, 0.165], "b": [0.83, 0.17], "text": "3.00m", "wall_index": 0},
+                {"a": [0.825, 0.768], "b": [0.165, 0.808], "text": "3.00 m", "wall_index": 2},
+                {"a": [0.88, 0.22], "b": [0.875, 0.76], "text": "8.00 m", "wall_index": 1},
+                {"a": [0.827, 0.602], "b": [0.826, 0.707], "text": "1m", "wall_index": 1},
+                {"a": [0.06, 0.44], "b": [0.06, 0.56], "text": "1.50m", "wall_index": 3},
+                {"a": [0.25, 0.38], "b": [0.275, 0.53], "text": "8.00", "wall_index": None},
+            ],
+            "input_kind": "sketch",
+            "labels": [],
+            "openings": [
+                {"kind": "door", "t0": 0.46, "t1": 0.61, "wall_index": 3},
+                {"kind": "window", "t0": 0.7, "t1": 0.89, "wall_index": 1},
+            ],
+            "walls": [
+                {"a": [0.11, 0.205], "b": [0.832, 0.215], "kind": None},
+                {"a": [0.832, 0.215], "b": [0.825, 0.768], "kind": None},
+                {"a": [0.825, 0.768], "b": [0.165, 0.808], "kind": None},
+                {"a": [0.165, 0.808], "b": [0.11, 0.205], "kind": None},
+            ],
+        }
+    )
+
+
+def test_croquis_3x8_opening_widths_come_from_labels() -> None:
+    """Mode C phone case: dims overlapping an opening span are opening widths.
+
+    Walls solve to 3.00/8.00/3.00/8.00 m, door 1.50 m (wall 3), window
+    1.00 m (wall 1). No contradiction warning: nothing genuinely conflicts.
+    """
+    from server.intake.cleanup import build_scaled_plan
+
+    scaled = build_scaled_plan(_door_window_proposal(), 1000, 1000)
+    lengths = [math.dist(w.a, w.b) for w in scaled.walls]
+    assert lengths == pytest.approx([3.0, 8.0, 3.0, 8.0], abs=0.05)
+    assert [w.measured_m for w in scaled.walls] == pytest.approx([3.0, 8.0, 3.0, 8.0])
+    by_wall = {op.wall_index: op for op in scaled.openings}
+    assert by_wall[3].width_m == pytest.approx(1.5)
+    assert by_wall[1].width_m == pytest.approx(1.0)
+    assert by_wall[3].kind == "door"
+    assert by_wall[1].kind == "window"
+    assert not any("contradiction" in w for w in scaled.warnings)
+    assert sum("opening" in w for w in scaled.warnings) == 2
+
+
+def test_null_wall_index_assigns_to_nearest_parallel_wall() -> None:
+    """A wall_index=null dim joins the nearest wall parallel to its direction."""
+    from server.intake.cleanup import build_scaled_plan
+
+    proposal = _proposal(
+        [
+            _wall(0.1, 0.2, 0.9, 0.2),
+            _wall(0.1, 0.8, 0.9, 0.8),
+        ],
+        dimensions=[
+            _dim("4,00", ax=0.1, ay=0.05, bx=0.9, by=0.05, wall_index=0),
+            _dim("5,00", ax=0.2, ay=0.75, bx=0.8, by=0.75, wall_index=None),
+        ],
+    )
+    scaled = build_scaled_plan(proposal, 1000, 800)
+    assert scaled.walls[0].measured_m == pytest.approx(4.0)
+    assert scaled.walls[1].measured_m == pytest.approx(5.0)
+    assert not any("contradiction" in w for w in scaled.warnings)
+
+
+def test_null_wall_index_with_no_parallel_wall_warns_unassigned() -> None:
+    """A null dim parallel to nothing is left out loudly, never invented."""
+    from server.intake.cleanup import build_scaled_plan
+
+    proposal = _proposal(
+        [_wall(0.1, 0.2, 0.9, 0.2)],
+        dimensions=[
+            _dim("4,00", ax=0.1, ay=0.05, bx=0.9, by=0.05, wall_index=0),
+            _dim("9,99", ax=0.2, ay=0.3, bx=0.4, by=0.7, wall_index=None),
+        ],
+    )
+    scaled = build_scaled_plan(proposal, 1000, 800)
+    assert scaled.walls[0].measured_m == pytest.approx(4.0)
+    assert any("unassigned" in w for w in scaled.warnings)
+
+
+def test_conflicting_measures_prefer_opposite_parallel_value() -> None:
+    """Genuine conflict resolved by the opposite parallel wall's measure.
+
+    Wall 0 says 3.50 vs 4.00; opposite wall 2 measures 4.00: keep 4.00 and
+    say why. The rectangle then solves to 4.00 x 3.00.
+    """
+    from server.intake.cleanup import build_scaled_plan
+
+    proposal = _proposal(
+        _square_walls(),
+        dimensions=[
+            _dim("3,50", ax=0.1, ay=0.02, bx=0.9, by=0.02, wall_index=0),
+            _dim("4,00", ax=0.1, ay=0.06, bx=0.9, by=0.06, wall_index=0),
+            _dim("3,00", ax=0.98, ay=0.1, bx=0.98, by=0.9, wall_index=1),
+            _dim("4,00", ax=0.1, ay=0.98, bx=0.9, by=0.98, wall_index=2),
+            _dim("3,00", ax=0.02, ay=0.1, bx=0.02, by=0.9, wall_index=3),
+        ],
+    )
+    scaled = build_scaled_plan(proposal, 1000, 1000)
+    assert scaled.walls[0].measured_m == pytest.approx(4.0)
+    matches = [w for w in scaled.warnings if "contradiction" in w]
+    assert len(matches) == 1
+    assert "4.00" in matches[0] and "opposite wall 2" in matches[0]
+    lengths = sorted(math.dist(w.a, w.b) for w in scaled.walls)
+    assert lengths == pytest.approx([3.0, 3.0, 4.0, 4.0], abs=0.05)
 
 
 # --- metrics (F3 helpers) ----------------------------------------------------

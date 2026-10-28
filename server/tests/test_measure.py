@@ -98,14 +98,21 @@ def test_mode_b_matches_mode_c_geometry_and_differs_only_in_provenance() -> None
     assert {w.provenance for w in scene_b.walls} == {"measured_tape"}
 
 
-def test_conflicting_taps_on_one_wall_warn_and_keep_the_smaller() -> None:
+def test_conflicting_taps_on_one_wall_warn_and_leave_unmeasured() -> None:
+    """Genuine tap conflict with no supporting opposite wall: no silent min.
+
+    The wall stays unmeasured (estimated) and the warning carries both
+    values so the technician resolves them (ADR-002).
+    """
     taps = [
         TappedLength(wall_index=0, length="3,50"),
         TappedLength(wall_index=0, length="4,00"),
     ]
     plan = build_tapped_plan(OUTLINE, taps, 1000, 1000)
-    assert plan.walls[0].measured_m == pytest.approx(3.5)
-    assert any("contradiction" in msg for msg in plan.warnings)
+    assert plan.walls[0].measured_m is None
+    matches = [msg for msg in plan.warnings if "contradiction" in msg]
+    assert len(matches) == 1
+    assert "3.50" in matches[0] and "4.00" in matches[0]
 
 
 def test_unreadable_typed_length_fails_loudly() -> None:

@@ -35,6 +35,27 @@ TOL_DEFAULT = 1e-6
 # (measured 1.0010000000004737e-06 vs threshold 1.001e-06). The beyond case
 # (tol + 1e-8) still does not fuse: 1.01e-06 > 1.002e-06.
 _MERGE_EPS = 2e-9
+# A dimension is parallel to a wall when their directions agree within this.
+_PARALLEL_COS = 0.9659  # cos(15 deg): sketches wobble, walls do not bend
+# A wall_index=null dimension joins a wall at most this far away (normalized
+# units, ~15% of image width): further is a guess, and guesses are the
+# human's job (ADR-002).
+_NULL_ASSIGN_MAX_DIST = 0.15
+# A dimension belongs to an opening span (not the wall) when their 1D overlap
+# covers most of BOTH: a wall-length line crossing an opening is long, an
+# opening label is short. One-sided overlap is not enough.
+_OPENING_OVERLAP_MIN = 0.5
+
+
+def _unit(dx: float, dy: float) -> tuple[float, float]:
+    length = math.hypot(dx, dy)
+    if length <= 0:
+        return (1.0, 0.0)
+    return (dx / length, dy / length)
+
+
+def _overlap(lo0: float, hi0: float, lo1: float, hi1: float) -> float:
+    return max(0.0, min(hi0, hi1) - max(lo0, lo1))
 
 
 # Provenance a measured wall may carry when it comes out of intake (ADR-025).
@@ -274,29 +295,9 @@ def build_scaled_plan(
         warnings.append("kind_defaulted: null kind -> exterior, confirm with human")
     old_to_new = {old: new for new, group in enumerate(members) for old in group}
 
-    # Per-wall measures: map each associated dimension (F1 wall_index in
-    # pre-fuse proposal coords) onto its fused wall. Unparseable texts are
-    # dropped with a warning; contradictions between several measures on the
-    # same wall are flagged to the technician, never silently averaged.
-    wall_measures: dict[int, list[float]] = {}
-    for dim in proposal.dimensions:
-        if dim.wall_index is None or dim.wall_index >= len(proposal.walls):
-            continue
-        value = parse_dimension_meters(dim.text)
-        if value is None:
-            continue
-        new_idx = old_to_new[dim.wall_index]
-        wall_measures.setdefault(new_idx, []).append(value)
-    targets_m: dict[int, float] = {}
-    for new_idx, values in wall_measures.items():
-        lo, hi = min(values), max(values)
-        if len(values) > 1 and hi - lo > max(0.02, 0.02 * lo):
-            warnings.append(
-                f"contradiction: wall {new_idx} has conflicting measures "
-                f"{lo:.2f} m vs {hi:.2f} m, keeping {lo:.2f} m, verify with human"
-            )
-        targets_m[new_idx] = lo
-
+    # Anchor before measures: the anchor factor turns drawn lengths into
+    # meters, so an opening label can be told apart from a wall measure by
+    # MAGNITUDE (a 1.50 m label on an 8 m wall is the door, not the wall).
     # Global factor survives ONLY as the solver initial guess, never as
     # stored truth: measured walls override it during relaxation.
     idx, meters = select_anchor(proposal.dimensions, anchor_index)
@@ -308,6 +309,150 @@ def build_scaled_plan(
             "que corrija la medida."
         )
     m_per_px = meters / anchor_px
+
+    # Per-wall measures: map each associated dimension (F1 wall_index in
+    # pre-fuse proposal coords) onto its fused wall. Unparseable texts are
+    # dropped with a warning; contradictions between several measures on the
+    # same wall are flagged to the technician, never silently averaged.
+    #
+    # Two special cases before a dimension becomes a wall measure:
+    # - an opening label: a dimension whose span sits on an opening span of
+    #   the same wall AND whose value is much smaller than the wall (e.g.
+    #   "1.50m" next to a door on an 8 m wall) is that opening's WIDTH, not
+    #   the wall length. It must never fight the wall measure (the W2/W4
+    #   bug: the opening label won the min() and the wall shrank to it).
+    #   A wall-sized value overlapping an opening span is NOT a label: it
+    #   stays a wall measure and any conflict goes through the loud path.
+    # - a null wall_index: the model saw a length but no wall. Assign it to
+    #   the nearest parallel wall; when nothing is parallel, warn loudly and
+    #   drop it (never invent a wall for a number, ADR-002).
+    opening_widths: dict[int, list[tuple[int, float]]] = {}  # new wall idx -> [(opening pos, m)]
+    for pos, op in enumerate(proposal.openings):
+        if 0 <= op.wall_index < len(proposal.walls):
+            opening_widths.setdefault(old_to_new[op.wall_index], []).append((pos, op.t0, op.t1))
+    opening_labels: dict[int, float] = {}  # opening pos -> width in meters
+
+    def _assign_null(value: float, dim: object) -> int | None:
+        dim_a = (dim.a[0], dim.a[1])  # type: ignore[attr-defined]
+        dim_b = (dim.b[0], dim.b[1])  # type: ignore[attr-defined]
+        dux, duy = _unit(dim_b[0] - dim_a[0], dim_b[1] - dim_a[1])
+        best: int | None = None
+        best_dist = _NULL_ASSIGN_MAX_DIST
+        for j, ((ax, ay), (bx, by), _kind) in enumerate(fused):
+            wux, wuy = _unit(bx - ax, by - ay)
+            if abs(dux * wux + duy * wuy) < _PARALLEL_COS:
+                continue
+            mx, my = (dim_a[0] + dim_b[0]) / 2, (dim_a[1] + dim_b[1]) / 2
+            dist = abs((mx - ax) * wuy - (my - ay) * wux)
+            t = (mx - ax) * wux + (my - ay) * wuy
+            seg_len = math.hypot(bx - ax, by - ay)
+            if dist < best_dist and -0.1 * seg_len <= t <= 1.1 * seg_len:
+                best, best_dist = j, dist
+        return best
+
+    wall_measures: dict[int, list[float]] = {}
+    for dim in proposal.dimensions:
+        value = parse_dimension_meters(dim.text)
+        if value is None:
+            continue
+        new_idx: int | None
+        if dim.wall_index is None:
+            new_idx = _assign_null(value, dim)
+            if new_idx is None:
+                warnings.append(
+                    f"unassigned: '{dim.text}' is parallel to no wall, "
+                    "confirm with human"
+                )
+                continue
+        elif dim.wall_index >= len(proposal.walls):
+            continue
+        else:
+            new_idx = old_to_new[dim.wall_index]
+        (ax, ay), (bx, by), _kind = fused[new_idx]
+        seg_len = math.hypot(bx - ax, by - ay)
+        if seg_len > 0 and new_idx in opening_widths:
+            wux, wuy = (bx - ax) / seg_len, (by - ay) / seg_len
+            lo = (dim.a[0] - ax) * wux + (dim.a[1] - ay) * wuy
+            hi = (dim.b[0] - ax) * wux + (dim.b[1] - ay) * wuy
+            lo, hi = min(lo, hi), max(lo, hi)
+            dim_len = hi - lo
+            # Wall-length guess from the anchor factor: a label naming the
+            # opening is a fraction of it; a wall-sized value is not a label.
+            wall_guess_m = seg_len * image_w * m_per_px
+            if value < 0.9 * wall_guess_m:
+                for pos, t0, t1 in opening_widths[new_idx]:
+                    o_lo, o_hi = t0 * seg_len, t1 * seg_len
+                    o_len = o_hi - o_lo
+                    inter = _overlap(lo, hi, o_lo, o_hi)
+                    if (
+                        dim_len > 0
+                        and o_len > 0
+                        and inter / dim_len >= _OPENING_OVERLAP_MIN
+                        and inter / o_len >= _OPENING_OVERLAP_MIN
+                    ):
+                        opening_labels[pos] = value
+                        warnings.append(
+                            f"opening: wall {new_idx} "
+                            f"{proposal.openings[pos].kind} width {value:.2f} m "
+                            "from written label, verify with human"
+                        )
+                        new_idx = None
+                        break
+        if new_idx is None:
+            continue
+        wall_measures.setdefault(new_idx, []).append(value)
+
+    def _opposite_parallel_wall(new_idx: int) -> int | None:
+        (ax, ay), (bx, by), _kind = fused[new_idx]
+        wux, wuy = _unit(bx - ax, by - ay)
+        cx, cy = (ax + bx) / 2, (ay + by) / 2
+        best: int | None = None
+        best_cross = 0.0
+        for j, ((jx0, jy0), (jx1, jy1), _k) in enumerate(fused):
+            if j == new_idx:
+                continue
+            jux, juy = _unit(jx1 - jx0, jy1 - jy0)
+            if abs(wux * jux + wuy * juy) < _PARALLEL_COS:
+                continue
+            cross = abs((jx0 - cx) * wuy - (jy0 - cy) * wux)
+            if cross > best_cross:
+                best, best_cross = j, cross
+        return best
+
+    targets_m: dict[int, float] = {}
+    for new_idx, values in wall_measures.items():
+        if len(values) == 1:
+            targets_m[new_idx] = values[0]
+            continue
+        lo, hi = min(values), max(values)
+        if hi - lo <= max(0.02, 0.02 * lo):
+            targets_m[new_idx] = sum(values) / len(values)
+            continue
+        # Genuine conflict: side with the opposite parallel wall when one
+        # value agrees with it; otherwise set NO target (the wall stays
+        # estimated for the human) and carry both values in the warning.
+        opp = _opposite_parallel_wall(new_idx)
+        opp_vals = wall_measures.get(opp, []) if opp is not None else []
+        picked: float | None = None
+        for candidate in (lo, hi):
+            if any(
+                abs(candidate - o) <= max(0.02, 0.02 * candidate)
+                for o in opp_vals
+            ):
+                picked = candidate
+                break
+        if picked is not None:
+            targets_m[new_idx] = picked
+            warnings.append(
+                f"contradiction: wall {new_idx} has conflicting measures "
+                f"{lo:.2f} m vs {hi:.2f} m, keeping {picked:.2f} m "
+                f"(matches opposite wall {opp}), verify with human"
+            )
+        else:
+            warnings.append(
+                f"contradiction: wall {new_idx} has conflicting measures "
+                f"{lo:.2f} m vs {hi:.2f} m, leaving unmeasured, verify with human"
+            )
 
     verts_norm, wall_vids = _cluster_vertices(fused, tol)
     verts_guess = [
@@ -338,15 +483,16 @@ def build_scaled_plan(
         )
 
     openings: list[ScaledOpening] = []
-    for op in proposal.openings:
+    for pos, op in enumerate(proposal.openings):
         new_idx = old_to_new[op.wall_index]
         wall = walls[new_idx]
         length = math.dist(wall.a, wall.b)
+        width = opening_labels.get(pos, (op.t1 - op.t0) * length)
         openings.append(
             ScaledOpening(
                 wall_index=new_idx,
                 offset_m=op.t0 * length,
-                width_m=(op.t1 - op.t0) * length,
+                width_m=width,
                 kind=op.kind,
             )
         )

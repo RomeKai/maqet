@@ -10,6 +10,7 @@ web image was used, traced or copied. License: **CC0** (public domain).
 | `plano_48m_1ambiente.png` / `_photo.png` / `.truth.json` | clean 48 m² plan: 1 ambiente + cocina-baño | generated, CC0 |
 | `plano_70m_2dorm.png` / `_photo.png` / `.truth.json` | clean 70 m² plan: 2 dormitorios | generated, CC0 |
 | `croquis_ampliacion.png` / `_photo.png` / `.truth.json` | hand-drawn croquis with written measurements (dormitorio + baño, 6.00 × 3.50 m) | generated, CC0 |
+| `croquis_3x8_door_window.proposal.json` / `.truth.json` | 3.00 × 8.00 m phone-test croquis: door label 1.50 m + window label 1.00 m on wall spans, one null-index "8.00" dim; synthetic vision response recorded 2026-10-28 (no image) | generated, CC0 |
 
 Ground truth (`*.truth.json`) holds walls/openings/rooms in meters and loads
 as `server/scene/models.py::Scene` (validated by the generator itself).
