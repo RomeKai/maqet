@@ -6,6 +6,7 @@ import { getAgentStrings, professionalFlagLabel } from "./agent.i18n";
 import type { AgentStrings } from "./agent.i18n";
 import type { ChatMessage, ToolEvent } from "./agentTypes";
 import { PushToTalk } from "./PushToTalk";
+import { sendDraft } from "./sendDraft";
 
 interface ToolChipsProps {
   event: ToolEvent;
@@ -20,6 +21,11 @@ function ToolChips({ event, locale, t }: ToolChipsProps): React.JSX.Element {
       {event.ok ? (
         <li className="agent-chip agent-chip-ok" data-chip="applied">
           {t["chip.applied"]}: {event.name}
+        </li>
+      ) : null}
+      {!event.ok && event.errors.length === 0 ? (
+        <li className="agent-chip agent-chip-warn" data-chip="rejected">
+          {t["chip.rejected"]}: {event.name}
         </li>
       ) : null}
       {event.errors.map((error, index) => (
@@ -49,7 +55,7 @@ function ToolChips({ event, locale, t }: ToolChipsProps): React.JSX.Element {
 interface ChatSheetProps {
   messages: ChatMessage[];
   locale: Locale;
-  onSend: (text: string) => void;
+  onSend: (text: string) => void | Promise<void>;
   /** When given, a press-and-hold microphone button is shown and the recorded clip is passed here. */
   onAudio?: (audio: Blob) => void;
   /** A turn is in flight: sending is disabled. */
@@ -65,8 +71,7 @@ export function ChatSheet({ messages, locale, onSend, onAudio, pending = false }
     event.preventDefault();
     const text = draft.trim();
     if (text.length === 0 || pending) return;
-    onSend(text);
-    setDraft("");
+    void sendDraft(text, onSend, setDraft);
   }
 
   return (

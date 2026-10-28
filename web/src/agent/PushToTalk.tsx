@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import type { Locale } from "../i18n";
 import { getAgentStrings } from "./agent.i18n";
+import { createPressSession } from "./pressSession";
+import type { PressSession } from "./pressSession";
 import { isRecordingSupported, startRecording } from "./recorder";
 
 export type PushToTalkState = "idle" | "recording" | "denied" | "unsupported" | "error";
@@ -18,47 +20,28 @@ const HOLD_KEYS = new Set([" ", "Enter"]);
 export function PushToTalk({ locale, onAudio }: PushToTalkProps): React.JSX.Element {
   const t = getAgentStrings(locale);
   const [state, setState] = useState<PushToTalkState>(() => (isRecordingSupported() ? "idle" : "unsupported"));
-  const heldRef = useRef(false);
-  const stopRef = useRef<(() => Promise<Blob>) | null>(null);
+  const onAudioRef = useRef(onAudio);
+  onAudioRef.current = onAudio;
+  const sessionRef = useRef<PressSession | null>(null);
+  sessionRef.current ??= createPressSession({
+    startRecording,
+    onAudio: (audio) => onAudioRef.current(audio),
+    onState: setState,
+  });
 
   // Release the microphone if the component goes away mid-recording.
-  useEffect(
-    () => () => {
-      heldRef.current = false;
-      void stopRef.current?.();
-      stopRef.current = null;
-    },
-    [],
-  );
+  useEffect(() => {
+    const session = sessionRef.current;
+    return () => session?.dispose();
+  }, []);
 
   async function begin(): Promise<void> {
-    if (heldRef.current || state === "unsupported") return;
-    heldRef.current = true;
-    setState("recording");
-
-    const result = await startRecording();
-    if (result.status !== "recording") {
-      heldRef.current = false;
-      setState(result.status);
-      return;
-    }
-    if (!heldRef.current) {
-      // Released before the microphone was ready: too short to be speech, discard it.
-      await result.stop();
-      setState("idle");
-      return;
-    }
-    stopRef.current = result.stop;
+    if (state === "unsupported") return;
+    await sessionRef.current?.begin();
   }
 
   async function end(): Promise<void> {
-    if (!heldRef.current) return;
-    heldRef.current = false;
-    const stop = stopRef.current;
-    stopRef.current = null;
-    if (!stop) return; // begin() is still waiting for the microphone and will discard.
-    setState("idle");
-    onAudio(await stop());
+    await sessionRef.current?.end();
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLButtonElement>): void {

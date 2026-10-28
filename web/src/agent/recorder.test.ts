@@ -3,10 +3,13 @@ import { isRecordingSupported, startRecording } from "./recorder";
 
 class FakeMediaRecorder {
   static instances: FakeMediaRecorder[] = [];
+  /** When true, stop() never fires onstop (a broken recorder). */
+  static stuck = false;
   mimeType = "audio/webm";
   state: "inactive" | "recording" = "inactive";
   ondataavailable: ((event: { data: Blob }) => void) | null = null;
   onstop: (() => void) | null = null;
+  onerror: (() => void) | null = null;
 
   constructor(readonly stream: unknown) {
     FakeMediaRecorder.instances.push(this);
@@ -17,6 +20,7 @@ class FakeMediaRecorder {
   }
 
   stop(): void {
+    if (FakeMediaRecorder.stuck) return;
     this.state = "inactive";
     this.ondataavailable?.({ data: new Blob(["voice"], { type: this.mimeType }) });
     this.onstop?.();
@@ -36,6 +40,7 @@ function stubMicrophone(getUserMedia: () => Promise<unknown>): void {
 describe("recorder", () => {
   beforeEach(() => {
     FakeMediaRecorder.instances = [];
+    FakeMediaRecorder.stuck = false;
   });
 
   afterEach(() => {
@@ -87,5 +92,36 @@ describe("recorder", () => {
     const first = await result.stop();
     const second = await result.stop();
     expect(second).toBe(first);
+  });
+
+  it("settles stop and releases the microphone when the recorder errors", async () => {
+    const { stream, stop } = fakeStream();
+    stubMicrophone(() => Promise.resolve(stream));
+    FakeMediaRecorder.stuck = true;
+    const result = await startRecording();
+    if (result.status !== "recording") throw new Error("expected recording");
+
+    const recorder = FakeMediaRecorder.instances[0];
+    recorder.ondataavailable?.({ data: new Blob(["partial"]) });
+    recorder.onerror?.();
+
+    const blob = await result.stop();
+    expect(blob.size).toBeGreaterThan(0);
+    expect(stop).toHaveBeenCalled();
+  });
+
+  it("settles stop and releases the microphone when the track ends", async () => {
+    const stop = vi.fn();
+    const track: { stop: () => void; onended: (() => void) | null } = { stop, onended: null };
+    stubMicrophone(() => Promise.resolve({ getTracks: () => [track] }));
+    FakeMediaRecorder.stuck = true;
+    const result = await startRecording();
+    if (result.status !== "recording") throw new Error("expected recording");
+
+    track.onended?.();
+
+    const blob = await result.stop();
+    expect(blob).toBeInstanceOf(Blob);
+    expect(stop).toHaveBeenCalled();
   });
 });

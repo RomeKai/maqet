@@ -68,6 +68,32 @@ describe("ChatSheet", () => {
     expect(html).not.toContain('data-chip="applied"');
   });
 
+  it("renders a generic rejected chip when a tool failed without rule errors", () => {
+    const html = render([
+      { id: "1", role: "assistant", text: "x", toolEvents: [event({ name: "move_wall", ok: false })] },
+    ]);
+    expect(html).toContain('data-chip="rejected"');
+    expect(html).toContain(getAgentStrings("en")["chip.rejected"]);
+    expect(html).not.toContain('data-chip="applied"');
+    const es = render(
+      [{ id: "1", role: "assistant", text: "x", toolEvents: [event({ ok: false })] }],
+      { locale: "es-AR" },
+    );
+    expect(es).toContain(getAgentStrings("es-AR")["chip.rejected"]);
+  });
+
+  it("does not add a rejected chip when the failure already lists rule errors", () => {
+    const html = render([
+      {
+        id: "1",
+        role: "assistant",
+        text: "x",
+        toolEvents: [event({ ok: false, errors: [{ code: "a.b", message: "Nope" }] })],
+      },
+    ]);
+    expect(html).not.toContain('data-chip="rejected"');
+  });
+
   it("renders a licensed-professional flag as an alert chip with the localized label", () => {
     const html = render([
       {

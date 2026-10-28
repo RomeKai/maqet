@@ -36,27 +36,43 @@ export async function startRecording(): Promise<RecordingStart> {
 
   let recorder: MediaRecorder;
   const chunks: Blob[] = [];
+  let finish: () => void = () => undefined;
+  let settled = false;
+  // Settles exactly once, whether the recorder stopped, errored or the track ended.
+  const finished = new Promise<Blob>((resolve) => {
+    finish = () => {
+      if (settled) return;
+      settled = true;
+      releaseMicrophone();
+      resolve(new Blob(chunks, { type: recorder?.mimeType || FALLBACK_MIME }));
+    };
+  });
+
   try {
     recorder = new MediaRecorder(stream);
     recorder.ondataavailable = (event: BlobEvent) => {
       if (event.data.size > 0) chunks.push(event.data);
     };
+    recorder.onstop = finish;
+    recorder.onerror = finish;
+    stream.getTracks().forEach((track) => {
+      track.onended = finish;
+    });
     recorder.start();
   } catch {
     releaseMicrophone();
     return { status: "error" };
   }
 
-  let finished: Promise<Blob> | null = null;
   const stop = (): Promise<Blob> => {
-    finished ??= new Promise<Blob>((resolve) => {
-      recorder.onstop = () => {
-        releaseMicrophone();
-        resolve(new Blob(chunks, { type: recorder.mimeType || FALLBACK_MIME }));
-      };
-      if (recorder.state === "inactive") recorder.onstop(new Event("stop"));
-      else recorder.stop();
-    });
+    if (recorder.state === "inactive") finish();
+    else {
+      try {
+        recorder.stop();
+      } catch {
+        finish();
+      }
+    }
     return finished;
   };
 
