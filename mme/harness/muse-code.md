@@ -11,7 +11,7 @@ the project's rules, skills and hooks.
 |---|---|---|
 | Project instructions | `CLAUDE.md` -> `@AGENTS.md` | `AGENTS.md` (read first) |
 | Project skills (`.claude/skills/*/SKILL.md`) | yes | yes (scans `.claude/skills` and `.agents/skills`) |
-| ECC skills | via plugin | copy the subset into `.agents/skills/` (`setup.sh` does it) or `muse skills import --from claude` |
+| ECC skills | via plugin | copy the subset into `.agents/skills/` or `muse skills import --from claude` |
 | ECC agents (`agents/*.md`) | yes | no file format: Muse spawns subagents itself (`agents.execution_capacity`, default 8 -> set 3) |
 | Hooks | `.claude/settings.json` | `.muse/hooks.json`, same event names, **schema not documented** |
 | Daily $ cap | LiteLLM gateway | not documented -> watch the console; `muse exec --max-model-steps N` in headless |

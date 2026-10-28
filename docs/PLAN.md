@@ -64,7 +64,7 @@ o la colaboración con la familia? Si no, va a CUTLIST.
 **Probá en los dos teléfonos todos los días** (ADR-012): el AR y la cámara fallan distinto en iOS y en Android.
 
 ## Antes del kickoff (jue 22 – dom 25): setup y material
-- `./setup.sh` · `mme doctor` · `mme gateway drill` ($0).
+- `pip install -r server/requirements.txt` · `mme doctor` · `mme gateway drill` ($0).
 - Discord: (1) ¿se permiten asistentes de código que no sean de Meta? (2) ¿hay que declarar el uso de IA? (3) ¿se permite
   usar herramientas/librerías open source propias, como MME? → `mme policy ...`
 - **Material para la demo (se regenera en el Día 1):**
