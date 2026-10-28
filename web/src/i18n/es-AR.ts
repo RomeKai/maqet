@@ -49,6 +49,7 @@ export const esAR = {
   "intake.scale.pickWall": "Paredes",
   "intake.scale.estimated": "Estimada",
   "intake.scale.measured": "Medida",
+  "intake.scale.fromSketch": "Del croquis",
   "intake.scale.readLength": "Leída del plano",
   "intake.scale.typedLength": "Medida real (p. ej. 3,50 m)",
   "intake.scale.confirm": "Confirmar medida",

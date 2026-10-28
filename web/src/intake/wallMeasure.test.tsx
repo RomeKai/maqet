@@ -126,6 +126,21 @@ describe("per-wall measure flow (BUG2+3)", () => {
     expect(html.toLowerCase()).not.toContain("pixel");
   });
 
+  it("ScaleTool labels sketch-read walls From sketch, not Measured", () => {
+    const html = renderToString(
+      <ScaleTool
+        locale="en"
+        scene={scene}
+        dimensions={dims}
+        onChange={noopChange}
+        onDone={noopDone}
+        onCancel={noopCancel}
+      />,
+    );
+    // w1 carries written_on_sketch: its row flag names the sketch source.
+    expect(html).toContain("From sketch");
+  });
+
   it("CornerEditor marks estimated walls with the amber dashed style", () => {
     const html = renderToString(
       <CornerEditor

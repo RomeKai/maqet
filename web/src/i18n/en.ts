@@ -50,6 +50,7 @@ export const en: Record<keyof typeof esAR, string> = {
   "intake.scale.pickWall": "Walls",
   "intake.scale.estimated": "Estimated",
   "intake.scale.measured": "Measured",
+  "intake.scale.fromSketch": "From sketch",
   "intake.scale.readLength": "Read from plan",
   "intake.scale.typedLength": "Real length (e.g. 3.50 m)",
   "intake.scale.confirm": "Confirm measure",

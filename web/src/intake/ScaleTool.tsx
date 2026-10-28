@@ -126,6 +126,15 @@ export function ScaleTool({ locale, scene, dimensions, onChange, onDone, onCance
       <div className="intake-walls" role="listbox" aria-label={t["intake.scale.pickWall"]}>
         {walls.map((wall, i) => {
           const estimated = isWallEstimated(wall);
+          const fromSketch = wall.provenance === "written_on_sketch";
+          const flagClass = estimated
+            ? "wall-row-flag wall-row-flag-estimated"
+            : "wall-row-flag";
+          const flagText = estimated
+            ? t["intake.scale.estimated"]
+            : fromSketch
+              ? t["intake.scale.fromSketch"]
+              : t["intake.scale.measured"];
           return (
             <button
               key={wall.id}
@@ -147,8 +156,8 @@ export function ScaleTool({ locale, scene, dimensions, onChange, onDone, onCance
             >
               <span className="wall-row-name">{wallLabel(i)}</span>
               <span className="wall-row-measure">{formatMeasureM(locale, wallDisplayLengthM(wall))}</span>
-              <span className={estimated ? "wall-row-flag wall-row-flag-estimated" : "wall-row-flag"}>
-                {estimated ? t["intake.scale.estimated"] : t["intake.scale.measured"]}
+              <span className={flagClass}>
+                {flagText}
               </span>
             </button>
           );
