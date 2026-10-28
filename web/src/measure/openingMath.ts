@@ -175,9 +175,12 @@ export function nextOpeningId(openings: Opening[]): string {
 
 /**
  * Opening placement failure reasons, so the HUD can say WHY the taps were
- * dropped instead of silently keeping the first edge. Exported for tests.
+ * dropped instead of silently keeping the first edge. "no-walls" comes from
+ * the caller-side snap (no traced wall to place on); the rest come from
+ * buildOpening. Exported for tests.
  */
 export type OpeningFailure =
+  | "no-walls"
   | "unknown-wall"
   | "degenerate"
   | "no-fit"

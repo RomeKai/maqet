@@ -5,6 +5,8 @@ import {
   ArMeasure,
   createArStartHandler,
   createStartGuard,
+  openingFailureKey,
+  resolveOpeningTap,
   startErrorMessage,
 } from "./ArMeasure";
 import { applySceneOp, createEmptyScene } from "../scene/store";
@@ -732,6 +734,104 @@ describe("ArHud (live session overlay)", () => {
     });
     expect(next.openings?.[0]?.height_m).toBe(2.0);
     expect(next.openings?.[0]?.sill_m).toBeNull();
+  });
+
+  it("resolveOpeningTap routes the second edge through buildOpening wall ids", () => {
+    // RED: resolveOpeningTap does not exist yet. Step 5 routes the component
+    // through openingMath.buildOpening (snap + clamp + narrow-door check) and
+    // nextOpeningId (stable ids after delete/undo) instead of the inline
+    // buildOpeningOp that dec0a42's math never reached.
+    const next = resolveOpeningTap({
+      scene,
+      kind: "window",
+      wallId: null,
+      edges: [
+        [0.5, 0, 0],
+        [1.5, 0, 0],
+      ],
+    });
+    expect(next.op?.type).toBe("markOpening");
+    if (next.op?.type === "markOpening") {
+      expect(next.op.opening.wall_id).toBe("w0");
+      expect(next.op.opening.id).toBe("opening-1");
+      expect(next.op.opening.width_m).toBeCloseTo(1, 9);
+    }
+  });
+
+  it("resolveOpeningTap auto-snaps to the just-traced wall, no picker needed", () => {
+    const twoWalls: Scene = {
+      ...scene,
+      walls: [
+        { id: "wall-1", a: [0, 0], b: [4, 0], thickness_m: 0.1, kind: "interior", provenance: "measured_ar" },
+        { id: "wall-2", a: [4, 0], b: [4, 3], thickness_m: 0.1, kind: "interior", provenance: "measured_ar" },
+      ],
+    };
+    const next = resolveOpeningTap({
+      scene: twoWalls,
+      kind: "door",
+      wallId: null,
+      edges: [
+        [4, 0, -1],
+        [4, 0, -2],
+      ],
+    });
+    expect(next.op?.type).toBe("markOpening");
+    if (next.op?.type === "markOpening") {
+      expect(next.op.opening.wall_id).toBe("wall-2");
+    }
+  });
+
+  it("opening failures surface dictionary keys, not nulls", () => {
+    // narrow door (0.1 m < 0.8 m server minimum): the HUD must say WHY.
+    const narrow = resolveOpeningTap({
+      scene,
+      kind: "door",
+      wallId: "w0",
+      edges: [
+        [0.5, 0, 0],
+        [0.6, 0, 0],
+      ],
+    });
+    expect(narrow.op).toBeNull();
+    expect(narrow.failure).toBe("door-narrow");
+    expect(openingFailureKey("door-narrow")).toBe("measure.ar.opening.doorNarrow");
+    // degenerate pair: same tap twice.
+    const tap: Vec3 = [1, 0, 0];
+    const degenerate = resolveOpeningTap({
+      scene,
+      kind: "window",
+      wallId: "w0",
+      edges: [tap, tap],
+    });
+    expect(degenerate.op).toBeNull();
+    expect(openingFailureKey(degenerate.failure)).toBe(
+      "measure.ar.opening.degenerate",
+    );
+    // no walls at all: nothing to snap to.
+    const empty = resolveOpeningTap({
+      scene: createEmptyScene(),
+      kind: "window",
+      wallId: null,
+      edges: [
+        [0.5, 0, 0],
+        [1.5, 0, 0],
+      ],
+    });
+    expect(empty.op).toBeNull();
+    expect(openingFailureKey(empty.failure)).toBe("measure.ar.opening.noWalls");
+    // non-finite edge tap: degenerate, not unknown-wall (the snap cannot
+    // run on a bad tap, but the taps — not the wall — are at fault).
+    const invalid = resolveOpeningTap({
+      scene,
+      kind: "window",
+      wallId: null,
+      edges: [
+        [NaN, 0, 0],
+        [1.5, 0, 0],
+      ],
+    });
+    expect(invalid.op).toBeNull();
+    expect(invalid.failure).toBe("degenerate");
   });
 
   it("close-room hint appears on the wall step label while tracing", () => {

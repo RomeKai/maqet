@@ -1,22 +1,28 @@
 import { useEffect, useRef, useState } from "react";
-import type { Opening, Scene, Wall } from "../scene/types";
+import type { Scene, Wall } from "../scene/types";
 import {
   allWallsMeasured,
   applySceneOp,
   wallDisplayLengthM,
   type SceneOp,
 } from "../scene/store";
-import { getStrings, type Locale } from "../i18n";
+import { getStrings, type Locale, type StringKey } from "../i18n";
 import { formatMeasureM } from "../intake/ScaleTool";
 import {
   emptyCornerTrace,
   heightFromCeilingTap,
+  isValidCorner,
   traceCornerTap,
   pairCornersToWallUpdate,
   type CornerTrace,
   type Vec3,
 } from "./cornerMath";
-import { openingDefaults, projectEdgesToOpening } from "./openingMath";
+import {
+  buildOpening,
+  nearestWallToTap,
+  nextOpeningId,
+  type OpeningFailure,
+} from "./openingMath";
 import {
   AR_START_WATCHDOG_MS,
   isARSupported,
@@ -86,6 +92,78 @@ export function createStartGuard(): {
       started = false;
     },
   };
+}
+
+/**
+ * Failure -> dictionary key for the HUD step line, so a dropped opening says
+ * WHY the taps missed instead of silently keeping the first edge. The
+ * `unknown-wall` key reuses the "that wall is gone" copy (a picked wall that
+ * vanished is the same situation to the technician). Exported for tests.
+ */
+export function openingFailureKey(failure: OpeningFailure | null): StringKey {
+  switch (failure) {
+    case "door-narrow":
+      return "measure.ar.opening.doorNarrow";
+    case "degenerate":
+      return "measure.ar.opening.degenerate";
+    case "no-fit":
+      return "measure.ar.opening.noFit";
+    case "unknown-wall":
+      return "measure.ar.opening.unknownWall";
+    case "no-walls":
+    case null:
+      return "measure.ar.opening.noWalls";
+  }
+}
+
+/** Input for resolveOpeningTap: two edge taps + an optional picked wall. */
+export interface OpeningTapInput {
+  scene: Scene;
+  kind: "door" | "window";
+  /** Explicit pick (picker chip), or null to snap to the nearest traced wall. */
+  wallId: string | null;
+  edges: [Vec3, Vec3];
+}
+
+/** Either a markOpening op, or the failure reason to surface in the HUD. */
+export interface OpeningTapResult {
+  op: SceneOp | null;
+  failure: OpeningFailure | null;
+}
+
+/**
+ * Route two AR edge taps through the single openingMath implementation
+ * (snap -> buildOpening -> stable id). No manual pick: the first edge tap
+ * snaps to the nearest traced wall, so door/window taps land without a W<n>
+ * chip. Returns the markOpening op, or the failure reason for the HUD step
+ * line. Exported for tests.
+ */
+export function resolveOpeningTap(input: OpeningTapInput): OpeningTapResult {
+  const walls = input.scene.walls ?? [];
+  // A non-finite edge is never a wall-pick problem: the taps themselves are
+  // bad, and buildOpening reports "degenerate" for them.
+  if (!isValidCorner(input.edges[0]) || !isValidCorner(input.edges[1])) {
+    return { op: null, failure: "degenerate" };
+  }
+  const wallId =
+    input.wallId ?? nearestWallToTap(walls, input.edges[0])?.id ?? null;
+  if (wallId === null) {
+    return {
+      op: null,
+      failure: walls.length === 0 ? "no-walls" : "unknown-wall",
+    };
+  }
+  const id = nextOpeningId(input.scene.openings ?? []);
+  const result = buildOpening(
+    walls,
+    id,
+    input.kind,
+    wallId,
+    input.edges[0],
+    input.edges[1],
+  );
+  if ("failure" in result) return { op: null, failure: result.failure };
+  return { op: { type: "markOpening", opening: result.opening }, failure: null };
 }
 
 export function createArStartHandler(
@@ -388,6 +466,10 @@ export function ArMeasure({
   traceModeRef.current = traceMode;
   const openingWallIdRef = useRef<string | null>(null);
   openingWallIdRef.current = openingWallId;
+  // Tap error in door/window mode: WHY the last edge pair was dropped
+  // (narrow door, taps overlapping, taps off the wall). Shown in the step
+  // line until the next successful opening clears it.
+  const [openingError, setOpeningError] = useState<string | null>(null);
   // Surface presence from the adapter's onSurfaceChange (transition-only:
   // false = searching, the initial state until the first report). Passed to
   // ArHud as a prop so renderToString tests cover the wiring without WebXR.
@@ -535,6 +617,7 @@ export function ArMeasure({
     setCorners([]);
     setPreviewM(null);
     setHeightError(null);
+    setOpeningError(null);
   }
 
   function handleOpeningWallChange(wallId: string): void {
@@ -542,36 +625,7 @@ export function ArMeasure({
     // A new target wall invalidates pending edge taps from the old wall.
     setCorners([]);
     setPreviewM(null);
-  }
-
-  /**
-   * Build the markOpening op for two edge taps on a measured wall. Pure
-   * geometry lives in openingMath (floor-plane projection); defaults by
-   * kind come from openingDefaults. Ids are stable within the scene
-   * (`opening-<n>` over the current opening count), mirroring the wall
-   * trace's `wall-<n>` scheme.
-   */
-  function buildOpeningOp(
-    current: Scene,
-    kind: "door" | "window",
-    wallId: string,
-    edges: [Vec3, Vec3],
-  ): SceneOp | null {
-    const wall = (current.walls ?? []).find((w) => w.id === wallId);
-    if (wall === undefined) return null;
-    const projection = projectEdgesToOpening(wall, edges[0], edges[1]);
-    if (projection === null) return null;
-    const defaults = openingDefaults(kind);
-    const opening: Opening = {
-      id: `opening-${(current.openings ?? []).length + 1}`,
-      wall_id: wallId,
-      kind,
-      offset_m: projection.offset_m,
-      width_m: projection.width_m,
-      height_m: defaults.height_m,
-      sill_m: defaults.sill_m,
-    };
-    return { type: "markOpening", opening };
+    setOpeningError(null);
   }
 
   function appendCorner(corner: Vec3, targetId: string | null): void {
@@ -600,31 +654,35 @@ export function ArMeasure({
       return;
     }
     // Door/Window mode: the first edge tap selects the pending opening;
-    // the second tap resolves it through the real openingMath path and
-    // emits markOpening immediately. Taps stay pending on the same wall so
-    // the tech can trace openings back to back.
+    // the second tap resolves it through openingMath (snap + clamp +
+    // narrow-door check, stable ids) and emits markOpening immediately.
+    // Taps stay pending on the same wall so the tech can trace openings
+    // back to back. The explicit wall pick is only an override: without one
+    // the first edge auto-snaps to the nearest traced wall.
     if (traceModeRef.current !== "wall") {
-      const wallId = openingWallIdRef.current ?? targetId;
-      if (wallId === null) return;
+      const wallId = openingWallIdRef.current;
       const next = [...cornersRef.current, corner];
-      setCorners(next);
-      if (next.length === 2) {
-        const op = buildOpeningOp(
-          sceneRef.current,
-          traceModeRef.current,
-          wallId,
-          [next[0] as Vec3, next[1] as Vec3],
-        );
-        if (op !== null && op.type === "markOpening") {
-          setPreviewM(op.opening.width_m);
-          onChange(applySceneOp(sceneRef.current, op), op);
-          setCorners([]);
-        } else {
-          // Degenerate pair (coincident taps): keep the first edge so the
-          // tech only re-taps the second one.
-          setCorners(next.slice(0, 1));
-          setPreviewM(null);
-        }
+      if (next.length < 2) {
+        setCorners(next);
+        return;
+      }
+      const { op, failure } = resolveOpeningTap({
+        scene: sceneRef.current,
+        kind: traceModeRef.current,
+        wallId,
+        edges: [next[0] as Vec3, next[1] as Vec3],
+      });
+      if (op !== null && op.type === "markOpening") {
+        setOpeningError(null);
+        setPreviewM(op.opening.width_m);
+        onChange(applySceneOp(sceneRef.current, op), op);
+        setCorners([]);
+      } else {
+        // Taps that cannot map: say WHY in the step line (via openingError),
+        // keep the first edge so the tech only re-taps the second one.
+        setOpeningError(t[openingFailureKey(failure)]);
+        setCorners(next.slice(0, 1));
+        setPreviewM(null);
       }
       return;
     }
@@ -738,6 +796,7 @@ export function ArMeasure({
     setPreviewM(null);
     setRoomHeightM(null);
     setHeightError(null);
+    setOpeningError(null);
     // Undo also returns to Wall mode so the next session starts from the
     // default; the mode selector is one tap away.
     setTraceMode("wall");
@@ -851,8 +910,9 @@ export function ArMeasure({
 
   // Step copy follows the tracing mode. Wall keeps tap-first/tap-second
   // (+ close hint on empty-start); height shows its own tap prompt, the
-  // captured value, or the re-tap error; door/window prompt for the wall
-  // then the two opening edges.
+  // captured value, or the re-tap error; door/window prompt for the two
+  // opening edges (the wall snaps from the first edge, the picker is only
+  // an override) or the failure reason the last pair was dropped.
   const stepLabel =
     traceMode === "height"
       ? (heightError ??
@@ -863,11 +923,10 @@ export function ArMeasure({
         ? `${corners.length === 0 ? t["measure.ar.tapFirst"] : t["measure.ar.tapSecond"]}${
             isEmptyStart && corners.length > 0 ? ` · ${t["measure.ar.closeHint"]}` : ""
           }`
-        : openingWallId === null
-          ? t["measure.ar.pickWall"]
-          : corners.length === 0
+        : (openingError ??
+          (corners.length === 0
             ? t["measure.ar.edgeFirst"]
-            : t["measure.ar.edgeSecond"];
+            : t["measure.ar.edgeSecond"]));
 
   // Live session: ONLY the HUD renders (transparent root = domOverlay.root,
   // camera shows through). No sheet copy, no confirm footers, nothing else
