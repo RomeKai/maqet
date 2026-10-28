@@ -585,3 +585,25 @@ def test_near_miss_loop_snaps_shut() -> None:
     assert lengths == pytest.approx([3.0, 3.0, 8.0, 8.0], abs=0.05)
     assert len(scaled.rooms) == 1
     assert not any("rooms_empty" in w for w in scaled.warnings)
+
+
+def test_leftover_short_dim_surfaces_possible_opening() -> None:
+    """A short leftover dim on a measured wall is a hint, not a contradiction.
+
+    Wall measures 8.00 m plus a stray "1m" with no matching opening: the
+    wall keeps 8.0 m and the leftover surfaces as a possible unmodeled
+    opening for the human (ADR-002).
+    """
+    from server.intake.cleanup import build_scaled_plan
+
+    proposal = _proposal(
+        [_wall(0.0, 0.5, 1.0, 0.5)],
+        dimensions=[
+            _dim("8,00 m", ay=0.02, by=0.02, wall_index=0),
+            _dim("1m", ax=0.4, ay=0.1, bx=0.5, by=0.1, wall_index=0),
+        ],
+    )
+    scaled = build_scaled_plan(proposal, 1000, 800)
+    assert scaled.walls[0].measured_m == pytest.approx(8.0)
+    assert any("possible opening" in w for w in scaled.warnings)
+    assert not any("contradiction" in w for w in scaled.warnings)

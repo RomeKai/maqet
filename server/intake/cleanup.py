@@ -368,7 +368,27 @@ def build_scaled_plan(
                 best, best_dist = j, dist
         return best
 
-    wall_measures: dict[int, list[float]] = {}
+    def _spans_opening(
+        new_idx: int, lo: float, hi: float, dim_len: float, seg_len: float
+    ) -> bool:
+        """Both-sides overlap rule shared by opening labels and leftovers."""
+        for _pos, t0, t1 in opening_widths.get(new_idx, []):
+            o_lo, o_hi = t0 * seg_len, t1 * seg_len
+            o_len = o_hi - o_lo
+            inter = _overlap(lo, hi, o_lo, o_hi)
+            if (
+                dim_len > 0
+                and o_len > 0
+                and inter / dim_len >= _OPENING_OVERLAP_MIN
+                and inter / o_len >= _OPENING_OVERLAP_MIN
+            ):
+                return True
+        return False
+
+    # Candidate measures per wall with the dim span that produced them, so a
+    # leftover short dim can be told apart from a wall measure afterwards.
+    # (value, text, lo, hi, dim_len) in fused-wall projection units.
+    wall_dim_entries: dict[int, list[tuple[float, str, float, float, float]]] = {}
     for dim in proposal.dimensions:
         value = parse_dimension_meters(dim.text)
         if value is None:
@@ -388,7 +408,8 @@ def build_scaled_plan(
             new_idx = old_to_new[dim.wall_index]
         (ax, ay), (bx, by), _kind = fused[new_idx]
         seg_len = math.hypot(bx - ax, by - ay)
-        if seg_len > 0 and new_idx in opening_widths:
+        lo = hi = dim_len = 0.0
+        if seg_len > 0:
             wux, wuy = (bx - ax) / seg_len, (by - ay) / seg_len
             lo = (dim.a[0] - ax) * wux + (dim.a[1] - ay) * wuy
             hi = (dim.b[0] - ax) * wux + (dim.b[1] - ay) * wuy
@@ -397,7 +418,9 @@ def build_scaled_plan(
             # Wall-length guess from the anchor factor: a label naming the
             # opening is a fraction of it; a wall-sized value is not a label.
             wall_guess_m = seg_len * image_w * m_per_px
-            if value < 0.9 * wall_guess_m:
+            if value < 0.9 * wall_guess_m and _spans_opening(
+                new_idx, lo, hi, dim_len, seg_len
+            ):
                 for pos, t0, t1 in opening_widths[new_idx]:
                     o_lo, o_hi = t0 * seg_len, t1 * seg_len
                     o_len = o_hi - o_lo
@@ -418,7 +441,35 @@ def build_scaled_plan(
                         break
         if new_idx is None:
             continue
-        wall_measures.setdefault(new_idx, []).append(value)
+        wall_dim_entries.setdefault(new_idx, []).append(
+            (value, dim.text, lo, hi, dim_len)
+        )
+
+    # Leftover short dims: a value that is a fraction of BOTH the anchor
+    # guess and the wall's own largest measure, and sits on no opening span
+    # (a wall with no openings counts as no overlap), is a possible
+    # unmodeled opening for the human: never a wall measure, so it cannot
+    # fight the real measure into a contradiction. A short dim that is the
+    # wall's only measure stays a measure: on a non-proportional sketch the
+    # anchor guess can dwarf a real side wall.
+    wall_measures: dict[int, list[float]] = {}
+    for new_idx, entries in wall_dim_entries.items():
+        (ax, ay), (bx, by), _kind = fused[new_idx]
+        seg_len = math.hypot(bx - ax, by - ay)
+        wall_guess_m = seg_len * image_w * m_per_px if seg_len > 0 else 0.0
+        wall_max = max(v for v, _, _, _, _ in entries)
+        for value, text, lo, hi, dim_len in entries:
+            if (
+                value < 0.9 * wall_max
+                and value < 0.9 * wall_guess_m
+                and not _spans_opening(new_idx, lo, hi, dim_len, seg_len)
+            ):
+                warnings.append(
+                    f"possible opening: wall {new_idx} {value:.2f} m "
+                    f"from '{text}', confirm with human"
+                )
+                continue
+            wall_measures.setdefault(new_idx, []).append(value)
 
     def _opposite_parallel_wall(new_idx: int) -> int | None:
         (ax, ay), (bx, by), _kind = fused[new_idx]
