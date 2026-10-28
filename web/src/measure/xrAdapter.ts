@@ -276,13 +276,32 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
       onStep?.("local-space");
 
       const scene = new THREE.Scene();
+      // Ring + center dot, sized and colored to read on a live camera feed:
+      // larger ring (0.10/0.13, 48 segments), bright amber, semi-transparent,
+      // depth test off and top render order so real-world geometry and the
+      // transparent dom-overlay never swallow it. Hit logic below untouched.
+      const reticleMaterial = new THREE.MeshBasicMaterial({
+        color: 0xffc83d,
+        transparent: true,
+        opacity: 0.9,
+        depthTest: false,
+      });
       const reticle = new THREE.Mesh(
-        new THREE.RingGeometry(0.06, 0.075, 32).rotateX(-Math.PI / 2),
-        new THREE.MeshBasicMaterial({ color: 0x2f5d62 }),
+        new THREE.RingGeometry(0.1, 0.13, 48).rotateX(-Math.PI / 2),
+        reticleMaterial,
       );
       reticle.matrixAutoUpdate = false;
       reticle.visible = false;
+      reticle.renderOrder = 999;
       scene.add(reticle);
+      const reticleDot = new THREE.Mesh(
+        new THREE.CircleGeometry(0.015, 24).rotateX(-Math.PI / 2),
+        reticleMaterial,
+      );
+      reticleDot.matrixAutoUpdate = false;
+      reticleDot.visible = false;
+      reticleDot.renderOrder = 999;
+      scene.add(reticleDot);
       // Transition-only mirror of the frame loop's hit state: the HUD must
       // show surface feedback even when the 3D ring is invisible (compositor
       // covered it, material culled, opaque overlay on top). Updated on
@@ -308,9 +327,12 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
           const found = hit !== null;
           if (hit === null) {
             reticle.visible = false;
+            reticleDot.visible = false;
           } else {
             reticle.visible = true;
+            reticleDot.visible = true;
             reticle.matrix.fromArray(hit.transform.matrix);
+            reticleDot.matrix.fromArray(hit.transform.matrix);
           }
           if (found !== surfaceFound) {
             surfaceFound = found;
