@@ -118,7 +118,12 @@ def _same_point(p: tuple[float, float], q: tuple[float, float]) -> bool:
 
 
 def _moved(a: Wall, b: Wall) -> bool:
-    return not (_same_point(a.a, b.a) and _same_point(a.b, b.b))
+    same = (_same_point(a.a, b.a) and _same_point(a.b, b.b)) or (
+        # Same segment stored with endpoints flipped (common in CAD
+        # round-trips) is not a rebuild.
+        _same_point(a.a, b.b) and _same_point(a.b, b.a)
+    )
+    return not same
 
 
 def _diff_walls(
@@ -178,10 +183,15 @@ def compute_takeoff(scene: Scene, base: Scene | None = None) -> Takeoff:
     """
     built, demolished = _diff_walls(scene, base)
     built_ids = {w.id for w in built}
+    scene_wall_ids = {w.id for w in scene.walls}
 
     openings_by_wall: dict[str, list] = {}
     base_opening_ids = {o.id for o in base.openings} if base is not None else set()
     for opening in scene.openings:
+        if opening.wall_id not in scene_wall_ids:
+            # Orphan: references a wall that is not in this scene
+            # (removed, or never existed). Never produces material.
+            continue
         if (
             opening.wall_id in built_ids
             or base is None

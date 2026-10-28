@@ -6,7 +6,7 @@ Hand-computed expectations live in each test; implementation must match.
 
 from __future__ import annotations
 
-import copy
+import csv
 import json
 from pathlib import Path
 
@@ -212,8 +212,9 @@ def test_empty_scene_is_zero_takeoff() -> None:
     ]
 
 
-def test_copy_fixture_untouched() -> None:
-    before = (PLANS / "croquis_ampliacion.truth.json").read_text()
+def test_compute_does_not_mutate_scene() -> None:
     scene = _load("croquis_ampliacion.truth.json")
+    before = scene.model_dump()
     compute_takeoff(scene)
-    assert copy.deepcopy(before) == before  # sanity: no fixture writes anywhere
+    compute_takeoff(scene, base=scene)
+    assert scene.model_dump() == before
