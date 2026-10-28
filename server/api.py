@@ -23,6 +23,7 @@ from server.intake.cleanup import ScaleError, build_scaled_plan, to_scene
 from server.intake.read_plan import ReadPlanError, read_plan
 from server.intake.replay import ReplayMiss, load_sample
 from server.intake.schemas import InputKind, IntakeProposal
+from server.intake.voice import VoiceError, transcribe_audio
 from server.scene.models import Scene
 from server.scene.validation import ValidationReport, validate_scene
 
@@ -221,6 +222,46 @@ def _finish_intake(
         anchor_index=plan.anchor_index,
         anchor_meters=plan.anchor_meters,
     )
+
+
+class TranscribeOut(BaseModel):
+    text: str
+    duration_ms: int
+
+
+@app.post("/transcribe", response_model=TranscribeOut)
+def post_transcribe(
+    audio: UploadFile | None = File(default=None),
+    language: str | None = Form(default=None),
+    keywords: str | None = Form(default=None),
+) -> TranscribeOut:
+    if audio is None:
+        raise HTTPException(
+            status_code=422,
+            detail="missing audio part: upload mono 16-bit WAV at 16 or 24 kHz",
+        )
+    try:
+        text, duration_ms = transcribe_audio(
+            audio.file.read(), language=language, keywords=keywords
+        )
+    except VoiceError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        # mme.client ReplayMiss in MME_MODE=replay: no cached transcribe
+        # response for this clip. Duck-typed on the class name (the
+        # harness is never imported at module top); genuine crashes
+        # re-raise onto the 500 path.
+        if type(exc).__name__ == "ReplayMiss":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "no recorded transcribe response for this clip "
+                    f"({exc}): use a recorded sample or record it in live mode"
+                ),
+            ) from exc
+        raise
+    logger.info("transcribe chars=%d duration_ms=%d", len(text), duration_ms)
+    return TranscribeOut(text=text, duration_ms=duration_ms)
 
 
 @app.post("/export/dxf")
