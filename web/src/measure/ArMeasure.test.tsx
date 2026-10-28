@@ -594,6 +594,18 @@ describe("ArHud (live session overlay)", () => {
     expect(captured).not.toBeNull();
   });
 
+  it("renders the DOM overlay svg in session, never in shell mode", () => {
+    const live = hudHtml({ overlayCorners: [], overlayFrameRef: { current: null } });
+    expect(live).toContain("ar-overlay");
+    // Existing suites render ArHud without overlay props (B/C paths,
+    // one-param fakes): no svg then, and shell mode stays empty.
+    expect(hudHtml()).not.toContain("ar-overlay");
+    const shellHtml = renderToString(
+      <ArHud locale="en" hudRef={{ current: null }} shell />,
+    );
+    expect(shellHtml).not.toContain("ar-overlay");
+  });
+
   it("renders the Wall / Door / Window selector, Wall default", () => {
     const html = hudHtml({});
     expect(html).toContain("Wall");

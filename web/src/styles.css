@@ -253,6 +253,54 @@ body {
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
 }
 
+/* Plan B AR feedback: the <svg> fills the HUD root under the text lines
+   (z-order: svg first, content after — no pointer events, taps pass
+   through to the session). Technical lines in teal (--accent-2), the band
+   label in JetBrains Mono like every other measurement. */
+.ar-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.ar-overlay-reticle {
+  fill: none;
+  stroke: var(--accent-2);
+  stroke-width: 3;
+}
+
+.ar-overlay-dot {
+  fill: var(--accent-2);
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+.ar-overlay-dot-close {
+  fill: var(--accent);
+}
+
+.ar-overlay-edge {
+  stroke: var(--accent-2);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.ar-overlay-band {
+  stroke: var(--accent-2);
+  stroke-width: 2;
+  stroke-dasharray: 8 5;
+}
+
+.ar-overlay-label {
+  fill: #fff;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 16px;
+  font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
 /* DOM surface indicator: the 3D reticle ring may be invisible on the phone
    (compositor, material, dom-overlay covering it), so the HUD carries a
    text line driven by hit-test presence. Amber = still searching, teal =

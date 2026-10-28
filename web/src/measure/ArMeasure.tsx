@@ -21,11 +21,13 @@ import {
   isARSupported,
   isArDebugEnabled,
   WebXrHitTestAdapter,
+  type OverlayFrame,
   type XrHitTestAdapter,
   type XrSessionConfigStep,
   type XrStartStep,
   type XrTapCallbacks,
 } from "./xrAdapter";
+import { ArOverlay, type OverlayFrameRef } from "./ArOverlay";
 
 /** A start step or the recorded session-config outcome. */
 type ArTraceStep = XrStartStep | XrSessionConfigStep;
@@ -130,6 +132,10 @@ interface ArHudProps {
   locale: Locale;
   /** Ref to the HUD root: the dedicated domOverlay.root while live. */
   hudRef: { current: HTMLDivElement | null };
+  /** Live frame from the adapter's onOverlayFrame (plain assignment, never state). */
+  overlayFrameRef?: OverlayFrameRef;
+  /** Corners tapped this session, drawn as SVG dots + edges by ArOverlay. */
+  overlayCorners?: Vec3[];
   /**
    * Shell mode: renders the empty transparent element only. Every branch
    * renders ArHud (shell or full) at the same tree position so React keeps
@@ -187,6 +193,8 @@ function hudModeKey(mode: ArHudMode): `measure.ar.mode.${ArHudMode}` {
 export function ArHud({
   locale,
   hudRef,
+  overlayFrameRef,
+  overlayCorners,
   shell = false,
   previewM = null,
   targetLengthM = null,
@@ -211,6 +219,13 @@ export function ArHud({
   const shownM = previewM ?? targetLengthM ?? 0;
   return (
     <div ref={hudRef} className="ar-hud" role="dialog" aria-label={t["measure.ar.title"]}>
+      {overlayFrameRef !== undefined && overlayCorners !== undefined && (
+        <ArOverlay
+          frameRef={overlayFrameRef}
+          corners={overlayCorners}
+          locale={locale}
+        />
+      )}
       <div className="ar-hud-crosshair" aria-hidden="true" />
       <p
         className={`ar-hud-surface${surfaceFound ? " ar-hud-surface-found" : ""}`}
@@ -345,6 +360,10 @@ export function ArMeasure({
   const [debugFrames, setDebugFrames] = useState<number | null>(null);
   const cornersRef = useRef<Vec3[]>([]);
   cornersRef.current = corners;
+  // Live overlay frame: written by the adapter's onOverlayFrame callback via
+  // plain assignment, never setState — ArOverlay's own rAF loop reads it and
+  // writes SVG attributes directly, so React never re-renders at 60 fps.
+  const overlayFrameRef = useRef<OverlayFrame | null>(null);
   // HUD root: the domOverlay.root while a session runs (see the session
   // branch below). Rendered as an empty transparent shell on the
   // Start/starting/failed screens so the element exists when start() reads
@@ -408,6 +427,12 @@ export function ArMeasure({
       // Debug frame counter (arDebug only, adapter-side throttled ~2/s).
       // Reset on every start so a re-tap proves fresh frames, not stale ones.
       onDebugFrame: isArDebugEnabled() ? setDebugFrames : undefined,
+      // Per-frame DOM-overlay payload: plain assignment into the frame ref,
+      // never setState. ArOverlay's rAF loop reads it and projects the
+      // SVG feedback itself.
+      onOverlayFrame: (frame) => {
+        overlayFrameRef.current = frame;
+      },
     };
     const active = adapter ?? new WebXrHitTestAdapter();
     if (adapter === undefined) prodAdapterRef.current = active;
@@ -770,6 +795,8 @@ export function ArMeasure({
     <ArHud
       locale={locale}
       hudRef={hudRef}
+      overlayFrameRef={overlayFrameRef}
+      overlayCorners={corners}
       previewM={traceMode === "wall" ? previewM : openingPreview}
       targetLengthM={target !== null ? wallDisplayLengthM(target) : null}
       stepLabel={stepLabel}
