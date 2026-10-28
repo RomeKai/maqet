@@ -79,5 +79,10 @@ export const en: Record<keyof typeof esAR, string> = {
   "measure.ar.pickWall": "Pick a wall",
   "measure.ar.edgeFirst": "Tap the left edge",
   "measure.ar.edgeSecond": "Tap the right edge",
+  "measure.ar.opening.noWalls": "Trace a wall first, then mark the opening.",
+  "measure.ar.opening.unknownWall": "That wall is gone — pick a wall.",
+  "measure.ar.opening.degenerate": "Those taps overlap — tap the two edges again.",
+  "measure.ar.opening.noFit": "Those taps miss the wall — tap two edges on the wall.",
+  "measure.ar.opening.doorNarrow": "Doors need at least 0.80 m — tap wider edges.",
   "measure.ar.closeHint": "Tap near the first corner to close the room",
 };

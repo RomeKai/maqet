@@ -78,5 +78,10 @@ export const esAR = {
   "measure.ar.pickWall": "Elegí una pared",
   "measure.ar.edgeFirst": "Tocá el borde izquierdo",
   "measure.ar.edgeSecond": "Tocá el borde derecho",
+  "measure.ar.opening.noWalls": "Trazá una pared primero, después marcá la abertura.",
+  "measure.ar.opening.unknownWall": "Esa pared ya no está — elegí una pared.",
+  "measure.ar.opening.degenerate": "Esos toques se superponen — tocá los dos bordes de nuevo.",
+  "measure.ar.opening.noFit": "Esos toques no tocan la pared — tocá dos bordes sobre la pared.",
+  "measure.ar.opening.doorNarrow": "Las puertas necesitan al menos 0,80 m — tocá bordes más separados.",
   "measure.ar.closeHint": "Tocá cerca de la primera esquina para cerrar el cuarto",
 } as const;
