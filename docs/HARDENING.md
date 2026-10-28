@@ -24,7 +24,7 @@ real family's result), **M** (robustness/UX), **L** (polish). Status: open / don
 | I15 | M | Server warnings are free-text English strings (e.g. `kind_defaulted: null kind -> exterior, confirm with human`), one was mixed English/Spanish | If the UI shows them raw they are untranslated in both locales and too technical for a technician | Server returns warning codes + params only (`{"code": "kind_defaulted", "wall": 3}`); the web maps codes to plain es-AR/en strings in the i18n dictionary; test that every code has both translations |
 | I16 | M | `POST /intake` needs an offline/demo mode: without it the gate and the demo depend on a paid vision call, and an unknown sample name has no loud, human-correctable error | No deterministic gate without spend; silent or raw-500 failures on the demo table | `ReplayMiss` + 409 ("unknown sample 'X': pick one of: ..."), CORS-safe 500 handler (keeps `Access-Control-Allow-Origin: *`), `sample` replay through the same `build_scaled_plan -> to_scene` path, "Try a sample" button in the web |
 | I17 | H | The HTTPS demo page must not call the API over plain HTTP or to a host that is `localhost` from the phone's view: mixed content is blocked and `localhost` means the phone itself | On LAN the capture upload silently fails and the demo table has no Scene draft | One HTTPS origin serves both: Vite dev proxy `/api` -> `http://localhost:8000` (prefix stripped), client defaults to `/api` when `VITE_API_URL` is unset; demo checklist confirms upload works from the phone browser |
-| I18 | H | three.js r186 uses XRProjectionLayer when the device exposes createProjectionLayer; on our test Android/Chrome the compositor never presents it | AR reticle invisible despite a working hit-test — taps land but the tech gets no visual feedback | Plan B: AR feedback drawn in the DOM overlay (projectToScreen + SVG in dom-overlay HUD); three.js kept only for the 3D view outside AR; web/xr-test.html kept as dev diagnostic |
+| I18 | H | three.js r186 uses XRProjectionLayer when the device exposes createProjectionLayer; on our test Android/Chrome the compositor never presents it | AR reticle invisible despite a working hit-test — taps land but the tech gets no visual feedback | Plan B: AR feedback drawn in the DOM overlay (projectToScreen + SVG in dom-overlay HUD, transparent XRWebGLLayer in the session so frame callbacks flow); three.js kept only for the 3D view outside AR; web/xr-test.html kept as dev diagnostic. VERIFIED 2026-10-28 on Android Chrome: reticle, corner dots, rubber-band + live lengths, walls from AR taps — see manual AR checklist below |
 
 ## Product: rules and takeoff
 | # | Pri | Assumption or patch | Why it matters | Hardening |
@@ -49,6 +49,16 @@ real family's result), **M** (robustness/UX), **L** (polish). Status: open / don
 | # | Pri | Assumption or patch | Why it matters | Hardening |
 |---|---|---|---|---|
 | Q1 | M | The Day 1 and 2 gates verified components, not integration: nothing was wired end to end (no `POST /intake`, the web never called the server, `IntakeScreen` not mounted, no `dev` script). Lesson learned 2026-10-26 | A green `mme gate` did not mean the app worked | At least one integration gate per day (route + API test, App renders the stage screen, upload -> Scene); a full-flow replay test (`test_e2e_flow.py`) |
+
+## Manual AR checklist (device-only; verified 2026-10-28 on Android Chrome)
+1. `@vitejs/plugin-basic-ssl` + `vite --host`; accept the self-signed cert on the phone; open `https://<laptop-ip>:5173`.
+2. Start AR: camera feed shows, "searching" status until the first plane is found.
+3. Tap a corner on the floor: teal reticle ring follows the hit point; tapped corner plants a dot.
+4. Second tap: solid line between the dots + live length in meters (locale format) on the dashed rubber-band.
+5. Confirm the wall: `measured_ar` provenance in the Scene; 3D view grows wall by wall.
+6. Tap near the first dot: close-loop highlight; room closes into a loop.
+7. End / re-tap: overlay clears, session restarts from "searching".
+Known gaps (open): Door/Window taps don't snap to traced walls yet; multi-room tracing (more than one wall chain) not verified.
 
 ## Dev tooling (MME, gateway, Claude Code), for reference
 | # | Pri | Assumption or patch | Status |
