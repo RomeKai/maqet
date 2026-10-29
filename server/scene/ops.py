@@ -63,6 +63,27 @@ def _apply(
     actor: str,
     ctx: ValidationContext | None = None,
 ) -> tuple[Scene, OpResult]:
+    # ADR-001/002: rooms are derived — repolygonize after every op, carry
+    # survivor assignments, drop dead rooms to unassigned (warn), then
+    # re-validate furniture (block, never move silently) + construction rules.
+    derived = repolygonize(candidate.walls)
+    new_rooms, new_surfaces, new_furniture, room_warnings = recompute_rooms(
+        old_rooms=scene.rooms,
+        explicit_rooms=list(candidate.rooms),
+        derived_polys=derived,
+        surfaces=list(candidate.surfaces),
+        furniture=list(candidate.furniture),
+    )
+    candidate = candidate.model_copy(
+        update={
+            "rooms": new_rooms,
+            "surfaces": new_surfaces,
+            "furniture": new_furniture,
+        }
+    )
+    furniture_errors, _ = check_furniture(candidate)
+    if furniture_errors:
+        return scene, OpResult(ok=False, errors=furniture_errors)
     report = validate_scene(candidate, ctx)
     if report.errors:
         return scene, OpResult(ok=False, errors=report.errors)
@@ -76,7 +97,7 @@ def _apply(
     )
     return new_scene, OpResult(
         ok=True,
-        warnings=report.warnings,
+        warnings=(*room_warnings, *report.warnings),
         flags=report.flags,
         changed_ids=tuple(changed_ids),
         record=record,

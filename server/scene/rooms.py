@@ -220,12 +220,24 @@ def recompute_rooms(
         norm = _normalize_ring([tuple(p) for p in poly])
         if len(norm) >= 3 and not any(_rings_equal(norm, c) for c in candidates):
             candidates.append(norm)
+    old_by_id = {r.id: r for r in old_rooms}
     for room in explicit_rooms:
+        # Carry the explicit polygon only if wall-derived geometry does not
+        # already cover its centroid: a stale polygon must die so a new wall
+        # actually splits the room, while a genuinely new add_room polygon
+        # (no walls yet) is kept.
+        anchor = (
+            list(old_by_id[room.id].polygon)
+            if room.id in old_by_id
+            else list(room.polygon)
+        )
+        cx, cy = _centroid([(float(x), float(y)) for x, y in anchor])
+        if any(_point_in_poly(cx, cy, c) for c in candidates):
+            continue
         norm = _normalize_ring([tuple(p) for p in room.polygon])
         if len(norm) >= 3 and not any(_rings_equal(norm, c) for c in candidates):
             candidates.append(norm)
 
-    old_by_id = {r.id: r for r in old_rooms}
     claimed: set[int] = set()
     new_rooms: list[Room] = []
     dead_ids: list[str] = []
@@ -244,6 +256,11 @@ def recompute_rooms(
         if hit is None:
             if old is not None:
                 dead_ids.append(room.id)
+            else:
+                # Genuinely new room with no usable candidate (e.g.
+                # degenerate polygon): keep it as given so add_room never
+                # silently drops; validation decides.
+                new_rooms.append(room)
             continue
         claimed.add(hit)
         new_poly = candidates[hit]
@@ -258,6 +275,14 @@ def recompute_rooms(
                     function=room.function,
                 )
             )
+
+    # Old rooms the op no longer carries are dead too (explicit list is
+    # authoritative): their furniture/surfaces must drop to unassigned,
+    # never silently follow a minted copy of the polygon.
+    explicit_ids = {r.id for r in explicit_rooms}
+    for old_id in old_by_id:
+        if old_id not in explicit_ids and old_id not in dead_ids:
+            dead_ids.append(old_id)
 
     taken = {r.id for r in new_rooms} | set(dead_ids)
     counter = len(taken) + 1

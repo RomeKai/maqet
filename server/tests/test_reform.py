@@ -312,7 +312,8 @@ def _random_wall(rng: random.Random, seq: int, i: int) -> Wall:
 def _run_random_sequence(seq: int) -> tuple[int, int]:
     """One random op sequence. Returns (applied, room_changes). Never raises."""
     rng = random.Random(SEED + seq)
-    scene = _rect_1room() if seq % 2 == 0 else _rect_2room()
+    base = _rect_1room() if seq % 2 == 0 else _rect_2room()
+    scene = base
     base_rooms = len(scene.rooms)
     history: list = []
     applied = 0
@@ -380,9 +381,10 @@ def _run_random_sequence(seq: int) -> tuple[int, int]:
             if len(scene.rooms) != base_rooms:
                 room_changes += 1
                 base_rooms = len(scene.rooms)
-    # (c) full undo restores the base exactly (ops path).
+    # (c) full undo restores the base exactly (ops path): undo replays the
+    # trimmed history on top of the immutable base, never on the live scene.
     while history:
-        scene, history = ops.undo(scene, history)
+        scene, history = ops.undo(base, history)
     return applied, room_changes
 
 
@@ -428,7 +430,7 @@ def test_property_full_undo_restores_exactly_ops_and_executor() -> None:
             if res.ok and res.record is not None:
                 scene, history = scene2, [*history, res.record]
         while history:
-            scene, history = ops.undo(scene, history)
+            scene, history = ops.undo(base, history)
         assert _dump_no_version(scene) == _dump_no_version(base)
     # Executor path (opening-only script: no repolygonize delta, so the
     # rooms-blind executor undo restores exactly; wall-op executor undo is a
