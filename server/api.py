@@ -195,17 +195,32 @@ def post_intake(
             status_code=400,
             detail="image too large (max 15 MB): retake the photo",
         )
-    from PIL import Image as PILImage
+    # EXIF orientation: landscape photos on Android are often stored as portrait
+    # sensor pixels + EXIF orientation 6 (rotate 90 CW). The client canvas
+    # already orients the image (createImageBitmap imageOrientation:"from-image"
+    # + fallback readExifOrientation), so the server must agree on which side
+    # is the long side — otherwise image_w/image_h are swapped and
+    # build_scaled_plan stretches the plan.
+    from server.intake.read_plan import oriented_size
 
-    try:
-        with PILImage.open(io.BytesIO(image_bytes)) as img:
-            image_w, image_h = img.size
-    except Exception as exc:
-        logger.warning("intake unreadable upload: %s", exc)
-        raise HTTPException(
-            status_code=400,
-            detail="unreadable image: upload a valid JPEG or PNG",
-        ) from exc
+    image_w: int | None = None
+    image_h: int | None = None
+    oriented = oriented_size(image_bytes)
+    if oriented is not None:
+        ow, oh = oriented
+        image_w, image_h = ow, oh
+    if image_w is None or image_h is None:
+        from PIL import Image as PILImage
+
+        try:
+            with PILImage.open(io.BytesIO(image_bytes)) as img:
+                image_w, image_h = img.size
+        except Exception as exc:
+            logger.warning("intake unreadable upload: %s", exc)
+            raise HTTPException(
+                status_code=400,
+                detail="unreadable image: upload a valid JPEG or PNG",
+            ) from exc
     try:
         proposal = read_plan(image_bytes, cast(InputKind, kind))
     except ReadPlanError as exc:
@@ -224,6 +239,7 @@ def post_intake(
                 ),
             ) from exc
         raise
+    assert image_w is not None and image_h is not None
     return _finish_intake(proposal, image_w, image_h, kind, anchor_index)
 
 
