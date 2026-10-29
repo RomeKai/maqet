@@ -7,7 +7,6 @@ import {
   pairCornersToNewWall,
   type Vec3,
 } from "./cornerMath";
-import type { Opening } from "../scene/types";
 import type { SceneOp } from "../scene/store";
 
 /**
@@ -67,10 +66,29 @@ export interface CaptureState {
   finished: boolean;
   done: boolean;
   mode: CaptureMode;
-  /** Reserved for ar-capture-openings: the reducer never reads or writes it. */
-  openings: Opening[];
+  /** Walls-flow openings captured after close/finish. */
+  openings: CapturedOpening[];
+  /** Pending opening: first diagonal corner, until second tap completes it. */
+  pendingOpening: PendingOpening | null;
   /** Bounded undo stack of snapshots (states, not events). */
   past: CaptureSnapshot[];
+}
+
+export interface CapturedOpening {
+  id: string;
+  wall_id: string;
+  kind: "door" | "window";
+  offset_m: number;
+  width_m: number;
+  height_m: number;
+  sill_m: number | null;
+  flagged: boolean;
+}
+
+export interface PendingOpening {
+  first: Vec3;
+  wallId: string;
+  kind: "door" | "window";
 }
 
 export type CaptureSnapshot = Omit<CaptureState, "past">;
@@ -81,6 +99,8 @@ export type CaptureEvent =
   | { type: "ceilingTap"; point: Vec3 }
   | { type: "finishWalls" }
   | { type: "modeChange"; mode: CaptureMode }
+  | { type: "openingTap"; point: Vec3 }
+  | { type: "openingManual"; wallId: string; kind: "door" | "window"; offsetM: number; widthM: number; heightM: number; sillM: number | null }
   | { type: "undo" }
   | { type: "startOver" }
   | { type: "done" };
@@ -90,7 +110,10 @@ export type CaptureError =
   | "floor-first"
   | "mode-locked"
   | "no-pending"
-  | "bad-tap";
+  | "bad-tap"
+  | "opening-no-wall"
+  | "opening-outside"
+  | "opening-degenerate";
 
 export interface CaptureResult {
   state: CaptureState;
@@ -109,6 +132,7 @@ export function initialCaptureState(): CaptureState {
     done: false,
     mode: "walls",
     openings: [],
+    pendingOpening: null,
     past: [],
   };
 }
@@ -274,10 +298,132 @@ export function captureReducer(
       return { state: initialCaptureState(), error: null };
     }
 
+    case "openingTap": {
+      if (!isValidCorner(event.point)) return rejected(state, "bad-tap");
+      if (state.floorY === null) return rejected(state, "floor-first");
+      if (state.done) return { state, error: null };
+      if (state.mode !== "door" && state.mode !== "window") return { state, error: null };
+      if (!state.closed && !state.finished) return rejected(state, "mode-locked");
+      // Build wall lookup for projection (pure geometry in openingMath helpers inline)
+      const kind = state.mode;
+      if (state.pendingOpening === null) {
+        // First tap: find nearest wall
+        const nearest = nearestCapturedWall(state.walls, event.point);
+        if (!nearest) return rejected(state, "opening-no-wall");
+        return accepted(state, { pendingOpening: { first: event.point, wallId: nearest.id, kind } });
+      }
+      // Second tap: project both taps onto wall plane
+      const pending = state.pendingOpening;
+      const wall = state.walls.find((w) => w.id === pending.wallId);
+      if (!wall) return accepted(state, { pendingOpening: null });
+      const proj = projectOpeningOnWall(wall, pending.first, event.point);
+      if (!proj) {
+        return rejected(state, "opening-degenerate");
+      }
+      // Clamp check
+      const wallLen = wallLength(wall);
+      if (proj.offset_m < -1e-6 || proj.offset_m + proj.width_m > wallLen + 1e-6 || proj.width_m <= 1e-6) {
+        // Keep first corner, show why
+        return rejected(state, "opening-outside");
+      }
+      // Compute height/sill from diagonal taps
+      const floorY = state.floorY;
+      let height_m: number;
+      let sill_m: number | null;
+      const y1 = pending.first[1], y2 = event.point[1];
+      const lowY = Math.min(y1, y2), highY = Math.max(y1, y2);
+      if (kind === "door") {
+        height_m = highY - floorY;
+        sill_m = null;
+      } else {
+        height_m = highY - lowY;
+        sill_m = lowY - floorY;
+        if (sill_m < 0) sill_m = 0;
+      }
+      if (!Number.isFinite(height_m) || height_m <= 0) return rejected(state, "opening-degenerate");
+      const flagged = kind === "door" && proj.width_m < 0.8;
+      const opening: CapturedOpening = {
+        id: `opening-${state.openings.length + 1}`,
+        wall_id: wall.id,
+        kind,
+        offset_m: proj.offset_m,
+        width_m: proj.width_m,
+        height_m,
+        sill_m,
+        flagged,
+      };
+      return accepted(state, { openings: [...state.openings, opening], pendingOpening: null });
+    }
+
+    case "openingManual": {
+      if (state.floorY === null) return rejected(state, "floor-first");
+      if (state.done) return { state, error: null };
+      const wall = state.walls.find((w) => w.id === event.wallId);
+      if (!wall) return rejected(state, "opening-no-wall");
+      const wallLen = wallLength(wall);
+      if (event.offsetM < 0 || event.widthM <= 0 || event.offsetM + event.widthM > wallLen + 1e-6) return rejected(state, "opening-outside");
+      if (!Number.isFinite(event.heightM) || event.heightM <= 0) return rejected(state, "opening-degenerate");
+      if (event.kind === "window" && event.sillM !== null && (!Number.isFinite(event.sillM) || event.sillM < 0)) return rejected(state, "opening-degenerate");
+      const flagged = event.kind === "door" && event.widthM < 0.8;
+      const opening: CapturedOpening = {
+        id: `opening-${state.openings.length + 1}`,
+        wall_id: event.wallId,
+        kind: event.kind,
+        offset_m: event.offsetM,
+        width_m: event.widthM,
+        height_m: event.heightM,
+        sill_m: event.kind === "door" ? null : (event.sillM ?? 0),
+        flagged,
+      };
+      return accepted(state, { openings: [...state.openings, opening], pendingOpening: null });
+    }
+
     case "done": {
       return accepted(state, { done: true });
     }
   }
+}
+
+function wallLength(w: CapturedWall): number {
+  const dx = w.end.x - w.start.x, dz = w.end.z - w.start.z;
+  return Math.hypot(dx, dz);
+}
+
+function nearestCapturedWall(walls: CapturedWall[], tap: Vec3): CapturedWall | null {
+  if (walls.length === 0) return null;
+  let best: CapturedWall | null = null;
+  let bestD = Infinity;
+  for (const w of walls) {
+    const d = pointToSegmentM([tap[0], -tap[2]], [w.start.x, -w.start.z], [w.end.x, -w.end.z]);
+    if (d < bestD) { bestD = d; best = w; }
+  }
+  return best;
+}
+function pointToSegmentM(p: [number, number], a: [number, number], b: [number, number]): number {
+  const abx = b[0] - a[0], aby = b[1] - a[1];
+  const lenSq = abx * abx + aby * aby;
+  if (lenSq === 0) return Math.hypot(p[0] - a[0], p[1] - a[1]);
+  let t = ((p[0] - a[0]) * abx + (p[1] - a[1]) * aby) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(p[0] - (a[0] + t * abx), p[1] - (a[1] + t * aby));
+}
+function projectOpeningOnWall(wall: CapturedWall, e1: Vec3, e2: Vec3): { offset_m: number; width_m: number } | null {
+  // Plan: [x, -z]
+  const axP = wall.start.x, ayP = -wall.start.z;
+  const bxP = wall.end.x, byP = -wall.end.z;
+  const wdx = bxP - axP, wdy = byP - ayP;
+  const wLen = Math.hypot(wdx, wdy);
+  if (wLen <= 1e-9) return null;
+  const wux = wdx / wLen, wuy = wdy / wLen;
+  const p1x = e1[0], p1y = -e1[2];
+  const p2x = e2[0], p2y = -e2[2];
+  const t1 = (p1x - axP) * wux + (p1y - ayP) * wuy;
+  const t2 = (p2x - axP) * wux + (p2y - ayP) * wuy;
+  const lo = Math.min(t1, t2), hi = Math.max(t1, t2);
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return null;
+  const width = hi - lo;
+  if (width <= 1e-6) return null;
+  return { offset_m: lo, width_m: width };
 }
 
 /** HUD pill selector (F6): which tap comes next. */
@@ -297,6 +443,7 @@ export interface SceneOpsResult {
   ops: SceneOp[];
   /** Ids of walls whose kept height fell outside 2.0-4.0 m. */
   flaggedWallIds: string[];
+  flaggedOpeningIds: string[];
 }
 
 /**
@@ -308,6 +455,7 @@ export interface SceneOpsResult {
 export function toSceneOps(state: CaptureState): SceneOpsResult {
   const ops: SceneOp[] = [];
   const flaggedWallIds: string[] = [];
+  const flaggedOpeningIds: string[] = [];
   for (const captured of state.walls) {
     const created = pairCornersToNewWall(
       [
@@ -323,5 +471,9 @@ export function toSceneOps(state: CaptureState): SceneOpsResult {
     });
     if (captured.flaggedHeight) flaggedWallIds.push(captured.id);
   }
-  return { ops, flaggedWallIds };
+  for (const o of state.openings) {
+    ops.push({ type: "markOpening", opening: { id: o.id, wall_id: o.wall_id, kind: o.kind, offset_m: o.offset_m, width_m: o.width_m, height_m: o.height_m, sill_m: o.sill_m } });
+    if (o.flagged) flaggedOpeningIds.push(o.id);
+  }
+  return { ops, flaggedWallIds, flaggedOpeningIds };
 }
