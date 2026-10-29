@@ -365,3 +365,19 @@ def test_audit_reopen_bbox_and_determinism(tmp_path: Path) -> None:
     rich = _rich_scene()
     rich_fp = _fingerprint(export_dxf(rich).modelspace())
     assert _fingerprint(export_dxf(rich).modelspace()) == rich_fp
+
+
+# --- Regression: interior openings always split the wall (hardening) ----------
+
+
+def test_interior_opening_splits_wall_into_two_parts() -> None:
+    # Door 0.8..1.7 on a 3 m wall: 0.8 + 0.9 == 1.7000000000000002 left a
+    # hairline bridge, so the wall exported as one polyline across the door.
+    from server.export.dxf_walls import wall_shapes
+    from server.scene.models import Opening, Wall
+
+    wall = Wall(id="w", a=(0.0, 0.0), b=(3.0, 0.0), thickness_m=0.20, kind="exterior")
+    door = Opening(id="d", wall_id="w", kind="door", offset_m=0.8, width_m=0.9, height_m=2.05)
+    parts = wall_shapes(wall, (door,))
+    assert len(parts) == 2
+    assert sorted(round(p.area, 9) for p in parts) == [0.16, 0.26]

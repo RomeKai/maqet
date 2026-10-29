@@ -14,6 +14,7 @@ import ezdxf
 import pytest
 from ezdxf import bbox as ezdxf_bbox
 from shapely.geometry import LineString, Polygon
+from shapely.ops import substring, unary_union
 
 from server.export.dxf import (
     PRELIMINARY_NOTE,
@@ -33,6 +34,18 @@ TRUTH = (
 )
 
 TOL = 1e-6
+
+
+def _expected_wall_parts(scene: Scene, wall: Wall) -> list[Polygon]:
+    """Independent oracle: flat-capped footprint minus an oversized buffer
+    of each opening's centerline span (never reuses export code)."""
+    line = LineString([tuple(wall.a), tuple(wall.b)])
+    shape = line.buffer(wall.thickness_m / 2.0, cap_style="flat")
+    for o in scene.openings:
+        if o.wall_id == wall.id:
+            span = substring(line, o.offset_m, min(o.offset_m + o.width_m, line.length))
+            shape = shape.difference(span.buffer(wall.thickness_m, cap_style="flat"))
+    return [shape] if isinstance(shape, Polygon) else list(shape.geoms)
 
 
 @pytest.fixture(scope="module")
@@ -65,7 +78,9 @@ def test_reopen_layer_counts_match_scene(scene: Scene, tmp_path: Path) -> None:
             e for e in msp if e.dxftype() == kind and e.dxf.layer == layer
         ]
 
-    assert len(on("A-WALL", "LWPOLYLINE")) == len(scene.walls)
+    expected_parts = sum(len(_expected_wall_parts(scene, w)) for w in scene.walls)
+    assert expected_parts == len(scene.walls) + len(scene.openings)  # all cuts interior
+    assert len(on("A-WALL", "LWPOLYLINE")) == expected_parts
     assert len(on("A-AREA", "LWPOLYLINE")) == len(scene.rooms)
     assert len(on("A-AREA", "TEXT")) == len(scene.rooms)
     notes = [e.dxf.text for e in on("A-ANNO-TEXT", "TEXT")]
@@ -97,12 +112,10 @@ def test_golden_wall_geometry_matches_shapely(scene: Scene, tmp_path: Path) -> N
         for e in msp
         if e.dxftype() == "LWPOLYLINE" and e.dxf.layer == "A-WALL"
     ]
-    assert len(exported) == len(scene.walls)
-    for wall, poly in zip(scene.walls, exported):
-        expected = LineString([tuple(wall.a), tuple(wall.b)]).buffer(
-            wall.thickness_m / 2.0, cap_style="flat"
-        )
-        assert expected.symmetric_difference(poly).area == pytest.approx(0.0, abs=1e-9)
+    expected = [p for w in scene.walls for p in _expected_wall_parts(scene, w)]
+    assert len(exported) == len(expected)
+    diff = unary_union(expected).symmetric_difference(unary_union(exported))
+    assert diff.area == pytest.approx(0.0, abs=1e-9)
 
 
 def test_golden_room_geometry_matches_shapely(scene: Scene, tmp_path: Path) -> None:

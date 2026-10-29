@@ -41,8 +41,11 @@ def opening_interval(opening: Opening, length: float) -> tuple[float, float] | N
 
 
 def _cut_box(wall: Wall, start: float, end: float, length: float) -> Polygon:
-    """Full-thickness cut rectangle for local span [start, end]."""
-    (ax, ay), half = tuple(wall.a), wall.thickness_m / 2.0
+    """Cut rectangle for local span [start, end], twice the wall thickness so
+    it always crosses the footprint: an exact-thickness box can leave a
+    hairline bridge (or a boundary-touching hole) from float noise. The
+    difference with the footprint clips the overshoot."""
+    (ax, ay), half = tuple(wall.a), wall.thickness_m
     ux, uy = ((wall.b[0] - ax) / length, (wall.b[1] - ay) / length)
     nx, ny = (-uy, ux)
     return Polygon(
