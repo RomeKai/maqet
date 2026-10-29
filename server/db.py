@@ -91,7 +91,9 @@ def save_project(
 
 def load_project(project_id: str = "default", db_path: DbPath | None = None) -> Project:
     """Rebuild a Project from its JSON rows. Raises KeyError when missing."""
-    connection = sqlite3.connect(_resolve(db_path))
+    path = _resolve(db_path)
+    init_db(path)  # fresh path -> empty tables -> KeyError below, not OperationalError
+    connection = sqlite3.connect(path)
     try:
         row = connection.execute(
             "SELECT base_scene_json, chosen FROM project WHERE id = ?", (project_id,)

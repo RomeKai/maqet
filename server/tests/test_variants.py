@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 
 from server.db import init_db, load_project, save_project
-from server.scene.models import Scene, Wall
-from server.scene.ops import add_wall
+from server.scene.models import Opening, Scene, Wall
+from server.scene.ops import add_opening, add_wall, remove_wall
 from server.scene.variants import (
     Project,
     choose,
@@ -173,3 +173,93 @@ def test_load_unknown_project_raises_key_error(tmp_path: Path) -> None:
     init_db(db_path)
     with pytest.raises(KeyError):
         load_project("missing", db_path=db_path)
+
+
+def test_load_project_on_fresh_path_raises_key_error(tmp_path: Path) -> None:
+    """Never-touched db file must raise KeyError, not sqlite OperationalError."""
+    with pytest.raises(KeyError):
+        load_project("missing", db_path=tmp_path / "never-created.db")
+
+
+def test_fork_from_fork_chains_grandparent_ops() -> None:
+    """C forked from B sees B's fork-time slice of A, not A's later ops."""
+    project = Project(base=_base())
+    _apply(project, "A", _wall("w1"))
+    _apply(project, "A", _wall("w2"))
+    create_variant(project, "A", "B")
+    _apply(project, "B", _wall("wB"))
+    create_variant(project, "B", "C")
+    assert project.branches["C"].parent == "B"
+    assert project.branches["C"].fork_at_version == materialize(project, "B").version
+    assert [w.id for w in materialize(project, "C").walls] == ["w1", "w2", "wB"]
+    _apply(project, "A", _wall("w3"))
+    _apply(project, "B", _wall("wB2"))
+    assert [w.id for w in materialize(project, "C").walls] == ["w1", "w2", "wB"]
+    assert [w.id for w in materialize(project, "B").walls] == ["w1", "w2", "wB", "wB2"]
+
+
+def test_wall_with_optional_fields_survives_db_round_trip(tmp_path: Path) -> None:
+    """OpRecord.args JSON must preserve provenance/load_bearing/height exactly."""
+    db_path = tmp_path / "opts.db"
+    project = Project(base=_base())
+    _apply(
+        project,
+        "A",
+        Wall(
+            id="w1",
+            a=(0.0, 0.0),
+            b=(4.0, 0.0),
+            thickness_m=0.20,
+            kind="exterior",
+            height_m=2.8,
+            load_bearing=True,
+            provenance="measured_ar",
+        ),
+    )
+    save_project(project, project_id="p1", db_path=db_path)
+    loaded = load_project("p1", db_path=db_path)
+    wall = materialize(loaded, "A").walls[0]
+    assert (wall.height_m, wall.load_bearing, wall.provenance) == (2.8, True, "measured_ar")
+    assert materialize(loaded, "A") == materialize(project, "A")
+
+
+def test_remove_wall_and_opening_replay_in_branch() -> None:
+    """Non-add_wall ops replay through variants, not just add_wall."""
+    project = Project(base=_base())
+    _apply(project, "A", _wall("w1", x1=5.0))
+    opening = Opening(id="d1", wall_id="w1", kind="door", offset_m=1.0, width_m=0.9, height_m=2.1)
+    scene, result = add_opening(materialize(project, "A"), opening, actor="user")
+    assert result.ok, result.errors
+    project.branches["A"].ops.append(result.record)
+    create_variant(project, "A", "B")
+    scene_b, result_b = remove_wall(materialize(project, "B"), "w1", actor="user")
+    assert result_b.ok, result_b.errors
+    project.branches["B"].ops.append(result_b.record)
+    assert materialize(project, "B").walls == []
+    assert materialize(project, "B").openings == []  # cascaded with the wall
+    assert [w.id for w in materialize(project, "A").walls] == ["w1"]
+
+
+def test_repeated_create_and_save_is_idempotent(tmp_path: Path) -> None:
+    """save_project twice with new branches keeps exactly one row per label."""
+    import sqlite3
+
+    db_path = tmp_path / "idem.db"
+    project = Project(base=_base())
+    _apply(project, "A", _wall("w1"))
+    create_variant(project, "A", "B")
+    save_project(project, project_id="p1", db_path=db_path)
+    _apply(project, "B", _wall("wB"))
+    save_project(project, project_id="p1", db_path=db_path)
+    connection = sqlite3.connect(db_path)
+    try:
+        labels = [
+            row[0]
+            for row in connection.execute(
+                "SELECT label FROM branch WHERE project_id = ?", ("p1",)
+            )
+        ]
+    finally:
+        connection.close()
+    assert sorted(labels) == ["A", "B"]
+    assert materialize(load_project("p1", db_path=db_path), "B") == materialize(project, "B")
