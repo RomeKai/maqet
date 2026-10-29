@@ -42,7 +42,7 @@ describe("Capture modes (ADR-025 Mode A chip)", () => {
 function makeTapAdapter(taps: Vec3[]): XrHitTestAdapter {
   return {
     async start(callbacks: XrTapCallbacks): Promise<void> {
-      for (const tap of taps) callbacks.onTapCorner(tap);
+      for (const tap of taps) callbacks.onTapCorner(tap, true);
     },
     end(): void {},
   };

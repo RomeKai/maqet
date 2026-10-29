@@ -239,6 +239,7 @@ export function captureReducer(
     }
 
     case "finishWalls": {
+      if (state.done) return { state, error: null };
       return accepted(state, { finished: true });
     }
 

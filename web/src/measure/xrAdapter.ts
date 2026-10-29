@@ -21,11 +21,40 @@ export interface OverlayFrame {
   viewportH: number;
 }
 
+/** Horizontal flag: true when the hit normal is mostly +Y (floor). */
+export type HitSurfaceType = "horizontal" | "vertical" | "unknown";
+
+export function isHorizontalHit(
+  pose: { orientation?: [number, number, number, number]; normalY?: number } | null | undefined,
+): boolean {
+  if (!pose) return false;
+  if (typeof pose.normalY === "number" && Number.isFinite(pose.normalY)) {
+    return pose.normalY > 0.5;
+  }
+  const q = pose.orientation;
+  if (q && q.length === 4 && q.every((v) => Number.isFinite(v))) {
+    // Quaternion y-axis rotation: normalY = 1 - 2*(qx^2 + qz^2) for Y-up normal.
+    // For a horizontal plane the hit normal is ~+Y.
+    const qx = q[0] as number;
+    const qz = q[2] as number;
+    const normalY = 1 - 2 * (qx * qx + qz * qz);
+    return normalY > 0.5;
+  }
+  return false;
+}
+
+export function hitPoseHorizontal(pose: HitTestPoseLike | null | undefined): boolean {
+  if (!pose) return false;
+  return isHorizontalHit(pose);
+}
+
 /**
  * Callbacks carried by the hit-test session. Length math stays in cornerMath.
  */
 export interface XrTapCallbacks {
-  onTapCorner: (corner: Vec3) => void;
+  onTapCorner: (corner: Vec3, horizontal: boolean) => void;
+  /** Per-frame hit payload: position + whether it is horizontal. */
+  onHit?: (point: Vec3, horizontal: boolean) => void;
   onEnd: () => void;
   /**
    * Surface presence, reported only on found<->lost transitions (never every
@@ -211,10 +240,15 @@ export class NoopAdapter implements XrHitTestAdapter {
 /**
  * Minimal structural view of a WebXR hit-test pose: the 3D tap point in
  * meters. A full XRPose also carries orientation; Mode A only needs the
- * floor position.
+ * floor position. `orientation` is the hit-plane normal (quaternion-derived
+ * +Y for horizontal surfaces) when available.
  */
 export interface HitTestPoseLike {
   position: { x: number; y: number; z: number };
+  /** Hit-plane normal Y component in world space: ~+1 for horizontal (floor). */
+  normalY?: number;
+  /** Raw quaternion [x,y,z,w] when the device exposes hit orientation. */
+  orientation?: [number, number, number, number];
 }
 
 /**
@@ -353,8 +387,11 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
       session.addEventListener("select", (event: Event) => {
         const frame = (event as XRInputSourceEvent).frame;
         if (!frame) return;
-        const corner = this.cornerFromFrame(frame);
-        if (corner !== null) callbacks.onTapCorner(corner);
+        const hit = this.hitFromFrame(frame);
+        const corner = this.cornerFromVec(hit?.transform.position);
+        if (corner === null) return;
+        const horizontal = this.isHorizontalPose(hit);
+        callbacks.onTapCorner(corner, horizontal);
       });
       session.addEventListener("end", () => {
         callbacks.onEnd();
@@ -382,6 +419,12 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
           glNow.clear(glNow.COLOR_BUFFER_BIT);
         }
         const hit = this.hitFromFrame(frame);
+        // Emit per-frame hit with horizontal flag (F1): floorHit only fires on horizontal.
+        if (hit !== null) {
+          const p = hit.transform.position;
+          const pt = hitTestPoseToCorner({ position: { x: p.x, y: p.y, z: p.z } });
+          if (pt !== null) callbacks.onHit?.(pt, this.isHorizontalPose(hit));
+        }
         const found = hit !== null;
         if (found !== surfaceFound) {
           surfaceFound = found;
@@ -444,12 +487,18 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
     return results[0]?.getPose(refSpace) ?? null;
   }
 
-  private cornerFromFrame(frame: XRFrame): Vec3 | null {
-    const raw = this.hitFromFrame(frame)?.transform.position;
+  private cornerFromVec(raw: { x: number; y: number; z: number } | undefined | null): Vec3 | null {
     if (!raw) return null;
-    return hitTestPoseToCorner({
-      position: { x: raw.x, y: raw.y, z: raw.z },
-    });
+    return hitTestPoseToCorner({ position: { x: raw.x, y: raw.y, z: raw.z } });
+  }
+
+  private isHorizontalPose(hit: XRPose | null): boolean {
+    if (!hit) return false;
+    const o = hit.transform.orientation as unknown as { x: number; y: number; z: number; w: number } | undefined;
+    if (o && Number.isFinite(o.x) && Number.isFinite(o.z) && Number.isFinite(o.w)) {
+      return isHorizontalHit({ orientation: [o.x, o.y, o.z, o.w] });
+    }
+    return false;
   }
 
   private teardown(): void {

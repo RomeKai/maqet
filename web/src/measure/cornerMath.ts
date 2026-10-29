@@ -114,7 +114,7 @@ export const CLOSE_ROOM_M = 0.25;
 
 /** True when a tap lands close enough to the first corner to close the room. */
 export function shouldCloseRoom(first: Vec3, tap: Vec3): boolean {
-  const d = distanceM(first, tap);
+  const d = floorPlaneDistanceM(first, tap);
   return Number.isFinite(d) && d <= CLOSE_ROOM_M;
 }
 
