@@ -139,7 +139,7 @@ missions:
     template: feature
     budget_usd: 3.0
     timeout_min: 150
-    base: night/20261029-ar-capture-walls
+    base: day/ar-capture
     goal: |
       STEP 0 (do this FIRST, part 1 left it undone; see its REVIEW.md): wire ArMeasure.tsx to captureReducer and
       delete the legacy traceCornerTap / heightFromCeilingTap path (no imports of captureSession exist yet, so the
