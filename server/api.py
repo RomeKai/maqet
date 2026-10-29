@@ -27,6 +27,7 @@ from server.intake.read_plan import ReadPlanError, read_plan
 from server.intake.replay import ReplayMiss, load_sample
 from server.intake.schemas import InputKind, IntakeProposal
 from server.intake.voice import VoiceError, transcribe_audio
+from server.render.snapshot import render_snapshot
 from server.scene.models import Scene
 from server.scene.ops import OpRecord
 from server.scene.validation import ValidationReport, validate_scene
@@ -115,6 +116,24 @@ def put_scene(scene: Scene) -> Scene:
 @app.post("/scene/validate", response_model=ValidationReportOut)
 def validate(scene: Scene) -> ValidationReportOut:
     return _report_out(validate_scene(scene))
+
+
+SnapshotLocale = Literal["en", "es-AR"]
+_SVG = "image/svg+xml"
+
+
+def _svg(scene: Scene, locale: str) -> Response:
+    return Response(content=render_snapshot(scene, locale=locale), media_type=_SVG)
+
+
+@app.get("/scene/snapshot.svg", response_class=Response, responses={200: {"content": {_SVG: {}}}})
+def get_snapshot(locale: SnapshotLocale = "en") -> Response:
+    return _svg(get_scene(), locale)
+
+
+@app.post("/scene/snapshot.svg", response_class=Response, responses={200: {"content": {_SVG: {}}}})
+def post_snapshot(scene: Scene, locale: SnapshotLocale = "en") -> Response:
+    return _svg(scene, locale)
 
 
 class IntakeOut(BaseModel):
