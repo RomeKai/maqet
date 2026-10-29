@@ -42,7 +42,7 @@ missions:
   # ---------------------------------------------------------------- Wed 28 night: 11 missions, disjoint scopes
   # 0. Mode A capture v2 (runs first: primary demo path). Phone test 28 Oct showed the v1 flow is unusable.
   - id: ar-capture-v2
-    status: draft
+    status: skip  # split 29 Oct into ar-capture-walls + ar-capture-openings (night build stalled)
     template: feature
     budget_usd: 2.0
     timeout_min: 150
@@ -100,6 +100,63 @@ missions:
       (wired into web/src/i18n by day); do not edit web/src/i18n/*. Append any assumption or shortcut to
       .mission/PROGRESS.md under "HARDENING candidates".
     context: [AGENTS.md, .claude/skills/meta-ingest/SKILL.md, .claude/skills/mobile-ui/SKILL.md, .claude/skills/scene-model/SKILL.md, web/src/measure/ArMeasure.tsx, web/src/measure/cornerMath.ts, web/src/measure/openingMath.ts, web/src/measure/ArOverlay.tsx, web/src/measure/xrAdapter.ts, web/src/view3d/sceneToMeshes.ts, web/src/scene/types.ts]
+    scope: ["web/src/measure/**", "web/src/view3d/**", "web/src/styles.css", "web/src/scene/store.ts", "web/src/scene/store.test.ts"]
+    verify: "cd web && npx vitest run src/measure src/view3d && npx tsc --noEmit"
+
+  # 0a/0b. Mode A capture v2 split in two (29 Oct): the full F1-F7 mission stalled in one build stage.
+  # Shared spec: the W1-W3 flow and F1-F7 findings in ar-capture-v2's goal above. Openings builds on the walls branch.
+  - id: ar-capture-walls
+    status: draft
+    template: feature
+    budget_usd: 2.0
+    timeout_min: 150
+    goal: |
+      Part 1 of 2 of Mode A AR capture v2 (web/src/measure): the WALLS flow only. Nobody can phone-test, so every
+      behavior lives in pure, unit-tested code; the React component only wires XR hits and taps to it.
+      Read the goal of mission ar-capture-v2 in mme/night/missions.yaml for the full spec; this mission implements
+      W1, W2, W3 (only the unlock state: Door/Window become enabled after closing or "Finish walls"), F1, F2, F3 (walls
+      drawn as floor line + translucent quad in every mode, rubber-band quad while the ceiling tap is pending), and
+      F6 (step pill, one-row selector, Undo / Start over / Done). Doors, windows, 3D lintels and the review sheet are
+      part 2 (ar-capture-openings): do NOT implement them, but leave the reducer ready for an openings array.
+      Architecture: new pure reducer web/src/measure/captureSession.ts: captureReducer(state, event) -> state with
+      events floorHit, baseTap, ceilingTap, finishWalls, modeChange, undo, startOver, done, and toSceneOps(state) that
+      produces the SceneOps for the walls (each wall: length, its own measured height, provenance measured_ar; an
+      implausible height is KEPT with a flag, never dropped). ArMeasure.tsx (994 lines) delegates its wall state to the
+      reducer; cornerMath.ts stays the only geometry implementation.
+      Work in small commits: first commit the RED tests, then the reducer, then the component wiring. Never end a turn
+      by announcing the next step: do it.
+      Tests (vitest, RED first): floor datum only from a horizontal hit; corners projected to floorY; chaining; closing
+      within 0.25 m of corner A; undo across base and ceiling taps; start over; flagged height survives to toSceneOps;
+      a scripted 4-wall session with different heights asserting the exact Scene ops.
+      Strings: en/es-AR copy in web/src/measure/measure.i18n.ts; do not edit web/src/i18n/*. Append assumptions to
+      .mission/PROGRESS.md under "HARDENING candidates".
+    context: [AGENTS.md, .claude/skills/mobile-ui/SKILL.md, .claude/skills/scene-model/SKILL.md, web/src/measure/ArMeasure.tsx, web/src/measure/cornerMath.ts, web/src/measure/ArOverlay.tsx, web/src/measure/xrAdapter.ts, web/src/scene/types.ts]
+    scope: ["web/src/measure/**", "web/src/styles.css"]
+    verify: "cd web && npx vitest run src/measure && npx tsc --noEmit"
+
+  - id: ar-capture-openings
+    status: draft
+    template: feature
+    budget_usd: 2.0
+    timeout_min: 150
+    base: night/20261029-ar-capture-walls
+    goal: |
+      Part 2 of 2 of Mode A AR capture v2, on top of part 1 (ar-capture-walls: web/src/measure/captureSession.ts
+      already holds the walls reducer). Read the goal of mission ar-capture-v2 in mme/night/missions.yaml for the full
+      spec; this mission implements F4 (openings from two diagonal corners projected on the highlighted wall's plane,
+      live rectangle preview, only geometric impossibilities reject, rule issues KEPT and flagged), F5 (lintel above
+      every opening and wall below window sills in web/src/view3d/sceneToMeshes.ts) and F7 (review sheet after Done:
+      every wall and opening as numeric inputs, flagged ones on top; edits dispatch setWallLength with provenance
+      measured_tape, setWallHeight, removeOpening + markOpening with the same id; reachable again from the measure
+      screen). Add openingTap events to captureReducer and openings to toSceneOps; openingMath.ts stays the only
+      opening geometry implementation. In Door/Window mode highlight the wall under the reticle.
+      Work in small commits: first commit the RED tests, then the code. Never end a turn by announcing the next step:
+      do it.
+      Tests (vitest, RED first): diagonal corners in either order; door bottom snaps to the floor; outside-the-wall
+      rejected keeping the first corner; door < 0.80 m kept and flagged; review-sheet edits emit the right ops;
+      sceneToMeshes lintel and sill segments; a full scripted session (4 walls, one door, one window, Done) asserting
+      the exact Scene ops. Strings in web/src/measure/measure.i18n.ts. Append assumptions to .mission/PROGRESS.md.
+    context: [AGENTS.md, .claude/skills/mobile-ui/SKILL.md, .claude/skills/scene-model/SKILL.md, web/src/measure/captureSession.ts, web/src/measure/ArMeasure.tsx, web/src/measure/openingMath.ts, web/src/measure/ArOverlay.tsx, web/src/view3d/sceneToMeshes.ts, web/src/scene/store.ts, web/src/scene/types.ts]
     scope: ["web/src/measure/**", "web/src/view3d/**", "web/src/styles.css", "web/src/scene/store.ts", "web/src/scene/store.test.ts"]
     verify: "cd web && npx vitest run src/measure src/view3d && npx tsc --noEmit"
 
