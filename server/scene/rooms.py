@@ -110,19 +110,92 @@ def _shapely_polygonize(walls: list) -> list[list[tuple[float, float]]]:
     return polys
 
 
+def _param_along(
+    p: tuple[float, float], a: tuple[float, float], b: tuple[float, float]
+) -> float:
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    denom = dx * dx + dy * dy
+    if denom == 0.0:
+        return 0.0
+    return ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / denom
+
+
+def _segments_cross(
+    p1: tuple[float, float],
+    p2: tuple[float, float],
+    p3: tuple[float, float],
+    p4: tuple[float, float],
+) -> list[tuple[float, float]]:
+    """Single touch point of two non-parallel segments, else []. Collinear
+    touches are left to point-on-segment tests in _node_segments."""
+    d1x, d1y = p2[0] - p1[0], p2[1] - p1[1]
+    d2x, d2y = p4[0] - p3[0], p4[1] - p3[1]
+    cross = d1x * d2y - d1y * d2x
+    if abs(cross) <= _EPS:
+        return []
+    ex, ey = p3[0] - p1[0], p3[1] - p1[1]
+    t = (ex * d2y - ey * d2x) / cross
+    u = (ex * d1y - ey * d1x) / cross
+    if -_EPS <= t <= 1.0 + _EPS and -_EPS <= u <= 1.0 + _EPS:
+        t = min(max(t, 0.0), 1.0)
+        return [(p1[0] + t * d1x, p1[1] + t * d1y)]
+    return []
+
+
+def _node_segments(walls: list) -> list[tuple[tuple[float, float], tuple[float, float]]]:
+    """Split wall segments at every crossing, T-touch and collinear overlap
+    so the face walk sees shared nodes — a splitting wall whose endpoints
+    land mid-edge must actually split the face."""
+    segs: list[tuple[tuple[float, float], tuple[float, float]]] = []
+    for w in walls:
+        a = (float(w.a[0]), float(w.a[1]))
+        b = (float(w.b[0]), float(w.b[1]))
+        if a != b:
+            segs.append((a, b))
+    splits: list[set[float]] = [{0.0, 1.0} for _ in segs]
+    for i in range(len(segs)):
+        a, b = segs[i]
+        for j in range(i + 1, len(segs)):
+            c, d = segs[j]
+            for pt in _segments_cross(a, b, c, d):
+                if _point_on_segment(pt[0], pt[1], a[0], a[1], b[0], b[1]):
+                    splits[i].add(_param_along(pt, a, b))
+                if _point_on_segment(pt[0], pt[1], c[0], c[1], d[0], d[1]):
+                    splits[j].add(_param_along(pt, c, d))
+            for pt in (c, d):  # T-touches and collinear overlap endpoints
+                if _point_on_segment(pt[0], pt[1], a[0], a[1], b[0], b[1]):
+                    splits[i].add(_param_along(pt, a, b))
+            for pt in (a, b):
+                if _point_on_segment(pt[0], pt[1], c[0], c[1], d[0], d[1]):
+                    splits[j].add(_param_along(pt, c, d))
+    out: list[tuple[tuple[float, float], tuple[float, float]]] = []
+    for (a, b), params in zip(segs, splits):
+        pts = [
+            (a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]))
+            for t in sorted(params)
+        ]
+        for p, q in zip(pts, pts[1:]):
+            kp = (round(p[0], 9), round(p[1], 9))
+            kq = (round(q[0], 9), round(q[1], 9))
+            if kp != kq:
+                out.append((p, q))
+    return out
+
+
 def _fallback_polygonize(walls: list) -> list[list[tuple[float, float]]]:
-    """Half-edge face walk on the wall segment graph. Best-effort: exact for
-    closed rectangular layouts, may miss faces on open graphs."""
+    """Half-edge face walk on the noded wall segment graph. Best-effort:
+    exact for closed rectangular layouts, empty on open graphs (every closed
+    walk there backtracks, and backtrack spike faces are dropped)."""
 
     def key(p: tuple[float, float]) -> tuple[float, float]:
         return (round(float(p[0]), 9), round(float(p[1]), 9))
 
     adj: dict[tuple[float, float], dict[tuple[float, float], float]] = {}
-    for w in walls:
-        a, b = key(tuple(w.a)), key(tuple(w.b))
-        if a == b:
+    for a, b in _node_segments(walls):
+        ka, kb = key(a), key(b)
+        if ka == kb:
             continue
-        for src, dst in ((a, b), (b, a)):
+        for src, dst in ((ka, kb), (kb, ka)):
             angle = math.atan2(dst[1] - src[1], dst[0] - src[0])
             adj.setdefault(src, {})[dst] = angle
 
@@ -161,18 +234,25 @@ def _fallback_polygonize(walls: list) -> list[list[tuple[float, float]]]:
                 continue
             cycle = [src]
             frm, to = src, dst
+            closed = False
             while True:
                 seen.add((frm, to))
                 cycle.append(to)
                 nxt = next_edge(frm, to)
                 frm, to = to, nxt
-                if (frm, to) in seen or frm == src:
-                    if frm == src:
-                        seen.add((frm, to))
+                if frm == src:
+                    closed = True
                     break
+                if (frm, to) in seen:
+                    break  # ran into an already-walked edge: not a new face
                 if len(cycle) > len(adj) * 2 + 4:
                     break
-            ring = _normalize_ring([(float(x), float(y)) for x, y in cycle])
+            if not closed:
+                continue
+            body = cycle[:-1]  # closed: last point repeats src
+            if len(set(body)) != len(body):
+                continue  # backtrack spike revisits a vertex: not a face
+            ring = _normalize_ring([(float(x), float(y)) for x, y in body])
             if len(ring) >= 3 and _ring_area(ring) > _EPS:
                 faces.append(ring)
     # Dedupe identical rings.
