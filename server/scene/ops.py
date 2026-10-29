@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pydantic import ValidationError
 
 from server.scene.models import Opening, Room, Scene, Wall
+from server.scene.rooms import check_furniture, recompute_rooms, repolygonize
 from server.scene.validation import (
     ValidationContext,
     validate_scene,
