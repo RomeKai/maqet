@@ -1,10 +1,17 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { DEFAULT_LOCALE, getStrings, type Locale, type StringKey } from "./i18n";
 import { IntakeScreen } from "./intake/IntakeScreen";
 import { ScaleBadge } from "./intake/ScaleBadge";
 import { SceneView } from "./view3d/SceneView";
 import { MaquetteSheet } from "./view3d/MaquetteSheet";
-import type { Scene } from "./scene/types";
+import { ChatSheet } from "./agent/ChatSheet";
+import { ProBanner } from "./agent/ProBanner";
+import { VariantTabs } from "./agent/VariantTabs";
+import { DeliverView } from "./deliver/DeliverView";
+import { sendTurn } from "./agent/agentApi";
+import type { AgentStage } from "./agent/agentApi";
+import type { ChatMessage } from "./agent/agentTypes";
+import type { OpRecordIn, Scene } from "./scene/types";
 
 const STAGES: StringKey[] = [
   "stage.capture",
@@ -16,40 +23,106 @@ const STAGES: StringKey[] = [
 
 const SKIPPABLE: ReadonlySet<StringKey> = new Set(["stage.reform", "stage.design"]);
 
+const STAGE_TO_AGENT: Partial<Record<StringKey, AgentStage>> = {
+  "stage.reform": "reform",
+  "stage.design": "design",
+  "stage.present": "present",
+};
+
 interface AppProps {
   initialLocale?: Locale;
-  // Test/demo seam: pre-load a measured Scene so the viewport renders its
-  // 3D view without going through the intake upload flow. In production the
-  // Scene arrives via IntakeScreen's onSceneChange callback.
   initialScene?: Scene | null;
 }
 
 export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: AppProps) {
   const [locale, setLocale] = useState<Locale>(initialLocale);
   const [stage, setStage] = useState<StringKey>("stage.capture");
-  // Driven by the measured Scene (ADR-001): scale_confirmed flips the
-  // topbar badge; hasPhoto hides the start receipt once a photo is set.
-  // The intake Scene is held here so the viewport can render its 3D view;
-  // a scene with no walls keeps the placeholder hint (mobile-ui: full-screen
-  // 3D with bottom sheet shape stays as-is, this only swaps viewport content).
   const [scaleConfirmed, setScaleConfirmed] = useState(initialScene?.scale_confirmed === true);
   const [hasPhoto, setHasPhoto] = useState(false);
   const [intakeScene, setIntakeScene] = useState<Scene | null>(initialScene);
   const [selectedWallId, setSelectedWallId] = useState<string | null>(null);
-  // While the AR session runs the app hides its chrome (topbar, 3D, sheet)
-  // so opaque backgrounds never cover the camera; only the AR HUD (the
-  // domOverlay.root) stays visible. Restored on session end.
   const [arSession, setArSession] = useState(false);
+
+  // Agent wiring
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [pending, setPending] = useState(false);
+  const [professionalFlags, setProfessionalFlags] = useState<string[]>([]);
+  const [history, setHistory] = useState<OpRecordIn[]>([]);
+  const [agentError, setAgentError] = useState<string | null>(null);
+
   const t = getStrings(locale);
 
   function handleIntakeScene(scene: Scene): void {
     setIntakeScene(scene);
     setScaleConfirmed(scene.scale_confirmed === true);
+    if (scene.professional_flags) setProfessionalFlags(scene.professional_flags);
   }
 
-  const otherLocale: Locale = locale === "es-AR" ? "en" : "es-AR";
+  const agentStage = STAGE_TO_AGENT[stage] ?? null;
 
+  const handleSend = useCallback(
+    async (text: string) => {
+      if (!intakeScene || !agentStage) return;
+      const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: "user", text };
+      setMessages((m) => [...m, userMsg]);
+      setPending(true);
+      setAgentError(null);
+      try {
+        const selected = selectedWallId ? { kind: "wall", id: selectedWallId } : null;
+        const res = await sendTurn({
+          scene: intakeScene,
+          message: text,
+          stage: agentStage,
+          history,
+          selected,
+        });
+        setIntakeScene(res.scene);
+        setHistory(res.history);
+        setProfessionalFlags(res.professional_flags);
+        // Map ops_applied -> ToolEvent (ok:true, no errors) for chips
+        const toolEvents = res.ops_applied.map((op) => ({
+          name: op.name,
+          arguments: (op.arguments as Record<string, unknown>) ?? {},
+          ok: true as const,
+          errors: [] as { code: string; message: string }[],
+          warnings: [] as string[],
+          flags: op.flags ?? [],
+        }));
+        setMessages((m) => [
+          ...m,
+          { id: `a-${Date.now()}`, role: "assistant", text: res.reply, toolEvents },
+        ]);
+      } catch (err) {
+        setAgentError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setPending(false);
+      }
+    },
+    [intakeScene, agentStage, history, selectedWallId],
+  );
+
+  const handleAudio = useCallback(
+    async (audio: Blob) => {
+      // Transcribe then send as text
+      try {
+        const form = new FormData();
+        form.append("audio", audio, "clip.webm");
+        const res = await fetch("/api/transcribe", { method: "POST", body: form });
+        if (!res.ok) throw new Error(`transcribe ${res.status}`);
+        const body = (await res.json()) as { text?: string };
+        if (body.text) await handleSend(body.text);
+      } catch (err) {
+        setAgentError(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [handleSend],
+  );
+
+  const otherLocale: Locale = locale === "es-AR" ? "en" : "es-AR";
   const wallsCount = intakeScene?.walls?.length ?? 0;
+  const isAgentStage = agentStage !== null;
+  const isReform = stage === "stage.reform";
+  const isDeliver = stage === "stage.deliver";
 
   return (
     <div className={arSession ? "app ar-session" : "app"}>
@@ -65,6 +138,8 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: App
           {t["action.ar"]}
         </button>
       </header>
+
+      <ProBanner flags={professionalFlags} locale={locale} />
 
       {stage === "stage.capture" ? (
         <main className="viewport viewport-capture" aria-label={t["app.name"]}>
@@ -83,22 +158,17 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: App
             />
           </div>
           {intakeScene !== null && wallsCount > 0 && (
-            <MaquetteSheet
-              scene={intakeScene}
-              locale={locale}
-              selectedWallId={selectedWallId}
-              onSelectWall={setSelectedWallId}
-            />
+            <MaquetteSheet scene={intakeScene} locale={locale} selectedWallId={selectedWallId} onSelectWall={setSelectedWallId} />
           )}
+        </main>
+      ) : isDeliver ? (
+        <main className="viewport viewport-deliver" aria-label={t["app.name"]}>
+          <DeliverView scene={intakeScene} takeoff={null} locale={locale} />
         </main>
       ) : (
         <main className="viewport" aria-label={t["app.name"]}>
           {intakeScene !== null && wallsCount > 0 ? (
-            <SceneView
-              scene={intakeScene}
-              selectedWallId={selectedWallId}
-              onSelectWall={setSelectedWallId}
-            />
+            <SceneView scene={intakeScene} selectedWallId={selectedWallId} onSelectWall={setSelectedWallId} />
           ) : (
             <div className="viewport-placeholder">
               <p className="viewport-hint">{t["sheet.hint"]}</p>
@@ -123,28 +193,29 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: App
             </button>
           ))}
         </div>
-        {stage === "stage.capture" && !hasPhoto && (
-          <p className="receipt">{t["sheet.receipt"]}</p>
+
+        {isReform && <VariantTabs onSceneChange={handleIntakeScene} locale={locale} />}
+
+        {isAgentStage ? (
+          <div className="agent-stage">
+            <ChatSheet messages={messages} locale={locale} onSend={handleSend} onAudio={handleAudio} pending={pending} />
+            {agentError ? <p className="agent-error">{agentError}</p> : null}
+          </div>
+        ) : (
+          <>
+            {stage === "stage.capture" && !hasPhoto && <p className="receipt">{t["sheet.receipt"]}</p>}
+            <div className="inputrow">
+              <input className="prompt" type="text" placeholder={t["sheet.placeholder"]} aria-label={t["sheet.placeholder"]} disabled />
+              <button type="button" className="mic" aria-label={t["sheet.mic"]}>
+                🎙
+              </button>
+            </div>
+          </>
         )}
-        <div className="inputrow">
-          <input
-            className="prompt"
-            type="text"
-            placeholder={t["sheet.placeholder"]}
-            aria-label={t["sheet.placeholder"]}
-            disabled
-          />
-          <button type="button" className="mic" aria-label={t["sheet.mic"]}>
-            🎙
-          </button>
-        </div>
+
         <div className="sheet-foot">
           <span className="preliminary">{t["notice.preliminary"]}</span>
-          <button
-            type="button"
-            className="locale-switch"
-            onClick={() => setLocale(otherLocale)}
-          >
+          <button type="button" className="locale-switch" onClick={() => setLocale(otherLocale)}>
             {t[otherLocale === "es-AR" ? "locale.es" : "locale.en"]}
           </button>
         </div>
