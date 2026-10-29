@@ -11,17 +11,24 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
-class SelectedRef(BaseModel):
+class _ToolInput(BaseModel):
+    """Model-sent JSON may carry NaN/Infinity literals: reject them here so
+    the executor answers tool.invalid_args instead of building geometry."""
+
+    model_config = ConfigDict(allow_inf_nan=False)
+
+
+class SelectedRef(_ToolInput):
     """Tap selection arriving as context ("this" / "esto" refers to it)."""
 
     kind: str = Field(min_length=1)
     id: str = Field(min_length=1)
 
 
-class AddRoomInput(BaseModel):
+class AddRoomInput(_ToolInput):
     function: str = "bedroom"
     name: str | None = None
     room_id: str | None = None
@@ -36,15 +43,21 @@ class AddRoomInput(BaseModel):
     selected: SelectedRef | None = None
 
 
-class AddWallInput(BaseModel):
+class AddWallInput(_ToolInput):
     wall_id: str | None = None
     a: tuple[float, float]
     b: tuple[float, float]
     thickness_m: float = Field(default=0.10, gt=0)
     kind: Literal["exterior", "interior"] = "interior"
 
+    @model_validator(mode="after")
+    def _non_zero_length(self) -> AddWallInput:
+        if tuple(self.a) == tuple(self.b):
+            raise ValueError("a and b must differ (zero-length wall)")
+        return self
 
-class RemoveWallInput(BaseModel):
+
+class RemoveWallInput(_ToolInput):
     model_config = ConfigDict(populate_by_name=True)
 
     wall_id: str | None = None
@@ -54,7 +67,7 @@ class RemoveWallInput(BaseModel):
     selected: SelectedRef | None = None
 
 
-class AddOpeningInput(BaseModel):
+class AddOpeningInput(_ToolInput):
     opening_id: str | None = None
     wall_id: str | None = None
     wall: str | None = None
@@ -67,7 +80,7 @@ class AddOpeningInput(BaseModel):
     selected: SelectedRef | None = None
 
 
-class MoveOpeningInput(BaseModel):
+class MoveOpeningInput(_ToolInput):
     opening_id: str | None = None
     opening: str | None = None
     new_offset_m: float | None = Field(default=None, ge=0.0)
@@ -75,15 +88,15 @@ class MoveOpeningInput(BaseModel):
     selected: SelectedRef | None = None
 
 
-class UndoInput(BaseModel):
+class UndoInput(_ToolInput):
     pass
 
 
-class ListCatalogInput(BaseModel):
+class ListCatalogInput(_ToolInput):
     query: str | None = None
 
 
-class PlaceFurnitureInput(BaseModel):
+class PlaceFurnitureInput(_ToolInput):
     catalog_id: str
     item_id: str | None = None
     room_id: str | None = None
@@ -92,32 +105,32 @@ class PlaceFurnitureInput(BaseModel):
     selected: SelectedRef | None = None
 
 
-class MoveItemInput(BaseModel):
+class MoveItemInput(_ToolInput):
     item_id: str | None = None
     item: str | None = None
     position: tuple[float, float] | None = None
     selected: SelectedRef | None = None
 
 
-class RotateItemInput(BaseModel):
+class RotateItemInput(_ToolInput):
     item_id: str | None = None
     item: str | None = None
     rotation_deg: float = 0.0
     selected: SelectedRef | None = None
 
 
-class RemoveItemInput(BaseModel):
+class RemoveItemInput(_ToolInput):
     item_id: str | None = None
     item: str | None = None
     selected: SelectedRef | None = None
 
 
-class CreateVariantInput(BaseModel):
+class CreateVariantInput(_ToolInput):
     label: str = "B"
     from_variant: str = "A"
 
 
-class RenderViewInput(BaseModel):
+class RenderViewInput(_ToolInput):
     variant: str = "A"
     camera: str = "iso"
 

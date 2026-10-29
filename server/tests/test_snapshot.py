@@ -225,11 +225,12 @@ def test_cw_polygon_area_matches_ccw() -> None:
 
 
 def test_all_degenerate_walls_render_empty_svg() -> None:
-    scene = Scene(
-        id="deg",
-        walls=[Wall(id="w", a=(1.0, 1.0), b=(1.0, 1.0),
-                    thickness_m=0.2, kind="interior")],
-    )
+    # Zero-length walls are rejected by Wall validation; model_construct
+    # bypasses it to keep the renderer's defensive path covered.
+    scene = Scene(id="deg").model_copy(update={"walls": [
+        Wall.model_construct(id="w", a=(1.0, 1.0), b=(1.0, 1.0),
+                             thickness_m=0.2, kind="interior"),
+    ]})
     root = ET.fromstring(render_snapshot(scene))
     assert root.get("viewBox") == "0 0 100 100"
     assert root.findall(".//polygon") == []
