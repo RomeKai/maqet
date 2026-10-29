@@ -395,3 +395,96 @@ describe("captureSession close threshold (W2)", () => {
     expect(CLOSE_ROOM_M).toBe(0.25);
   });
 });
+
+describe("captureSession hardening (stage 3/4)", () => {
+  it("ignores a base tap identical to the pending start: no zero-length wall", () => {
+    let state = withFloor();
+    state = captureReducer(state, { type: "baseTap", point: A }).state;
+    // Exact double-tap (finger bounce): same plan position as pendingStart.
+    const dup = captureReducer(state, { type: "baseTap", point: A });
+    expect(dup.error).toBeNull();
+    expect(dup.state.pendingEnd).toBeNull();
+    expect(dup.state.walls).toHaveLength(0);
+    state = dup.state;
+    // Session continues normally: wall 1 is A -> B, id wall-1.
+    state = captureReducer(state, { type: "baseTap", point: B }).state;
+    state = captureReducer(state, {
+      type: "ceilingTap",
+      point: [4, FLOOR_Y + 2.6, 0],
+    }).state;
+    expect(state.walls).toHaveLength(1);
+    expect(state.walls[0]?.id).toBe("wall-1");
+    expect(state.walls[0]?.start).toEqual({ x: 0, z: 0 });
+    expect(state.walls[0]?.end).toEqual({ x: 4, z: 0 });
+    // Chained duplicate: tapping the chained start again opens nothing.
+    const chained = captureReducer(state, { type: "baseTap", point: B });
+    expect(chained.error).toBeNull();
+    expect(chained.state.pendingEnd).toBeNull();
+    expect(chained.state.walls).toHaveLength(1);
+  });
+
+  it("a close tap can be redirected: tapping elsewhere clears closePending", () => {
+    let state = withFloor();
+    state = captureReducer(state, { type: "baseTap", point: A }).state;
+    state = tapWall(state, B, 2.6);
+    state = tapWall(state, C, 2.75);
+    state = tapWall(state, D, 2.5);
+    expect(state.walls).toHaveLength(3);
+    state = captureReducer(state, {
+      type: "baseTap",
+      point: [0.1, 1.1, 0.05],
+    }).state;
+    expect(state.pendingEnd).toEqual({ x: 0, z: 0 });
+    // Changed mind: tap a different corner instead.
+    const E: Vec3 = [1, FLOOR_Y, -1];
+    state = captureReducer(state, { type: "baseTap", point: E }).state;
+    expect(state.pendingEnd).toEqual({ x: 1, z: -1 });
+    state = captureReducer(state, {
+      type: "ceilingTap",
+      point: [1, FLOOR_Y + 2.6, -1],
+    }).state;
+    expect(state.closed).toBe(false);
+    expect(state.walls).toHaveLength(4);
+    expect(state.walls[3]?.end).toEqual({ x: 1, z: -1 });
+  });
+
+  it("ignores base and ceiling taps after done: Done means done", () => {
+    let state = withFloor();
+    state = captureReducer(state, { type: "baseTap", point: A }).state;
+    state = tapWall(state, B, 2.6);
+    state = captureReducer(state, { type: "done" }).state;
+    expect(state.done).toBe(true);
+    const afterBase = captureReducer(state, { type: "baseTap", point: C });
+    expect(afterBase.error).toBeNull();
+    expect(afterBase.state.walls).toHaveLength(1);
+    expect(afterBase.state.pendingEnd).toBeNull();
+    const afterCeiling = captureReducer(afterBase.state, {
+      type: "ceilingTap",
+      point: [4, FLOOR_Y + 2.6, -3],
+    });
+    expect(afterCeiling.error).toBeNull();
+    expect(afterCeiling.state.walls).toHaveLength(1);
+  });
+
+  it("stepKey reports finished once the session is done", () => {
+    let state = withFloor();
+    state = captureReducer(state, { type: "baseTap", point: A }).state;
+    expect(stepKey(state)).toBe("end");
+    state = captureReducer(state, { type: "done" }).state;
+    expect(stepKey(state)).toBe("finished");
+  });
+
+  it("mode selection is not undoable: undo reverts content, not the tool", () => {
+    let state = withFloor();
+    state = captureReducer(state, { type: "baseTap", point: A }).state;
+    state = tapWall(state, B, 2.6);
+    state = captureReducer(state, { type: "finishWalls" }).state;
+    state = captureReducer(state, { type: "modeChange", mode: "door" }).state;
+    state = captureReducer(state, { type: "modeChange", mode: "walls" }).state;
+    // One undo reverts the finish itself — the two mode flips cost no depth.
+    state = captureReducer(state, { type: "undo" }).state;
+    expect(state.finished).toBe(false);
+    expect(state.mode).toBe("walls");
+    expect(state.walls).toHaveLength(1);
+  });
+});

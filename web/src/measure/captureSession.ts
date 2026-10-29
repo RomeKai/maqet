@@ -166,8 +166,21 @@ export function captureReducer(
     case "baseTap": {
       if (!isValidCorner(event.point)) return rejected(state, "bad-tap");
       if (state.floorY === null) return rejected(state, "floor-first");
-      if (state.closed || state.finished) return { state, error: null };
+      if (state.closed || state.finished || state.done) {
+        return { state, error: null };
+      }
       const corner = projectToFloor(event.point);
+      // Finger-bounce guard: a tap exactly on the chained start opens
+      // nothing. Without it the next ceiling tap completes a zero-length
+      // wall that toSceneOps drops but that still consumes a wall id,
+      // shifting every later wall's id.
+      if (
+        state.pendingStart !== null &&
+        corner.x === state.pendingStart.x &&
+        corner.z === state.pendingStart.z
+      ) {
+        return { state, error: null };
+      }
       if (state.pendingStart === null) {
         return accepted(state, {
           pendingStart: corner,
@@ -196,7 +209,11 @@ export function captureReducer(
     case "ceilingTap": {
       if (!isValidCorner(event.point)) return rejected(state, "bad-tap");
       if (state.floorY === null) return rejected(state, "floor-first");
-      if (state.closed || state.finished) return { state, error: null };
+      // Done means done: taps after done change nothing (same treatment as
+      // closed/finished — the session's content is final).
+      if (state.closed || state.finished || state.done) {
+        return { state, error: null };
+      }
       if (state.pendingStart === null || state.pendingEnd === null) {
         return rejected(state, "no-pending");
       }
@@ -234,7 +251,11 @@ export function captureReducer(
       ) {
         return rejected(state, "mode-locked");
       }
-      return accepted(state, { mode: event.mode });
+      // Tool selection is not content: it costs no undo depth, or a
+      // door->walls->Undo walk reverts invisible state and the user thinks
+      // Undo is broken.
+      if (event.mode === state.mode) return { state, error: null };
+      return { state: { ...state, mode: event.mode }, error: null };
     }
 
     case "undo": {
@@ -262,7 +283,7 @@ export function captureReducer(
 export type StepKey = "floor" | "base" | "end" | "ceiling" | "finished";
 
 export function stepKey(state: CaptureState): StepKey {
-  if (state.closed || state.finished) return "finished";
+  if (state.done || state.closed || state.finished) return "finished";
   if (state.floorY === null) return "floor";
   if (state.pendingEnd !== null) return "ceiling";
   // Wall 1's first base leaves the other end pending; later walls chain, so
