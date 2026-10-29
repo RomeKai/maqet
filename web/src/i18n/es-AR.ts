@@ -18,6 +18,8 @@ export const esAR = {
   "badge.measured": "Medido · 1:1",
   "badge.notToScale": "Sin escala",
   "notice.preliminary": "Preliminar: no es una certificación estructural",
+  "banner.needs_professional": "Requiere un profesional matriculado",
+  "banner.needs_professional.detail": "Esta propuesta requiere que un profesional matriculado la revise antes de construir.",
   "sheet.receipt": "Subí una foto del plano para empezar.",
   "sheet.placeholder": "Pedí o describí el cambio…",
   "sheet.mic": "Mantené para hablar",

@@ -150,3 +150,93 @@
   color: var(--muted);
   font-size: 0.8125rem;
 }
+
+.pro-banner {
+  margin: 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fff3cd;
+  border: 1px solid #e6c87a;
+  color: #664d03;
+  font-size: 13px;
+}
+
+.pro-banner-title {
+  display: block;
+  font-weight: 700;
+}
+
+.pro-banner-detail {
+  margin: 4px 0 6px;
+}
+
+.pro-banner-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.agent-error {
+  margin: 6px 0 0;
+  color: #8a2a1a;
+  font-size: 13px;
+}
+
+.deliver-view {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  overflow: auto;
+}
+
+.deliver-snapshot-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.deliver-snapshot {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.deliver-snapshot-img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.deliver-dxf {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.variant-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 0;
+}
+
+.variant-tablist {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.variant-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.variant-error {
+  color: #8a2a1a;
+  font-size: 13px;
+  margin: 0;
+}

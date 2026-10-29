@@ -138,6 +138,8 @@ for (const name of names) {
 let specJson = JSON.stringify(schemas);
 for (const [output, base] of rename) {
   specJson = specJson.split(`#/components/schemas/${output}`).join(`#/components/schemas/${base}`);
+  const input = `${base}${INPUT_SUFFIX}`;
+  specJson = specJson.split(`#/components/schemas/${input}`).join(`#/components/schemas/${base}`);
 }
 const resolved = JSON.parse(specJson);
 const blocks = Object.entries(resolved)

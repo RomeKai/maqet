@@ -1,11 +1,12 @@
-import type { Scene } from "../scene/types";
-import type { SelectedRef, ToolErrorInfo, ToolEvent, TurnResponse } from "./agentTypes";
+import type { AgentTurnIn, AgentTurnOut, AppliedOpOut, OpRecordIn, Scene, SelectedRef } from "../scene/types";
 import { validateScene } from "./validateScene";
 
 /**
  * Reform-agent API client (web). Base URL comes from `VITE_API_URL`, defaulting to the same-origin
  * `/api` proxy, same as the intake client.
- * Route contract (not served yet): POST /projects/{id}/turn { text, selected? } -> TurnResponse.
+ * Route contract: POST /agent/turn { scene, message, stage, history?, selected? } -> AgentTurnOut
+ * Variants: GET /variants, POST /variants/fork, POST /variants/{label}/choose, POST /variants/undo
+ * Snapshot: GET/POST /scene/snapshot.svg
  */
 
 /** A turn that has not answered after this long is abandoned so the chat never stays pending. */
@@ -28,13 +29,12 @@ export interface SendTurnOptions {
   timeoutMs?: number;
 }
 
+/** Stage scoped to the current sheet (Capture has no agent tools). */
+export type AgentStage = AgentTurnIn["stage"];
+
 function apiBase(): string {
   const configured: unknown = import.meta.env.VITE_API_URL;
   return typeof configured === "string" && configured.length > 0 ? configured : "/api";
-}
-
-export function turnUrl(projectId: string): string {
-  return `${apiBase()}/projects/${encodeURIComponent(projectId)}/turn`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -45,35 +45,54 @@ function stringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
-function parseError(value: unknown): ToolErrorInfo | null {
-  if (!isRecord(value) || typeof value.code !== "string") return null;
-  return { code: value.code, message: typeof value.message === "string" ? value.message : value.code };
+export function turnUrl(): string {
+  return `${apiBase()}/agent/turn`;
 }
 
-function parseToolEvent(value: unknown): ToolEvent {
-  if (!isRecord(value) || typeof value.name !== "string" || typeof value.ok !== "boolean") {
-    throw new AgentApiError("Malformed tool event in agent response");
+export function variantsUrl(): string {
+  return `${apiBase()}/variants`;
+}
+
+export function variantForkUrl(): string {
+  return `${apiBase()}/variants/fork`;
+}
+
+export function variantChooseUrl(label: string): string {
+  return `${apiBase()}/variants/${encodeURIComponent(label)}/choose`;
+}
+
+export function variantUndoUrl(): string {
+  return `${apiBase()}/variants/undo`;
+}
+
+export function snapshotUrl(locale: string = "en"): string {
+  return `${apiBase()}/scene/snapshot.svg?locale=${encodeURIComponent(locale)}`;
+}
+
+function parseAppliedOp(value: unknown): AppliedOpOut {
+  if (!isRecord(value) || typeof value.name !== "string") {
+    throw new AgentApiError("Malformed applied op in agent response");
   }
-  const errors = Array.isArray(value.errors)
-    ? value.errors.map(parseError).filter((e): e is ToolErrorInfo => e !== null)
-    : [];
   return {
     name: value.name,
     arguments: isRecord(value.arguments) ? value.arguments : {},
-    ok: value.ok,
-    errors,
-    warnings: stringList(value.warnings),
-    flags: stringList(value.flags),
+    flags: Array.isArray(value.flags) ? stringList(value.flags) : [],
   };
 }
 
 /** Validates an untrusted turn payload at the boundary. */
-export function parseTurnResponse(payload: unknown): TurnResponse {
+export function parseTurnResponse(payload: unknown): AgentTurnOut {
   if (!isRecord(payload) || typeof payload.reply !== "string" || !isRecord(payload.scene)) {
     throw new AgentApiError("Malformed agent response");
   }
-  if (!Array.isArray(payload.tool_events)) {
-    throw new AgentApiError("Malformed agent response: tool_events");
+  if (!Array.isArray(payload.ops_applied)) {
+    throw new AgentApiError("Malformed agent response: ops_applied");
+  }
+  if (!Array.isArray(payload.professional_flags)) {
+    throw new AgentApiError("Malformed agent response: professional_flags");
+  }
+  if (!Array.isArray(payload.history)) {
+    throw new AgentApiError("Malformed agent response: history");
   }
   let scene: Scene;
   try {
@@ -84,22 +103,86 @@ export function parseTurnResponse(payload: unknown): TurnResponse {
   return {
     scene,
     reply: payload.reply,
-    tool_events: payload.tool_events.map(parseToolEvent),
+    ops_applied: payload.ops_applied.map(parseAppliedOp),
+    professional_flags: stringList(payload.professional_flags),
+    history: payload.history as OpRecordIn[],
   };
 }
 
+async function readErrorDetail(res: Response): Promise<string | null> {
+  try {
+    const text = await res.text();
+    if (!text) return null;
+    try {
+      const parsed: unknown = JSON.parse(text);
+      if (isRecord(parsed) && typeof parsed.detail === "string") return parsed.detail;
+    } catch {
+      /* not JSON */
+    }
+    return text.slice(0, 300);
+  } catch {
+    return null;
+  }
+}
+
+async function fetchJson(url: string, init: RequestInit, timeoutMs: number): Promise<unknown> {
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  const timeoutError = (): AgentApiError => new AgentApiError("Request timed out", null, true);
+
+  try {
+    let response: Response;
+    try {
+      response = await fetch(url, { ...init, signal: controller.signal });
+    } catch (err) {
+      if (timedOut) throw timeoutError();
+      throw new AgentApiError(err instanceof Error && err.message ? err.message : "Network error");
+    }
+    if (!response.ok) {
+      const detail = await readErrorDetail(response);
+      throw new AgentApiError(
+        detail ? `Request failed (${response.status}): ${detail}` : `Request failed (${response.status})`,
+        response.status,
+      );
+    }
+    try {
+      return await response.json();
+    } catch {
+      if (timedOut) throw timeoutError();
+      throw new AgentApiError("Response was not JSON", response.status);
+    }
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export interface SendTurnParams {
+  scene: Scene;
+  message: string;
+  stage: AgentStage;
+  history?: OpRecordIn[];
+  selected?: SelectedRef | null;
+}
+
 export async function sendTurn(
-  projectId: string,
-  text: string,
-  selected?: SelectedRef,
+  params: SendTurnParams,
   { timeoutMs = TURN_TIMEOUT_MS }: SendTurnOptions = {},
-): Promise<TurnResponse> {
-  const trimmed = text.trim();
-  if (trimmed.length === 0) throw new AgentApiError("Cannot send an empty message");
+): Promise<AgentTurnOut> {
+  const message = params.message.trim();
+  if (message.length === 0) throw new AgentApiError("Cannot send an empty message");
 
-  const body = selected ? { text: trimmed, selected } : { text: trimmed };
+  const body: AgentTurnIn = {
+    scene: params.scene,
+    message,
+    stage: params.stage,
+    history: params.history ?? [],
+    selected: params.selected ?? null,
+  };
 
-  // One deadline covers connecting, waiting for the server and reading the body.
   const controller = new AbortController();
   let timedOut = false;
   const timer = setTimeout(() => {
@@ -111,7 +194,7 @@ export async function sendTurn(
   try {
     let response: Response;
     try {
-      response = await fetch(turnUrl(projectId), {
+      response = await fetch(turnUrl(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -122,7 +205,13 @@ export async function sendTurn(
       throw new AgentApiError(err instanceof Error && err.message ? err.message : "Network error");
     }
 
-    if (!response.ok) throw new AgentApiError(`Agent request failed (${response.status})`, response.status);
+    if (!response.ok) {
+      const detail = await readErrorDetail(response);
+      throw new AgentApiError(
+        detail ? `Agent request failed (${response.status}): ${detail}` : `Agent request failed (${response.status})`,
+        response.status,
+      );
+    }
 
     let payload: unknown;
     try {
@@ -135,4 +224,41 @@ export async function sendTurn(
   } finally {
     clearTimeout(timer);
   }
+}
+
+// Variants helpers — thin wrappers that validate the shape minimally
+export async function fetchVariants(timeoutMs: number = TURN_TIMEOUT_MS): Promise<unknown> {
+  return fetchJson(variantsUrl(), { method: "GET" }, timeoutMs);
+}
+
+export async function forkVariant(
+  label: string,
+  fromBranch: string = "A",
+  timeoutMs: number = TURN_TIMEOUT_MS,
+): Promise<unknown> {
+  return fetchJson(
+    variantForkUrl(),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label, from_branch: fromBranch }),
+    },
+    timeoutMs,
+  );
+}
+
+export async function chooseVariant(label: string, timeoutMs: number = TURN_TIMEOUT_MS): Promise<unknown> {
+  return fetchJson(variantChooseUrl(label), { method: "POST" }, timeoutMs);
+}
+
+export async function undoVariant(label: string | null = null, timeoutMs: number = TURN_TIMEOUT_MS): Promise<unknown> {
+  return fetchJson(
+    variantUndoUrl(),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(label ? { label } : {}),
+    },
+    timeoutMs,
+  );
 }

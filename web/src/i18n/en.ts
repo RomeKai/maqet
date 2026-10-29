@@ -19,6 +19,8 @@ export const en: Record<keyof typeof esAR, string> = {
   "badge.measured": "Measured · 1:1",
   "badge.notToScale": "Not to scale",
   "notice.preliminary": "Preliminary: not a structural certification",
+  "banner.needs_professional": "Needs a licensed professional",
+  "banner.needs_professional.detail": "This proposal needs a licensed professional to review it before building.",
   "sheet.receipt": "Upload a plan photo to start.",
   "sheet.placeholder": "Ask or describe the change…",
   "sheet.mic": "Hold to talk",
