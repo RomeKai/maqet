@@ -58,7 +58,7 @@ def solve_vertices(
         residual = abs(math.dist(pos[u], pos[v]) - target)
         if residual > max(CONTRADICTION_ABS_M, CONTRADICTION_REL * target):
             warnings.append(
-                f"contradiction: wall {j} measures disagree "
+                f"contradiction: wall {j + 1} measures disagree "
                 f"(residual {residual:.2f} m), verify with human"
             )
     return [(p[0], p[1]) for p in pos]

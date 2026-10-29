@@ -430,8 +430,8 @@ def _door_window_proposal() -> IntakeProposal:
 def test_croquis_3x8_opening_widths_come_from_labels() -> None:
     """Mode C phone case: dims overlapping an opening span are opening widths.
 
-    Walls solve to 3.00/8.00/3.00/8.00 m, door 1.50 m (wall 3), window
-    1.00 m (wall 1). No contradiction warning: nothing genuinely conflicts.
+    Walls solve to 3.00/8.00/3.00/8.00 m, door 1.50 m (wall 4), window
+    1.00 m (wall 2). No contradiction warning: nothing genuinely conflicts.
     """
     from server.intake.cleanup import build_scaled_plan
 
@@ -487,7 +487,7 @@ def test_null_wall_index_with_no_parallel_wall_warns_unassigned() -> None:
 def test_conflicting_measures_prefer_opposite_parallel_value() -> None:
     """Genuine conflict resolved by the opposite parallel wall's measure.
 
-    Wall 0 says 3.50 vs 4.00; opposite wall 2 measures 4.00: keep 4.00 and
+    Wall 1 says 3.50 vs 4.00; opposite wall 3 measures 4.00: keep 4.00 and
     say why. The rectangle then solves to 4.00 x 3.00.
     """
     from server.intake.cleanup import build_scaled_plan
@@ -506,7 +506,7 @@ def test_conflicting_measures_prefer_opposite_parallel_value() -> None:
     assert scaled.walls[0].measured_m == pytest.approx(4.0)
     matches = [w for w in scaled.warnings if "contradiction" in w]
     assert len(matches) == 1
-    assert "4.00" in matches[0] and "opposite wall 2" in matches[0]
+    assert "4.00" in matches[0] and "opposite wall 3" in matches[0]
     lengths = sorted(math.dist(w.a, w.b) for w in scaled.walls)
     assert lengths == pytest.approx([3.0, 3.0, 4.0, 4.0], abs=0.05)
 

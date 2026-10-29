@@ -439,7 +439,7 @@ def build_scaled_plan(
                     ):
                         opening_labels[pos] = value
                         warnings.append(
-                            f"opening: wall {new_idx} "
+                            f"opening: wall {new_idx + 1} "
                             f"{proposal.openings[pos].kind} width {value:.2f} m "
                             "from written label, verify with human"
                         )
@@ -471,7 +471,7 @@ def build_scaled_plan(
                 and not _spans_opening(new_idx, lo, hi, dim_len, seg_len)
             ):
                 warnings.append(
-                    f"possible opening: wall {new_idx} {value:.2f} m "
+                    f"possible opening: wall {new_idx + 1} {value:.2f} m "
                     f"from '{text}', confirm with human"
                 )
                 continue
@@ -519,13 +519,13 @@ def build_scaled_plan(
         if picked is not None:
             targets_m[new_idx] = picked
             warnings.append(
-                f"contradiction: wall {new_idx} has conflicting measures "
+                f"contradiction: wall {new_idx + 1} has conflicting measures "
                 f"{lo:.2f} m vs {hi:.2f} m, keeping {picked:.2f} m "
-                f"(matches opposite wall {opp}), verify with human"
+                f"(matches opposite wall {opp + 1}), verify with human"
             )
         else:
             warnings.append(
-                f"contradiction: wall {new_idx} has conflicting measures "
+                f"contradiction: wall {new_idx + 1} has conflicting measures "
                 f"{lo:.2f} m vs {hi:.2f} m, leaving unmeasured, verify with human"
             )
 
@@ -550,13 +550,13 @@ def build_scaled_plan(
         a, b = shift(solved[u]), shift(solved[v])
         if math.dist(a, b) <= _MERGE_EPS:
             warnings.append(
-                f"wall_dropped: drawn wall {j} collapsed to a point, verify with human"
+                f"wall_dropped: drawn wall {j + 1} collapsed to a point, verify with human"
             )
             continue
         kept[j] = len(scaled)
         scaled.append(ScaledWall(a=a, b=b, kind=kind, measured_m=targets_m.get(j)))
     walls = tuple(scaled)
-    estimated = [str(j) for j, w in enumerate(walls) if w.measured_m is None]
+    estimated = [str(j + 1) for j, w in enumerate(walls) if w.measured_m is None]
     if estimated:
         warnings.append(
             f"estimated: walls {', '.join(estimated)} have no written length, "
@@ -567,7 +567,7 @@ def build_scaled_plan(
     for pos, op in enumerate(proposal.openings):
         if old_to_new[op.wall_index] not in kept:
             warnings.append(
-                f"opening_dropped: opening {pos} sat on a dropped wall, verify with human"
+                f"opening_dropped: opening {pos + 1} sat on a dropped wall, verify with human"
             )
             continue
         new_idx = kept[old_to_new[op.wall_index]]

@@ -53,12 +53,12 @@ def build_tapped_plan(
     for tap in taps:
         if not 0 <= tap.wall_index < len(walls):
             raise MeasureError(
-                f"tap refers to wall {tap.wall_index}, but the outline has "
+                f"tap refers to wall {tap.wall_index + 1}, but the outline has "
                 f"{len(walls)} walls: pick an existing wall"
             )
         if parse_dimension_meters(tap.length) is None:
             raise MeasureError(
-                f"unreadable length {tap.length!r} for wall {tap.wall_index}: "
+                f"unreadable length {tap.length!r} for wall {tap.wall_index + 1}: "
                 "retype it (e.g. '3,50')"
             )
         wall = walls[tap.wall_index]
