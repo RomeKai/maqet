@@ -129,12 +129,28 @@ def scene_summary(scene: Scene) -> str:
     )
 
 
-def _selected_line(selected: Any) -> str:
+def _selected_dict(selected: Any) -> dict[str, str] | None:
+    """Tap context as a plain {kind, id} dict, or None when absent/malformed.
+
+    Never raises: malformed `selected` (wrong type, missing keys) means
+    "no tap context", not a crashed turn.
+    """
     if isinstance(selected, BaseModel):
         sel = selected.model_dump()
-    else:
+    elif isinstance(selected, dict):
         sel = dict(selected)
-    return f"Tap-selected: {sel.get('kind')} {sel.get('id')} — \"this\"/\"esto\" refers to it."
+    else:
+        return None
+    if sel.get("kind") and sel.get("id"):
+        return {"kind": str(sel["kind"]), "id": str(sel["id"])}
+    return None
+
+
+def _selected_line(selected: Any) -> str | None:
+    sel = _selected_dict(selected)
+    if sel is None:
+        return None
+    return f"Tap-selected: {sel['kind']} {sel['id']} — \"this\"/\"esto\" refers to it."
 
 
 def _backfill_selected(tool: Any, args: Any, selected: Any) -> dict[str, Any]:
@@ -143,15 +159,15 @@ def _backfill_selected(tool: Any, args: Any, selected: Any) -> dict[str, Any]:
     Only for tools whose input model declares a `selected` field, and only
     when the model didn't send one explicitly.
     """
-    if selected is None or not isinstance(args, dict) or "selected" in args:
+    if not isinstance(args, dict) or "selected" in args:
         return dict(args) if isinstance(args, dict) else {}
+    sel = _selected_dict(selected)
+    if sel is None:
+        return dict(args)
     model_cls = tool_contracts.TOOL_MODELS.get(tool) if isinstance(tool, str) else None
     if model_cls is None or "selected" not in model_cls.model_fields:
         return dict(args)
-    sel = selected.model_dump() if isinstance(selected, BaseModel) else dict(selected)
-    if sel.get("kind") and sel.get("id"):
-        return {**args, "selected": {"kind": str(sel["kind"]), "id": str(sel["id"])}}
-    return dict(args)
+    return {**args, "selected": sel}
 
 
 _ES_WORDS = frozenset(
@@ -213,10 +229,16 @@ def run_turn(
     selected: Any = None,
 ) -> TurnResult:
     """Run one Reform turn: tool rounds until a final text reply (max 6)."""
-    tool_defs = _function_tools(stage)
+    try:
+        tool_defs = _function_tools(stage)
+    except KeyError:
+        raise ValueError(
+            f"unknown stage {stage!r}; expected one of {sorted(stage_table.STAGES)}"
+        ) from None
     parts = [_INSTRUCTIONS, "", "## Current scene (measured, meters)", scene_summary(scene)]
-    if selected is not None:
-        parts.append(_selected_line(selected))
+    selected_line = _selected_line(selected)
+    if selected_line is not None:
+        parts.append(selected_line)
     instructions = "\n".join(parts)
     base_kwargs: dict[str, Any] = {
         "instructions": instructions,

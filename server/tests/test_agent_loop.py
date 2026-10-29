@@ -14,6 +14,7 @@ import pytest
 
 from server.agent.loop import TurnResult, run_turn
 from server.agent.stages import STAGES
+from server.agent.tools import SelectedRef
 from server.scene.models import Room, Scene, Wall
 
 
@@ -26,17 +27,18 @@ class ScriptedClient:
 
     @staticmethod
     def _raw(step: dict[str, Any], i: int) -> dict[str, Any]:
+        # A step may carry "reply", "calls", or both (interim text + calls
+        # in one response — the loop must keep looping on the calls and
+        # only return the final text-only reply).
+        output: list[dict[str, Any]] = []
         if "reply" in step:
-            return {
-                "id": f"resp_scripted_{i}",
-                "output": [
-                    {
-                        "type": "message",
-                        "content": [{"type": "output_text", "text": step["reply"]}],
-                    }
-                ],
-            }
-        calls = [
+            output.append(
+                {
+                    "type": "message",
+                    "content": [{"type": "output_text", "text": step["reply"]}],
+                }
+            )
+        output.extend(
             {
                 "type": "function_call",
                 "call_id": f"call_scripted_{i}_{j}",
@@ -44,8 +46,8 @@ class ScriptedClient:
                 "arguments": json.dumps(c.get("arguments", {})),
             }
             for j, c in enumerate(step.get("calls", []))
-        ]
-        return {"id": f"resp_scripted_{i}", "output": calls}
+        )
+        return {"id": f"resp_scripted_{i}", "output": output}
 
     def respond(self, input: Any, **kwargs: Any) -> dict[str, Any]:
         self.calls.append({"input": input, "kwargs": kwargs})
@@ -303,3 +305,234 @@ def test_turn_result_json_serializable() -> None:
     assert data["scene"]["id"] == "s"
     assert data["history"][0]["op"] == "add_room"
     assert data["tool_events"][0]["name"] == "add_room"
+
+
+# --- harden-stage edge cases (PLAN.md risks + boundary probes) ---
+
+
+def test_interim_text_with_calls_keeps_looping() -> None:
+    """A response carrying text AND calls is a tool round, not a final reply."""
+    client = ScriptedClient(
+        [
+            {"reply": "On it. ",  # interim text alongside the call
+             "calls": [{"name": "add_room", "arguments": _bedroom_args("Dorm", 5.0)}]},
+            {"reply": "Done, bedroom added. This is preliminary."},
+        ]
+    )
+    result = run_turn(
+        scene=_base_scene(), history=[], stage="reform",
+        user_text="Add a bedroom", client=client,
+    )
+    assert len(result.scene.rooms) == 2
+    assert [e["name"] for e in result.tool_events] == ["add_room"]
+    # The interim text must NOT leak into the final reply.
+    assert result.reply == "Done, bedroom added. This is preliminary."
+
+
+def test_unknown_tool_name_goes_through_executor() -> None:
+    """Unknown tool names are executor refusals, never loop crashes.
+
+    Case 07 pins the same principle for out-of-stage tools: every model
+    call goes through execute() and the refusal is fed back as tool output.
+    """
+    client = ScriptedClient(
+        [
+            {"calls": [{"name": "demolish_everything", "arguments": {}}]},
+            {"reply": "I can't do that. This is preliminary."},
+        ]
+    )
+    result = run_turn(
+        scene=_base_scene(), history=[], stage="reform",
+        user_text="Demolish everything", client=client,
+    )
+    event = result.tool_events[0]
+    assert event["ok"] is False
+    assert event["errors"] == ["tool.unknown_tool"]
+    assert len(result.scene.rooms) == 1  # nothing touched
+    follow_up = client.calls[1]["input"]
+    assert "tool.unknown_tool" in follow_up[0]["output"]
+
+
+def test_invalid_args_refusal_surfaced() -> None:
+    """Pydantic-invalid args fail in the executor; scene unchanged, loop continues."""
+    client = ScriptedClient(
+        [
+            {"calls": [{"name": "add_opening", "arguments": {
+                "wall_id": "w1", "kind": "portal"}}]},  # not door/window
+            {"reply": "That opening kind isn't supported. This is preliminary."},
+        ]
+    )
+    scene = _base_scene()
+    result = run_turn(
+        scene=scene, history=[], stage="reform",
+        user_text="Add a portal on the south wall", client=client,
+    )
+    assert len(result.scene.openings) == 0
+    assert result.tool_events[0]["ok"] is False
+    assert result.tool_events[0]["errors"] == ["tool.invalid_args"]
+    assert result.reply == "That opening kind isn't supported. This is preliminary."
+
+
+def test_parallel_calls_execute_in_order() -> None:
+    """Multiple calls in one round execute in order with shared state."""
+    client = ScriptedClient(
+        [
+            {"calls": [
+                {"name": "add_room", "arguments": _bedroom_args("Dorm", 5.0)},
+                {"name": "undo", "arguments": {}},
+            ]},
+            {"reply": "Added then undid it. This is preliminary."},
+        ]
+    )
+    scene = _base_scene()
+    history: list = []
+    result = run_turn(
+        scene=scene, history=history, stage="reform",
+        user_text="Add a bedroom then undo it", client=client,
+    )
+    assert [e["name"] for e in result.tool_events] == ["add_room", "undo"]
+    assert all(e["ok"] for e in result.tool_events)
+    assert len(result.scene.rooms) == 1  # back to the kitchen only
+    assert history == []  # add consumed by its own undo
+    follow_up = client.calls[1]["input"]
+    assert [o["call_id"] for o in follow_up] == ["call_scripted_0_0", "call_scripted_0_1"]
+
+
+def test_undo_empty_history_refused() -> None:
+    """`undo` with no history is a refusal, not a crash; turn completes."""
+    client = ScriptedClient(
+        [
+            {"calls": [{"name": "undo", "arguments": {}}]},
+            {"reply": "Nothing to undo yet. This is preliminary."},
+        ]
+    )
+    result = run_turn(
+        scene=_base_scene(), history=[], stage="reform",
+        user_text="Undo that", client=client,
+    )
+    assert result.tool_events[0]["ok"] is False
+    assert result.tool_events[0]["errors"] == ["history.empty"]
+    assert result.reply == "Nothing to undo yet. This is preliminary."
+
+
+def test_six_round_stop_applies_changes_before_stopping() -> None:
+    """The 6-round stop keeps the 6 executed changes; the 7th never runs."""
+    script = [
+        {"calls": [{"name": "add_room",
+                    "arguments": _bedroom_args(f"Cuarto {i}", 10.0 * i)}]}
+        for i in range(7)
+    ]
+    client = ScriptedClient(script)
+    result = run_turn(
+        scene=_base_scene(), history=[], stage="reform",
+        user_text="Add seven more rooms please", client=client,
+    )
+    assert len(result.tool_events) == 6
+    assert len(client.calls) == 7  # no 8th call fetching a 7th round
+    assert len(result.scene.rooms) == 1 + 6
+
+
+def test_unknown_stage_raises_value_error() -> None:
+    """A bad stage fails fast with a clear error, not a bare KeyError."""
+    client = ScriptedClient([{"reply": "unused"}])
+    with pytest.raises(ValueError, match="unknown stage"):
+        run_turn(
+            scene=_base_scene(), history=[], stage="demolish",
+            user_text="hi", client=client,
+        )
+    assert client.calls == []  # no model call before the stage check
+
+
+def test_malformed_selected_is_no_tap_context() -> None:
+    """Garbage `selected` degrades to no-tap-context; the turn still works."""
+    client = ScriptedClient(
+        [
+            {"calls": [{"name": "add_opening", "arguments": {
+                "wall_id": "w1", "kind": "window"}}]},
+            {"reply": "Done, window placed. This is preliminary."},
+        ]
+    )
+    result = run_turn(
+        scene=_base_scene(), history=[], stage="reform",
+        user_text="Add a window", client=client,
+        selected={"kind": "", "id": ""},  # malformed: empty keys
+    )
+    assert "Tap-selected" not in client.calls[0]["kwargs"]["instructions"]
+    assert "selected" not in result.tool_events[0]["arguments"]
+    assert result.tool_events[0]["ok"] is True
+    assert len(result.scene.openings) == 1
+
+
+@pytest.mark.parametrize("selected", [None, "w_n2", {"kind": "wall"}])
+def test_non_dict_selected_never_backfilled(selected: Any) -> None:
+    """Non-dict / key-less `selected` never reaches tool args, never crashes."""
+    client = ScriptedClient(
+        [
+            {"calls": [{"name": "add_opening", "arguments": {
+                "wall_id": "w1", "kind": "window"}}]},
+            {"reply": "Done. This is preliminary."},
+        ]
+    )
+    result = run_turn(
+        scene=_base_scene(), history=[], stage="reform",
+        user_text="Add a window here", client=client, selected=selected,
+    )
+    assert "selected" not in result.tool_events[0]["arguments"]
+    assert result.tool_events[0]["ok"] is True
+
+
+def test_model_selected_is_respected_not_overwritten() -> None:
+    """Backfill only fills a missing `selected`; an explicit one wins."""
+    scene = _base_scene()
+    scene.walls[0] = scene.walls[0].model_copy(update={"id": "w_n2"})
+    client = ScriptedClient(
+        [
+            {"calls": [{"name": "add_opening", "arguments": {
+                "kind": "window",
+                "selected": {"kind": "wall", "id": "w_n2"}}}]},
+            {"reply": "Done. This is preliminary."},
+        ]
+    )
+    result = run_turn(
+        scene=scene, history=[], stage="reform", user_text="Add a window here",
+        client=client, selected=SelectedRef(kind="wall", id="w1"),  # tap ignored
+    )
+    assert result.tool_events[0]["arguments"]["selected"] == {
+        "kind": "wall", "id": "w_n2"}
+    assert result.scene.openings[0].wall_id == "w_n2"
+
+
+def test_selected_not_backfilled_for_tools_without_it() -> None:
+    """`add_wall` has no `selected` field: tap context stays out of its args."""
+    client = ScriptedClient(
+        [
+            {"calls": [{"name": "add_wall", "arguments": {
+                "a": [0.0, 0.0], "b": [2.0, 0.0]}}]},
+            {"reply": "Done. This is preliminary."},
+        ]
+    )
+    result = run_turn(
+        scene=_base_scene(), history=[], stage="reform",
+        user_text="Add a wall here", client=client,
+        selected={"kind": "wall", "id": "w_n2"},
+    )
+    assert "selected" not in result.tool_events[0]["arguments"]
+    assert result.tool_events[0]["ok"] is True
+
+
+def test_result_history_is_a_snapshot_not_a_view() -> None:
+    """Mutating the caller's history after the turn must not rewrite the result."""
+    client = ScriptedClient(
+        [
+            {"calls": [{"name": "add_room", "arguments": _bedroom_args("Dorm", 5.0)}]},
+            {"reply": "Done. This is preliminary."},
+        ]
+    )
+    history: list = []
+    result = run_turn(
+        scene=_base_scene(), history=history, stage="reform",
+        user_text="Add a bedroom", client=client,
+    )
+    assert len(result.history) == 1
+    history.clear()
+    assert len(result.history) == 1  # snapshot survived the caller's clear
