@@ -480,3 +480,67 @@ def test_plano_70m_loader_convertible_or_skipped() -> None:
     assert scene.walls and scene.rooms
     polys = repolygonize(scene.walls)
     assert isinstance(polys, list)
+
+
+# --- Regression: polygonize paths (hardening) ----------------------------------
+
+
+def _split_walls() -> list[Wall]:
+    # 6x4 outline with collinear wall breaks at x=3, split by an interior wall at x=2.
+    return [
+        Wall(id="w_s1", a=(0.0, 0.0), b=(3.0, 0.0), thickness_m=0.20, kind="exterior"),
+        Wall(id="w_s2", a=(3.0, 0.0), b=(6.0, 0.0), thickness_m=0.20, kind="exterior"),
+        Wall(id="w_e", a=(6.0, 0.0), b=(6.0, 4.0), thickness_m=0.20, kind="exterior"),
+        Wall(id="w_n2", a=(6.0, 4.0), b=(3.0, 4.0), thickness_m=0.20, kind="exterior"),
+        Wall(id="w_n1", a=(3.0, 4.0), b=(0.0, 4.0), thickness_m=0.20, kind="exterior"),
+        Wall(id="w_w", a=(0.0, 4.0), b=(0.0, 0.0), thickness_m=0.20, kind="exterior"),
+        Wall(id="w_mid", a=(2.0, 0.0), b=(2.0, 4.0), thickness_m=0.10, kind="interior"),
+    ]
+
+
+def _areas(polys: list[list[tuple[float, float]]]) -> list[float]:
+    from server.scene.rooms import _ring_area
+
+    return sorted(round(abs(_ring_area(p)), 6) for p in polys)
+
+
+def test_shapely_polygonize_runs_on_installed_shapely() -> None:
+    # shapely 2.x returns a GeometrySequence (no .geoms); it used to raise and
+    # be silently swallowed into the fallback.
+    from server.scene.rooms import _shapely_polygonize
+
+    assert _areas(_shapely_polygonize(_split_walls())) == [8.0, 16.0]
+
+
+def test_fallback_polygonize_drops_outer_face() -> None:
+    from server.scene.rooms import _fallback_polygonize
+
+    assert _areas(_fallback_polygonize(_split_walls())) == [8.0, 16.0]
+
+
+def test_free_standing_room_survives_later_ops() -> None:
+    # A wall-less add_room footprint overlapping a walled room used to be kept
+    # by the op that added it, then silently deleted by the next unrelated op.
+    scene = Scene(
+        id="free",
+        scale_confirmed=True,
+        walls=_square_walls(size=4.0),
+        rooms=[
+            Room(
+                id="r1",
+                name="Kitchen",
+                polygon=[(0.0, 0.0), (4.0, 0.0), (4.0, 4.0), (0.0, 4.0)],
+                function="kitchen",
+            )
+        ],
+    )
+    history: list = []
+    for i, x0 in enumerate((0.0, 10.0, 20.0)):
+        args = {
+            "function": "bedroom",
+            "name": f"Bed {i}",
+            "polygon": [[x0, 0.0], [x0 + 3.0, 0.0], [x0 + 3.0, 3.0], [x0, 3.0]],
+        }
+        scene, result = execute(scene, history, "reform", "add_room", args)
+        assert result.ok, result.errors
+    assert sorted(r.name for r in scene.rooms) == ["Bed 0", "Bed 1", "Bed 2", "Kitchen"]

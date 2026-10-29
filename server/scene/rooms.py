@@ -92,6 +92,26 @@ def _rings_equal(a: list[tuple[float, float]], b: list[tuple[float, float]]) -> 
     return _normalize_ring(a) == _normalize_ring(b)
 
 
+def _drop_collinear(poly: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    """Remove vertices lying on the segment between their neighbours (wall
+    nodes polygonize adds), so shapes compare by geometry, not by vertex list."""
+    pts = _normalize_ring(poly)
+    changed = True
+    while changed and len(pts) > 3:
+        changed = False
+        for i in range(len(pts)):
+            prev, cur, nxt = pts[i - 1], pts[i], pts[(i + 1) % len(pts)]
+            if _point_on_segment(cur[0], cur[1], prev[0], prev[1], nxt[0], nxt[1]):
+                pts = pts[:i] + pts[i + 1 :]
+                changed = True
+                break
+    return _normalize_ring(pts)
+
+
+def _same_shape(a: list[tuple[float, float]], b: list[tuple[float, float]]) -> bool:
+    return _drop_collinear(a) == _drop_collinear(b)
+
+
 # --- polygonize -----------------------------------------------------------------
 
 
@@ -101,8 +121,11 @@ def _shapely_polygonize(walls: list) -> list[list[tuple[float, float]]]:
 
     lines = [LineString([tuple(w.a), tuple(w.b)]) for w in walls]
     merged = unary_union(lines)
+    result = polygonize(merged)
+    # shapely 2.x yields a GeometrySequence; older builds a collection with .geoms.
+    geoms = getattr(result, "geoms", result)
     polys: list[list[tuple[float, float]]] = []
-    for geom in polygonize(merged).geoms:
+    for geom in geoms:
         ring = [(float(x), float(y)) for x, y in geom.exterior.coords]
         norm = _normalize_ring(ring)
         if len(norm) >= 3 and abs(_ring_area(norm)) > _EPS:
@@ -252,8 +275,13 @@ def _fallback_polygonize(walls: list) -> list[list[tuple[float, float]]]:
             body = cycle[:-1]  # closed: last point repeats src
             if len(set(body)) != len(body):
                 continue  # backtrack spike revisits a vertex: not a face
-            ring = _normalize_ring([(float(x), float(y)) for x, y in body])
-            if len(ring) >= 3 and _ring_area(ring) > _EPS:
+            raw = [(float(x), float(y)) for x, y in body]
+            # Bounded faces walk CCW (positive area); the unbounded outer face
+            # walks CW. Check the sign before _normalize_ring forces CCW.
+            if _ring_area(raw) <= _EPS:
+                continue
+            ring = _normalize_ring(raw)
+            if len(ring) >= 3:
                 faces.append(ring)
     # Dedupe identical rings.
     unique: list[list[tuple[float, float]]] = []
@@ -272,7 +300,7 @@ def repolygonize(walls: list) -> list[list[tuple[float, float]]]:
     then centroid). Shapely when importable, pure-python fallback otherwise."""
     try:
         polys = _shapely_polygonize(walls)
-    except Exception:
+    except ImportError:
         polys = _fallback_polygonize(walls)
     return _sort_polys(polys)
 
@@ -286,6 +314,7 @@ def recompute_rooms(
     derived_polys: list[list[tuple[float, float]]],
     surfaces: list[Surface],
     furniture: list[Furniture],
+    old_derived_polys: list[list[tuple[float, float]]] | None = None,
 ) -> tuple[list[Room], list[Surface], list[Furniture], tuple[str, ...]]:
     """Match new polygons against rooms; survivors keep id/name + assignments.
 
@@ -294,6 +323,12 @@ def recompute_rooms(
     and its old centroid falls inside a new polygon. Dead rooms drop their
     furniture/surfaces to ``unassigned`` with one warning per item, never
     reassigned silently. Unmatched derived polygons mint fresh ``rN`` rooms.
+
+    Only wall-backed rooms (old polygon matches a polygon of the old walls)
+    follow re-polygonization. A free-standing footprint (add_room without
+    walls) keeps its own polygon unless walls now enclose exactly that shape;
+    it is never killed because a walled room claimed the face under it.
+    ``old_derived_polys=None`` treats every old room as wall-backed.
     """
     candidates: list[list[tuple[float, float]]] = []
     for poly in derived_polys:
@@ -322,8 +357,28 @@ def recompute_rooms(
     new_rooms: list[Room] = []
     dead_ids: list[str] = []
 
+    def wall_backed(r: Room) -> bool:
+        if old_derived_polys is None:
+            return True
+        poly = [(float(x), float(y)) for x, y in r.polygon]
+        return any(_same_shape(poly, d) for d in old_derived_polys)
+
     for room in explicit_rooms:
         old = old_by_id.get(room.id)
+        if old is not None and not wall_backed(old):
+            own = [(float(x), float(y)) for x, y in room.polygon]
+            exact = next(
+                (
+                    i
+                    for i, cand in enumerate(candidates)
+                    if i not in claimed and _same_shape(own, cand)
+                ),
+                None,
+            )
+            if exact is not None:
+                claimed.add(exact)
+            new_rooms.append(room)
+            continue
         anchor = list(old.polygon) if old is not None else list(room.polygon)
         cx, cy = _centroid([(float(x), float(y)) for x, y in anchor])
         hit: int | None = None

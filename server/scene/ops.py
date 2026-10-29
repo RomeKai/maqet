@@ -73,6 +73,7 @@ def _apply(
         derived_polys=derived,
         surfaces=list(candidate.surfaces),
         furniture=list(candidate.furniture),
+        old_derived_polys=repolygonize(scene.walls),
     )
     candidate = candidate.model_copy(
         update={
