@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { MeasureReview } from "./MeasureReview";
 import type { Scene } from "../scene/types";
 import {
   applySceneOp,
@@ -339,6 +340,8 @@ export function ArMeasure({
   );
   const [hudError, setHudError] = useState<string | null>(null);
   const [showStartOverConfirm, setShowStartOverConfirm] = useState(false);
+  const [showReview, setShowReview] = useState(false);
+  const [reviewCapture, setReviewCapture] = useState<CaptureState | null>(null);
 
   // Adapter/session plumbing (same UX as before: Start AR button gesture).
   const [support, setSupport] = useState<"checking" | "ar-ready" | "starting" | "session" | "failed" | "unsupported">(
@@ -367,6 +370,14 @@ export function ArMeasure({
 
   const handleTapAtomic = useCallback((point: Vec3, horizontal: boolean) => {
     const st = capture;
+    // Openings mode: route to openingTap
+    if (st.mode === "door" || st.mode === "window") {
+      const r = captureReducer(st, { type: "openingTap", point });
+      dispatch({ type: "openingTap", point });
+      if (r.error) setHudError(tMeasure(ml, `pill.${r.error}`));
+      else setHudError(null);
+      return;
+    }
     if (st.floorY === null) {
       const r1 = captureReducer(st, { type: "floorHit", point, horizontal });
       dispatch({ type: "floorHit", point, horizontal });
@@ -466,8 +477,9 @@ export function ArMeasure({
       next = applySceneOp(next, op);
       onChange(next, op);
     }
+    setReviewCapture(doneState);
+    setShowReview(true);
     onDone(next);
-    // Also end the XR session
     (adapter ?? prodAdapterRef.current)?.end();
     onSessionChangeRef.current?.(false);
   }
@@ -580,6 +592,12 @@ export function ArMeasure({
           </button>
           <button type="button" className="chip" onClick={() => setShowStartOverConfirm(false)}>{tMeasure(ml, "confirm.startOver.cancel")}</button>
         </div>
+      )}
+      {showReview && reviewCapture && (
+        <MeasureReview capture={reviewCapture} locale={ml} onApply={(ops) => { let s = sceneRef.current; for (const op of ops) { s = applySceneOp(s, op); onChange(s, op); } setShowReview(false); }} />
+      )}
+      {reviewCapture && !showReview && (
+        <button type="button" className="chip" onClick={() => setShowReview(true)}>{tMeasure(ml, "review.title")}</button>
       )}
     </>
   );

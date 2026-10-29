@@ -24,6 +24,9 @@ const EN: Record<string, string> = {
   "confirm.startOver.body": "This clears all mapped walls.",
   "confirm.startOver.confirm": "Start over",
   "confirm.startOver.cancel": "Cancel",
+  "review.title": "Review measurements",
+  "review.flagged": "Check this",
+  "review.apply": "Apply",
   "mode.done.title": "Ready to apply",
   "mode.done.body": "Tap Done to add the walls to the plan.",
 };
@@ -50,6 +53,9 @@ const ES_AR: Record<string, string> = {
   "confirm.startOver.body": "Esto borra todas las paredes mapeadas.",
   "confirm.startOver.confirm": "Empezar de cero",
   "confirm.startOver.cancel": "Cancelar",
+  "review.title": "Revisar medidas",
+  "review.flagged": "Revisar este valor",
+  "review.apply": "Aplicar",
   "mode.done.title": "Listo para aplicar",
   "mode.done.body": "Tocá Listo para agregar las paredes al plano.",
 };
