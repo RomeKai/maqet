@@ -1,6 +1,11 @@
 import { useMemo, useRef, useState } from "react";
 import type { Scene, Wall } from "../scene/types";
-import { applySceneOp, isWallEstimated, type SceneOp } from "../scene/store";
+import {
+  applySceneOp,
+  isWallEstimated,
+  wallDisplayLengthM,
+  type SceneOp,
+} from "../scene/store";
 import { getStrings, type Locale } from "../i18n";
 import type { IntakeProposal } from "./api";
 
@@ -140,6 +145,61 @@ export interface DragPreview {
   point: Point;
 }
 
+export interface SharedHandle {
+  members: { wallId: string; end: "a" | "b" }[];
+  point: [number, number];
+}
+
+/** Display-space distance below which endpoints merge into one handle. */
+export const HANDLE_CLUSTER_PX = 12;
+
+/** Meters equiv of 12 px when no photo calibration maps px to meters. */
+export const HANDLE_CLUSTER_M = 0.05;
+
+/**
+ * One handle per shared corner: cluster endpoints in display space (~12 px).
+ * Pure so the clustering rule is unit-testable; the test counts handles.
+ */
+export function clusterHandles(
+  walls: Wall[],
+  toDisplay: (x: number, y: number) => Point,
+  preview: DragPreview | null,
+  tolPx: number = HANDLE_CLUSTER_PX,
+): SharedHandle[] {
+  const handles: SharedHandle[] = [];
+  for (const wall of walls) {
+    for (const end of ["a", "b"] as const) {
+      const raw = previewEndpoint(wall, end, preview);
+      const p = toDisplay(raw[0], raw[1]);
+      const existing = handles.find((h) => {
+        const dp = toDisplay(h.point[0], h.point[1]);
+        return Math.hypot(dp.x - p.x, dp.y - p.y) <= tolPx;
+      });
+      if (existing === undefined) {
+        handles.push({ members: [{ wallId: wall.id, end }], point: [raw[0], raw[1]] });
+      } else {
+        existing.members.push({ wallId: wall.id, end });
+      }
+    }
+  }
+  return handles;
+}
+
+/** Walls sharing the dragged handle move together (one op per wall). */
+export function handleMembersFor(
+  handles: SharedHandle[],
+  wallId: string,
+  end: "a" | "b",
+): SharedHandle | undefined {
+  return handles.find((h) => h.members.some((m) => m.wallId === wallId && m.end === end));
+}
+
+/** "W1" style 1-based wall number for the selected-element label. */
+export function wallNumber(walls: Wall[], wallId: string): number {
+  const idx = walls.findIndex((w) => w.id === wallId);
+  return idx >= 0 ? idx + 1 : 0;
+}
+
 /**
  * Effective endpoint for rendering: the live finger position while a corner
  * drag is in flight, else the stored Scene endpoint. Pure so the render
@@ -174,13 +234,19 @@ export function CornerEditor({
   onChange,
   onUndo,
   canUndo,
-}: CornerEditorProps) {
+  initialSelectedWallId = null,
+  initialPreview = null,
+}: CornerEditorProps & {
+  initialSelectedWallId?: string | null;
+  initialPreview?: DragPreview | null;
+}) {
   const t = getStrings(locale);
   const [tool, setTool] = useState<CornerTool>("select");
-  const [selectedWall, setSelectedWall] = useState<string | null>(null);
+  const [selectedWall, setSelectedWall] = useState<string | null>(initialSelectedWallId);
+  const [selectedOpening, setSelectedOpening] = useState<string | null>(null);
   const [pendingStart, setPendingStart] = useState<Point | null>(null);
   /** Live finger position mid-drag: local render only, never emitted. */
-  const [preview, setPreview] = useState<DragPreview | null>(null);
+  const [preview, setPreview] = useState<DragPreview | null>(initialPreview);
   const svgRef = useRef<SVGSVGElement>(null);
 
   const walls = useMemo(() => scene.walls ?? [], [scene.walls]);
@@ -210,6 +276,38 @@ export function CornerEditor({
     return sceneToPhoto(calibration, x, y);
   }
 
+  /** Shared corner handles, recomputed from display positions each render. */
+  const handles = useMemo(
+    () => clusterHandles(
+      walls,
+      toDisplay,
+      preview,
+      calibration !== null ? HANDLE_CLUSTER_PX : HANDLE_CLUSTER_M,
+    ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [walls, calibration, preview],
+  );
+
+  /** Walls touched by the in-flight drag: highlighted while preview active. */
+  const draggingWallIds = useMemo(() => {
+    if (preview === null) return new Set<string>();
+    const h = handleMembersFor(handles, preview.wallId, preview.end);
+    return new Set((h?.members ?? [{ wallId: preview.wallId }]).map((m) => m.wallId));
+  }, [handles, preview]);
+
+  /** Locale length: JetBrains Mono in CSS, comma decimals for es-AR. */
+  function formatLengthM(meters: number): string {
+    const fixed = meters.toFixed(2);
+    return locale === "es-AR" ? `${fixed.replace(".", ",")} m` : `${fixed} m`;
+  }
+
+  const selectedWallObj = selectedWall !== null
+    ? walls.find((w) => w.id === selectedWall) ?? null
+    : null;
+  const selectedOpeningObj = selectedOpening !== null
+    ? openings.find((o) => o.id === selectedOpening) ?? null
+    : null;
+
   function emit(op: SceneOp): void {
     onChange(applySceneOp(scene, op), op);
   }
@@ -234,7 +332,15 @@ export function CornerEditor({
 
   function handleEndpointDragEnd(wallIdValue: string, end: "a" | "b", clientX: number, clientY: number): void {
     const p = toSceneCoords(clientX, clientY);
-    emit({ type: "moveWallEndpoint", wallId: wallIdValue, end, point: [p.x, p.y] });
+    // Shared corner: every wall meeting at this handle moves together.
+    const members = handleMembersFor(handles, wallIdValue, end)?.members
+      ?? [{ wallId: wallIdValue, end }];
+    let next = scene;
+    for (const m of members) {
+      const op: SceneOp = { type: "moveWallEndpoint", wallId: m.wallId, end: m.end, point: [p.x, p.y] };
+      next = applySceneOp(next, op);
+      onChange(next, op);
+    }
   }
 
   function handleMarkOpening(kind: "door" | "window"): void {
@@ -365,11 +471,14 @@ export function CornerEditor({
           {walls.map((w) => {
             const a = toDisplay(...previewEndpoint(w, "a", preview));
             const b = toDisplay(...previewEndpoint(w, "b", preview));
-            const cls = selectedWall === w.id
-              ? "wall wall-selected"
-              : isWallEstimated(w)
-                ? "wall wall-estimated"
-                : "wall";
+            const dragging = preview !== null && draggingWallIds.has(w.id);
+            const cls = [
+              "wall",
+              w.kind === "interior" ? "wall-interior" : "wall-exterior",
+              selectedWall === w.id ? "wall-selected" : "",
+              isWallEstimated(w) ? "wall-estimated" : "",
+              dragging ? "wall-dragging" : "",
+            ].filter(Boolean).join(" ");
             return (
               <g key={w.id}>
                 <line
@@ -381,8 +490,18 @@ export function CornerEditor({
                   onClick={(e) => {
                     e.stopPropagation();
                     setSelectedWall(w.id);
+                    setSelectedOpening(null);
                   }}
                 />
+                {selectedWall === w.id && (
+                  <text
+                    x={(a.x + b.x) / 2}
+                    y={(a.y + b.y) / 2}
+                    className="wall-label"
+                  >
+                    {`W${wallNumber(walls, w.id)} · ${formatLengthM(wallDisplayLengthM(w))}`}
+                  </text>
+                )}
               </g>
             );
           })}
@@ -398,57 +517,91 @@ export function CornerEditor({
               wall.a[0] + ux * (o.offset_m + o.width_m),
               wall.a[1] + uy * (o.offset_m + o.width_m),
             );
+            const cls = [
+              o.kind === "door" ? "opening-door" : "opening-window",
+              selectedOpening === o.id ? "opening-selected" : "",
+            ].filter(Boolean).join(" ");
             return (
-              <line
-                key={o.id}
-                x1={s0.x}
-                y1={s0.y}
-                x2={s1.x}
-                y2={s1.y}
-                className={o.kind === "door" ? "opening-door" : "opening-window"}
-              />
+              <g key={o.id}>
+                <line
+                  x1={s0.x}
+                  y1={s0.y}
+                  x2={s1.x}
+                  y2={s1.y}
+                  className={cls}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedOpening(o.id);
+                    setSelectedWall(wall.id);
+                  }}
+                />
+                {selectedOpening === o.id && (
+                  <text
+                    x={(s0.x + s1.x) / 2}
+                    y={(s0.y + s1.y) / 2}
+                    className="wall-label"
+                  >
+                    {`${o.kind === "door" ? t["intake.selected.door"] : t["intake.selected.window"]} · ${formatLengthM(o.width_m)}`}
+                  </text>
+                )}
+              </g>
             );
           })}
         </svg>
-        {/* 44 px HTML hit targets: SVG units scale with zoom, screen px don't */}
-        {walls.map((w) =>
-          (["a", "b"] as const).map((end) => {
-            const raw = previewEndpoint(w, end, preview);
-            const p = toDisplay(raw[0], raw[1]);
-            return (
-              <button
-                key={`${w.id}-${end}`}
-                type="button"
-                className="handle-btn"
-                aria-label={t["intake.editor"]}
-                style={{
-                  left: `${(p.x / canvasW) * 100}%`,
-                  top: `${(p.y / canvasH) * 100}%`,
-                }}
-                onPointerDown={(e) => {
-                  e.stopPropagation();
-                  (e.target as HTMLButtonElement).setPointerCapture(e.pointerId);
-                }}
-                onPointerMove={(e) => {
-                  if (!e.buttons) return;
-                  e.stopPropagation();
-                  setPreview({
-                    wallId: w.id,
-                    end,
-                    point: toSceneCoords(e.clientX, e.clientY),
-                  });
-                }}
-                onPointerUp={(e) => {
-                  e.stopPropagation();
-                  setPreview(null);
-                  handleEndpointDragEnd(w.id, end, e.clientX, e.clientY);
-                }}
-                onPointerCancel={() => setPreview(null)}
-              />
-            );
-          }),
-        )}
+        {handles.map((h, i) => {
+          const dp = toDisplay(h.point[0], h.point[1]);
+          const active = preview !== null
+            && h.members.some((m) => m.wallId === preview.wallId && m.end === preview.end);
+          const first = h.members[0]!;
+          return (
+            <button
+              key={`handle-${i}`}
+              type="button"
+              className={active ? "handle-btn handle-active" : "handle-btn"}
+              aria-label={t["intake.editor"]}
+              style={{
+                left: `${(dp.x / canvasW) * 100}%`,
+                top: `${(dp.y / canvasH) * 100}%`,
+              }}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                (e.target as HTMLButtonElement).setPointerCapture(e.pointerId);
+              }}
+              onPointerMove={(e) => {
+                if (!e.buttons) return;
+                e.stopPropagation();
+                setPreview({
+                  wallId: first.wallId,
+                  end: first.end,
+                  point: toSceneCoords(e.clientX, e.clientY),
+                });
+              }}
+              onPointerUp={(e) => {
+                e.stopPropagation();
+                setPreview(null);
+                handleEndpointDragEnd(first.wallId, first.end, e.clientX, e.clientY);
+              }}
+              onPointerCancel={() => setPreview(null)}
+            />
+          );
+        })}
       </div>
+
+      {selectedWallObj !== null && (
+        <p className="intake-selected-label" role="status">
+          {t["intake.selected.wall"]
+            .replace("{n}", String(wallNumber(walls, selectedWallObj.id)))
+            .replace("{length}", formatLengthM(wallDisplayLengthM(selectedWallObj)))}
+        </p>
+      )}
+      {selectedOpeningObj !== null && (
+        <p className="intake-selected-label" role="status">
+          {(selectedOpeningObj.kind === "door"
+            ? t["intake.selected.door"]
+            : t["intake.selected.window"]
+          ).replace("{width}", formatLengthM(selectedOpeningObj.width_m))}
+        </p>
+      )}
 
       {selectedWall !== null && (
         <div className="intake-selected">

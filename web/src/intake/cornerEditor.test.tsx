@@ -218,6 +218,59 @@ describe("CornerEditor proposal overlay (BUG1)", () => {
   });
 });
 
+describe("shared corner handles", () => {
+  const square: Scene = {
+    id: "intake",
+    version: 1,
+    units: "m",
+    scale_confirmed: false,
+    ceiling_height_m: 2.6,
+    walls: [
+      { id: "w0", a: [0, 0], b: [4, 0], thickness_m: 0.2, kind: "exterior" },
+      { id: "w1", a: [4, 0], b: [4, 3], thickness_m: 0.2, kind: "exterior" },
+      { id: "w2", a: [4, 3], b: [0, 3], thickness_m: 0.2, kind: "exterior" },
+      { id: "w3", a: [0, 3], b: [0, 0], thickness_m: 0.2, kind: "exterior" },
+    ],
+    openings: [],
+    rooms: [],
+  };
+
+  function renderEditor(extra: Record<string, unknown> = {}): string {
+    return renderToString(
+      <CornerEditor
+        locale="en"
+        scene={square}
+        imageUrl={null}
+        imageWidth={800}
+        imageHeight={600}
+        onChange={noopScene}
+        onUndo={noopUndo}
+        canUndo={false}
+        {...extra}
+      />,
+    );
+  }
+
+  it("renders one handle per shared corner (4, not 8)", () => {
+    const html = renderEditor();
+    const count = (html.match(/handle-btn/g) ?? []).length;
+    expect(count).toBe(4);
+  });
+
+  it("shows the selected wall length label", () => {
+    const html = renderEditor({ initialSelectedWallId: "w0" });
+    expect(html).toContain("W1");
+    expect(html).toContain("4.00");
+  });
+
+  it("highlights dragging walls and the active handle", () => {
+    const html = renderEditor({
+      initialPreview: { wallId: "w0", end: "a", point: { x: 0, y: 0 } },
+    });
+    expect(html).toContain("wall-dragging");
+    expect(html).toContain("handle-active");
+  });
+});
 describe("previewEndpoint (live drag preview)", () => {
   const wall = scene.walls![0]!;
 
