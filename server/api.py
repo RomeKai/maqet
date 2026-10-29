@@ -12,6 +12,7 @@ from __future__ import annotations
 import io
 import logging
 from dataclasses import asdict
+from pathlib import Path
 from typing import Any, Literal, cast
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
@@ -21,6 +22,7 @@ from pydantic import BaseModel, Field
 
 from server.agent.loop import ReformClient, run_turn
 from server.agent.tools import SelectedRef
+from server.db import load_project, save_project
 from server.export.dxf import ScaleNotConfirmedError, export_dxf
 from server.intake.cleanup import ScaleError, build_scaled_plan, to_scene
 from server.intake.read_plan import ReadPlanError, read_plan
@@ -31,6 +33,13 @@ from server.render.snapshot import render_snapshot
 from server.scene.models import Scene
 from server.scene.ops import OpRecord
 from server.scene.validation import ValidationReport, validate_scene
+from server.scene.variants import (
+    Project,
+    choose,
+    create_variant,
+    materialize,
+    undo_in_branch,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +80,9 @@ _MAX_IMAGE_BYTES = 15 * 1024 * 1024
 # Day-1 in-memory store: a single current Scene. Deliver (Day 5) replaces
 # this with real persistence behind server.db.
 _current: Scene | None = None
+
+# Variant projects (ADR-013) persist through server.db; None = its default file.
+_DB_PATH: Path | None = None
 
 
 class HealthOut(BaseModel):
@@ -363,6 +375,97 @@ def post_agent_turn(
         professional_flags=flags,
         history=[OpRecordIn(**asdict(record)) for record in history],
     )
+
+
+class VariantOut(BaseModel):
+    label: str
+    parent: str | None
+    fork_at_version: int
+    op_count: int
+    scene: Scene
+
+
+class VariantsOut(BaseModel):
+    chosen: str
+    variants: list[VariantOut]
+
+
+class ForkIn(BaseModel):
+    label: str
+    from_branch: str = "A"
+
+
+class UndoIn(BaseModel):
+    label: str | None = None  # defaults to the chosen branch
+
+
+def _load_or_seed_project() -> Project:
+    """Persisted project, or a fresh one whose branch 'A' is the current Scene."""
+    try:
+        return load_project(db_path=_DB_PATH)
+    except KeyError:
+        return Project(base=get_scene())
+
+
+def _variant_out(project: Project, label: str) -> VariantOut:
+    branch = project.branches[label]
+    return VariantOut(
+        label=label,
+        parent=branch.parent,
+        fork_at_version=branch.fork_at_version,
+        op_count=len(branch.ops),
+        scene=materialize(project, label),
+    )
+
+
+def _variants_out(project: Project) -> VariantsOut:
+    return VariantsOut(
+        chosen=project.chosen,
+        variants=[_variant_out(project, label) for label in sorted(project.branches)],
+    )
+
+
+def _require_branch(project: Project, label: str) -> None:
+    if label not in project.branches:
+        raise HTTPException(status_code=404, detail=f"unknown variant {label!r}")
+
+
+@app.get("/variants", response_model=VariantsOut)
+def get_variants() -> VariantsOut:
+    return _variants_out(_load_or_seed_project())
+
+
+@app.post("/variants/fork", response_model=VariantsOut)
+def post_variant_fork(body: ForkIn) -> VariantsOut:
+    project = _load_or_seed_project()
+    _require_branch(project, body.from_branch)
+    if body.label in project.branches:
+        raise HTTPException(status_code=409, detail=f"variant {body.label!r} already exists")
+    try:
+        create_variant(project, body.from_branch, body.label)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    save_project(project, db_path=_DB_PATH)
+    return _variants_out(project)
+
+
+@app.post("/variants/{label}/choose", response_model=VariantsOut)
+def post_variant_choose(label: str) -> VariantsOut:
+    project = _load_or_seed_project()
+    _require_branch(project, label)
+    choose(project, label)
+    save_project(project, db_path=_DB_PATH)
+    return _variants_out(project)
+
+
+@app.post("/variants/undo", response_model=VariantOut)
+def post_variant_undo(body: UndoIn) -> VariantOut:
+    project = _load_or_seed_project()
+    label = body.label or project.chosen
+    _require_branch(project, label)
+    undo_in_branch(project, label)
+    save_project(project, db_path=_DB_PATH)
+    return _variant_out(project, label)
 
 
 @app.post("/export/dxf")
