@@ -73,6 +73,13 @@ Known gaps (open): Door/Window taps don't snap to traced walls yet; multi-room t
 | T8 | L | Windows: gates/missions now run through Git Bash; scripts expect LF | done |
 | T9 | M | `mme night prep` gives the agent 600 s and 10 turns; on Spark contributor the briefing timed out (2026-10-26 night), so no mission ran. Fixed on the way: npm `claude.cmd` shim not found by Popen, cp1252 I/O, briefing JSON misparsed as "no questions" | open: raise the prep timeout or brief on the standard tier; rehearse `prep` in the afternoon, not at bedtime |
 | T10 | L | `mme today`/`mme gate` crash with `UnicodeEncodeError` when stdout is piped on Windows (cp1252 + emoji) | open: reconfigure stdout to utf-8 in the CLI; workaround `PYTHONIOENCODING=utf-8` |
+| T11 | H | Night runner discarded each stage's agent output and only repaired stages whose agent exited "ok": a crashed agent (provider 400) failed the mission with no trace (2026-10-28) | done: `.mission/logs/<stage>.log`, crashed stages get the one repair, `outcome` in state |
+| T12 | H | Night agents inherited the launcher's Claude Code session (`CLAUDE_CODE_*`, OAuth) when the run was started from inside Claude Code: every stage got 401 from the gateway | done: stripped in `agent_env`; smoke-tested |
+| T13 | M | Night agents changed existing exported names/behaviour without updating the committed tests (ar-capture-v2, dxf-full-export) | done: "existing contracts" rule in the stage prompt |
+| T15 | H | Plan (12 turns) and review (8) stages ran out of turns reading context and never wrote PLAN.md/REVIEW.md; repair got half the turns (2026-10-28) | done: 30/25 turns, "write the file early", full-turn repair |
+| T16 | H | Night stages delegated to background subagents and ended "waiting on the result" (orphaned), or ended announcing "re-running..." with tests red; one repair was not enough (reform-ops, dxf-full-export, 2026-10-28) | done: `--disallowedTools Agent,Task`, up to 2 repairs, "never end announcing a next step" rule |
+| T17 | M | A mission rerun recreates its branch from base and discards the previous attempt's work | open: rename the old branch (`-tryN`) automatically before recreating |
+| T14 | L | Night run log written through a buffered pipe: progress lines appear only at the end | open: set `PYTHONUNBUFFERED=1` in `mme night run` itself |
 
 ## Web review debt (branch day/web-missions, deferred 2026-10-28)
 | # | Pri | Assumption or patch | Why it matters | Hardening |
