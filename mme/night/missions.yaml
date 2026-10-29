@@ -106,7 +106,7 @@ missions:
   # 0a/0b. Mode A capture v2 split in two (29 Oct): the full F1-F7 mission stalled in one build stage.
   # Shared spec: the W1-W3 flow and F1-F7 findings in ar-capture-v2's goal above. Openings builds on the walls branch.
   - id: ar-capture-walls
-    status: draft
+    status: skip  # ran 29 Oct: reducer only; wiring moved to ar-capture-openings step 0
     template: feature
     budget_usd: 2.0
     timeout_min: 150
@@ -137,10 +137,15 @@ missions:
   - id: ar-capture-openings
     status: draft
     template: feature
-    budget_usd: 2.0
+    budget_usd: 3.0
     timeout_min: 150
     base: night/20261029-ar-capture-walls
     goal: |
+      STEP 0 (do this FIRST, part 1 left it undone; see its REVIEW.md): wire ArMeasure.tsx to captureReducer and
+      delete the legacy traceCornerTap / heightFromCeilingTap path (no imports of captureSession exist yet, so the
+      reducer is dead code); add the `horizontal` flag to the xrAdapter hit payload as the floorHit producer; draw the
+      F3 overlay quads in ArOverlay.tsx; create web/src/measure/measure.i18n.ts (en + es-AR) for the F6 strings; make
+      the room-close check floor-plane only (one metric for CLOSE_ROOM_M); ignore finishWalls after done.
       Part 2 of 2 of Mode A AR capture v2, on top of part 1 (ar-capture-walls: web/src/measure/captureSession.ts
       already holds the walls reducer). Read the goal of mission ar-capture-v2 in mme/night/missions.yaml for the full
       spec; this mission implements F4 (openings from two diagonal corners projected on the highlighted wall's plane,
