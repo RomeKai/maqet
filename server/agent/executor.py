@@ -24,6 +24,7 @@ from server.agent import tools as tool_contracts
 from server.scene import ops
 from server.scene.models import Opening, Room, Scene, Wall
 from server.scene.validation import rooms_overlap_m2
+from server.scene import geom
 from server.scene.rules import (
     DOOR_WIDTH_M,
     PRO_FLAG_SECOND_FLOOR,
@@ -310,7 +311,7 @@ def _handle_add_opening(
     if existing:
         def _overlaps(off: float) -> bool:
             return any(
-                not (off + width <= o.offset_m + 1e-9 or off >= o.offset_m + o.width_m - 1e-9)
+                not (geom.approx_le(off + width, o.offset_m) or geom.approx_ge(off, o.offset_m + o.width_m))
                 for o in existing
             )
         if _overlaps(offset):
@@ -325,7 +326,7 @@ def _handle_add_opening(
                 best_len = 0.0
                 for g0, g1 in gaps:
                     glen = g1 - g0
-                    if glen >= width - 1e-9 and glen > best_len:
+                    if geom.approx_ge(glen, width) and glen > best_len:
                         best = (g0, g1)
                         best_len = glen
                 if best is not None:
@@ -334,7 +335,7 @@ def _handle_add_opening(
                 # Explicit offset overlaps: nudge to nearest gap that fits.
                 candidates: list[tuple[float, float]] = []
                 for g0, g1 in gaps:
-                    if g1 - g0 >= width - 1e-9:
+                    if geom.approx_ge(g1 - g0, width):
                         clamped = max(g0, min(offset, g1 - width))
                         dist = abs(clamped - offset)
                         candidates.append((dist, clamped))

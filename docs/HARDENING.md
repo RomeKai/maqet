@@ -40,7 +40,7 @@ real family's result), **M** (robustness/UX), **L** (polish). Status: open / don
 | R1 | H | All values in `server/scene/rules.py` are unverified rules of thumb | A family may trust a "passes" result | Review with an architect or master builder; per-jurisdiction rule sets (CABA Ley 6100, provinces) |
 | R2 | H | Window-to-floor ratio 1/10 conflicts with a GCBA secondary source (lighting 20%, ventilation 1/3 of it) | Wrong ventilation verdicts | Resolve with the current code text; make the ratio jurisdiction-specific |
 | R3 | H | Material recipes for the staged takeoff are rules of thumb (to be built, ADR-024) | Over- or under-buying wastes savings | Validate recipes with a builder or supplier tables; show ranges, not single numbers |
-| R4 | M | Geometric comparisons use `tol + 1e-9` | Float noise at tolerance boundaries | Central `geom.approx_le` helper used everywhere; property tests |
+| R4 | H | Geometric comparisons used ad-hoc `+/- 1e-9` in each check | Float noise at tolerance boundaries hides or creates false positives | **DONE 2026-10-29**: `server/scene/geom.py` central helpers (`approx_le/lt/ge/gt/eq` with EPS=1e-9); `validation.py` + `agent/executor.py` use them; `server/tests/test_geom.py` pins boundaries |
 
 ## Product: privacy and cost
 | # | Pri | Assumption or patch | Why it matters | Hardening |

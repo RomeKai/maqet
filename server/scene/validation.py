@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from shapely.geometry import Polygon
 
 from server.scene.models import HABITABLE_FUNCTIONS, Room, Scene
+from server.scene import geom
 from server.scene.rules import (
     CODE_CEILING_HEIGHT,
     CODE_CORRIDOR_SIDE,
@@ -215,7 +216,7 @@ def validate_scene(scene: Scene, ctx: ValidationContext | None = None) -> Valida
             if wall.kind == "exterior"
             else INTERIOR_WALL_THICKNESS_M
         )
-        if wall.thickness_m < min_thickness - 1e-9:
+        if geom.approx_lt(wall.thickness_m, min_thickness):
             errors.append(
                 Finding(
                     f"wall {wall.id} thickness {wall.thickness_m:.2f} m below "
@@ -239,7 +240,7 @@ def validate_scene(scene: Scene, ctx: ValidationContext | None = None) -> Valida
             )
             continue
         # Geometric rejections (AR / capture may bypass pydantic via model_construct).
-        if opening.offset_m < -1e-9:
+        if geom.approx_lt(opening.offset_m, 0.0):
             errors.append(
                 Finding(
                     f"opening {opening.id} offset {opening.offset_m:.2f} m is negative",
@@ -247,7 +248,7 @@ def validate_scene(scene: Scene, ctx: ValidationContext | None = None) -> Valida
                     {"opening_id": opening.id, "offset_m": opening.offset_m},
                 )
             )
-        if opening.width_m <= 1e-9 or opening.height_m <= 1e-9:
+        if not geom.approx_gt(opening.width_m, 0.0) or not geom.approx_gt(opening.height_m, 0.0):
             errors.append(
                 Finding(
                     f"opening {opening.id} has non-positive dimensions "
@@ -261,7 +262,7 @@ def validate_scene(scene: Scene, ctx: ValidationContext | None = None) -> Valida
                 )
             )
         length = _wall_length_m(wall.a, wall.b)
-        if opening.offset_m + opening.width_m > length + 1e-9:
+        if geom.approx_gt(opening.offset_m + opening.width_m, length):
             errors.append(
                 Finding(
                     f"opening {opening.id} overflows wall {opening.wall_id} "
@@ -273,7 +274,7 @@ def validate_scene(scene: Scene, ctx: ValidationContext | None = None) -> Valida
             )
         wall_h = wall.height_m if wall.height_m is not None else scene.ceiling_height_m
         sill = opening.sill_m if opening.sill_m is not None else 0.0
-        if sill + opening.height_m > wall_h + 1e-9:
+        if geom.approx_gt(sill + opening.height_m, wall_h):
             errors.append(
                 Finding(
                     f"opening {opening.id} sill {sill:.2f} + height {opening.height_m:.2f} "
@@ -290,7 +291,7 @@ def validate_scene(scene: Scene, ctx: ValidationContext | None = None) -> Valida
             )
         # Narrow doors are a FLAG (advisory), not a geometric rejection.
         if opening.kind == "door":
-            if opening.width_m < MIN_DOOR_WIDTH_M - 1e-9:
+            if geom.approx_lt(opening.width_m, MIN_DOOR_WIDTH_M):
                 warnings.append(
                     Finding(
                         f"door {opening.id} width {opening.width_m:.2f} m below minimum "
@@ -323,7 +324,7 @@ def validate_scene(scene: Scene, ctx: ValidationContext | None = None) -> Valida
         for idx in range(len(ops_sorted) - 1):
             a = ops_sorted[idx]
             b = ops_sorted[idx + 1]
-            if a.offset_m + a.width_m > b.offset_m + 1e-9:
+            if geom.approx_gt(a.offset_m + a.width_m, b.offset_m):
                 errors.append(
                     Finding(
                         f"openings {a.id} and {b.id} overlap on wall {wall_id} "
