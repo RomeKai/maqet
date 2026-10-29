@@ -115,6 +115,94 @@
         }
       }
     },
+    "/scene/snapshot.svg": {
+      "get": {
+        "summary": "Get Snapshot",
+        "operationId": "get_snapshot_scene_snapshot_svg_get",
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "en",
+                "es-AR"
+              ],
+              "type": "string",
+              "default": "en",
+              "title": "Locale"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/svg+xml": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Post Snapshot",
+        "operationId": "post_snapshot_scene_snapshot_svg_post",
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "en",
+                "es-AR"
+              ],
+              "type": "string",
+              "default": "en",
+              "title": "Locale"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Scene-Input"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/svg+xml": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/intake": {
       "post": {
         "summary": "Post Intake",
@@ -136,6 +224,214 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/IntakeOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/transcribe": {
+      "post": {
+        "summary": "Post Transcribe",
+        "operationId": "post_transcribe_transcribe_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_post_transcribe_transcribe_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscribeOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/turn": {
+      "post": {
+        "summary": "Post Agent Turn",
+        "operationId": "post_agent_turn_agent_turn_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentTurnIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentTurnOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/variants": {
+      "get": {
+        "summary": "Get Variants",
+        "operationId": "get_variants_variants_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VariantsOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/variants/fork": {
+      "post": {
+        "summary": "Post Variant Fork",
+        "operationId": "post_variant_fork_variants_fork_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForkIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VariantsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/variants/{label}/choose": {
+      "post": {
+        "summary": "Post Variant Choose",
+        "operationId": "post_variant_choose_variants__label__choose_post",
+        "parameters": [
+          {
+            "name": "label",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Label"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VariantsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/variants/undo": {
+      "post": {
+        "summary": "Post Variant Undo",
+        "operationId": "post_variant_undo_variants_undo_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UndoIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VariantOut"
                 }
               }
             }
@@ -204,6 +500,120 @@
   },
   "components": {
     "schemas": {
+      "AgentTurnIn": {
+        "properties": {
+          "scene": {
+            "$ref": "#/components/schemas/Scene-Input"
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Message"
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "reform",
+              "design",
+              "present"
+            ],
+            "title": "Stage"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/OpRecordIn"
+            },
+            "type": "array",
+            "title": "History",
+            "default": []
+          },
+          "selected": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SelectedRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "scene",
+          "message",
+          "stage"
+        ],
+        "title": "AgentTurnIn"
+      },
+      "AgentTurnOut": {
+        "properties": {
+          "scene": {
+            "$ref": "#/components/schemas/Scene-Output"
+          },
+          "reply": {
+            "type": "string",
+            "title": "Reply"
+          },
+          "ops_applied": {
+            "items": {
+              "$ref": "#/components/schemas/AppliedOpOut"
+            },
+            "type": "array",
+            "title": "Ops Applied"
+          },
+          "professional_flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Professional Flags"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/OpRecordIn"
+            },
+            "type": "array",
+            "title": "History"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scene",
+          "reply",
+          "ops_applied",
+          "professional_flags",
+          "history"
+        ],
+        "title": "AgentTurnOut"
+      },
+      "AppliedOpOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "arguments": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Arguments"
+          },
+          "flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Flags",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "arguments"
+        ],
+        "title": "AppliedOpOut"
+      },
       "Body_post_intake_intake_post": {
         "properties": {
           "file": {
@@ -250,6 +660,64 @@
           "kind"
         ],
         "title": "Body_post_intake_intake_post"
+      },
+      "Body_post_transcribe_transcribe_post": {
+        "properties": {
+          "audio": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "keywords": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keywords"
+          }
+        },
+        "type": "object",
+        "title": "Body_post_transcribe_transcribe_post"
+      },
+      "ForkIn": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "from_branch": {
+            "type": "string",
+            "title": "From Branch",
+            "default": "A"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label"
+        ],
+        "title": "ForkIn"
       },
       "Furniture": {
         "properties": {
@@ -302,7 +770,7 @@
           "rotation_deg": {
             "type": "number",
             "title": "Rotation Deg",
-            "default": 0
+            "default": 0.0
           },
           "size_m": {
             "prefixItems": [
@@ -378,13 +846,13 @@
             "prefixItems": [
               {
                 "type": "number",
-                "maximum": 1,
-                "minimum": 0
+                "maximum": 1.0,
+                "minimum": 0.0
               },
               {
                 "type": "number",
-                "maximum": 1,
-                "minimum": 0
+                "maximum": 1.0,
+                "minimum": 0.0
               }
             ],
             "type": "array",
@@ -396,13 +864,13 @@
             "prefixItems": [
               {
                 "type": "number",
-                "maximum": 1,
-                "minimum": 0
+                "maximum": 1.0,
+                "minimum": 0.0
               },
               {
                 "type": "number",
-                "maximum": 1,
-                "minimum": 0
+                "maximum": 1.0,
+                "minimum": 0.0
               }
             ],
             "type": "array",
@@ -414,7 +882,7 @@
             "anyOf": [
               {
                 "type": "integer",
-                "minimum": 0
+                "minimum": 0.0
               },
               {
                 "type": "null"
@@ -444,13 +912,13 @@
             "prefixItems": [
               {
                 "type": "number",
-                "maximum": 1,
-                "minimum": 0
+                "maximum": 1.0,
+                "minimum": 0.0
               },
               {
                 "type": "number",
-                "maximum": 1,
-                "minimum": 0
+                "maximum": 1.0,
+                "minimum": 0.0
               }
             ],
             "type": "array",
@@ -471,19 +939,19 @@
         "properties": {
           "wall_index": {
             "type": "integer",
-            "minimum": 0,
+            "minimum": 0.0,
             "title": "Wall Index"
           },
           "t0": {
             "type": "number",
-            "maximum": 1,
-            "minimum": 0,
+            "maximum": 1.0,
+            "minimum": 0.0,
             "title": "T0"
           },
           "t1": {
             "type": "number",
-            "maximum": 1,
-            "minimum": 0,
+            "maximum": 1.0,
+            "minimum": 0.0,
             "title": "T1"
           },
           "kind": {
@@ -600,13 +1068,13 @@
             "prefixItems": [
               {
                 "type": "number",
-                "maximum": 1,
-                "minimum": 0
+                "maximum": 1.0,
+                "minimum": 0.0
               },
               {
                 "type": "number",
-                "maximum": 1,
-                "minimum": 0
+                "maximum": 1.0,
+                "minimum": 0.0
               }
             ],
             "type": "array",
@@ -618,13 +1086,13 @@
             "prefixItems": [
               {
                 "type": "number",
-                "maximum": 1,
-                "minimum": 0
+                "maximum": 1.0,
+                "minimum": 0.0
               },
               {
                 "type": "number",
-                "maximum": 1,
-                "minimum": 0
+                "maximum": 1.0,
+                "minimum": 0.0
               }
             ],
             "type": "array",
@@ -719,8 +1187,8 @@
             "minItems": 2,
             "title": "Tiling M",
             "default": [
-              1,
-              1
+              1.0,
+              1.0
             ]
           },
           "concept": {
@@ -735,6 +1203,41 @@
           "source"
         ],
         "title": "Material"
+      },
+      "OpRecordIn": {
+        "properties": {
+          "op": {
+            "type": "string",
+            "title": "Op"
+          },
+          "args": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Args"
+          },
+          "before_version": {
+            "type": "integer",
+            "title": "Before Version"
+          },
+          "after_version": {
+            "type": "integer",
+            "title": "After Version"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "op",
+          "args",
+          "before_version",
+          "after_version",
+          "actor"
+        ],
+        "title": "OpRecordIn",
+        "description": "One op-history entry; the client echoes it back so `undo` spans turns."
       },
       "Opening": {
         "properties": {
@@ -758,24 +1261,24 @@
           },
           "offset_m": {
             "type": "number",
-            "minimum": 0,
+            "minimum": 0.0,
             "title": "Offset M"
           },
           "width_m": {
             "type": "number",
-            "exclusiveMinimum": 0,
+            "exclusiveMinimum": 0.0,
             "title": "Width M"
           },
           "height_m": {
             "type": "number",
-            "exclusiveMinimum": 0,
+            "exclusiveMinimum": 0.0,
             "title": "Height M"
           },
           "sill_m": {
             "anyOf": [
               {
                 "type": "number",
-                "minimum": 0
+                "minimum": 0.0
               },
               {
                 "type": "null"
@@ -835,6 +1338,12 @@
               }
             ],
             "title": "Function"
+          },
+          "level": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Level",
+            "default": 1
           }
         },
         "type": "object",
@@ -883,7 +1392,7 @@
           },
           "version": {
             "type": "integer",
-            "minimum": 0,
+            "minimum": 0.0,
             "title": "Version",
             "default": 0
           },
@@ -900,7 +1409,7 @@
           },
           "ceiling_height_m": {
             "type": "number",
-            "exclusiveMinimum": 0,
+            "exclusiveMinimum": 0.0,
             "title": "Ceiling Height M",
             "default": 2.6
           },
@@ -945,6 +1454,13 @@
             },
             "type": "array",
             "title": "Materials"
+          },
+          "professional_flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Professional Flags"
           }
         },
         "type": "object",
@@ -962,7 +1478,7 @@
           },
           "version": {
             "type": "integer",
-            "minimum": 0,
+            "minimum": 0.0,
             "title": "Version",
             "default": 0
           },
@@ -979,7 +1495,7 @@
           },
           "ceiling_height_m": {
             "type": "number",
-            "exclusiveMinimum": 0,
+            "exclusiveMinimum": 0.0,
             "title": "Ceiling Height M",
             "default": 2.6
           },
@@ -1024,6 +1540,13 @@
             },
             "type": "array",
             "title": "Materials"
+          },
+          "professional_flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Professional Flags"
           }
         },
         "type": "object",
@@ -1031,6 +1554,27 @@
           "id"
         ],
         "title": "Scene"
+      },
+      "SelectedRef": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Kind"
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "id"
+        ],
+        "title": "SelectedRef",
+        "description": "Tap selection arriving as context (\"this\" / \"esto\" refers to it)."
       },
       "Surface": {
         "properties": {
@@ -1070,6 +1614,41 @@
           "material_id"
         ],
         "title": "Surface"
+      },
+      "TranscribeOut": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "duration_ms": {
+            "type": "integer",
+            "title": "Duration Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "duration_ms"
+        ],
+        "title": "TranscribeOut"
+      },
+      "UndoIn": {
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "title": "UndoIn"
       },
       "ValidationError": {
         "properties": {
@@ -1148,6 +1727,66 @@
         ],
         "title": "ValidationReportOut"
       },
+      "VariantOut": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "parent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent"
+          },
+          "fork_at_version": {
+            "type": "integer",
+            "title": "Fork At Version"
+          },
+          "op_count": {
+            "type": "integer",
+            "title": "Op Count"
+          },
+          "scene": {
+            "$ref": "#/components/schemas/Scene-Output"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "parent",
+          "fork_at_version",
+          "op_count",
+          "scene"
+        ],
+        "title": "VariantOut"
+      },
+      "VariantsOut": {
+        "properties": {
+          "chosen": {
+            "type": "string",
+            "title": "Chosen"
+          },
+          "variants": {
+            "items": {
+              "$ref": "#/components/schemas/VariantOut"
+            },
+            "type": "array",
+            "title": "Variants"
+          }
+        },
+        "type": "object",
+        "required": [
+          "chosen",
+          "variants"
+        ],
+        "title": "VariantsOut"
+      },
       "Wall": {
         "properties": {
           "id": {
@@ -1185,7 +1824,7 @@
           },
           "thickness_m": {
             "type": "number",
-            "exclusiveMinimum": 0,
+            "exclusiveMinimum": 0.0,
             "title": "Thickness M"
           },
           "kind": {
@@ -1200,7 +1839,7 @@
             "anyOf": [
               {
                 "type": "number",
-                "exclusiveMinimum": 0
+                "exclusiveMinimum": 0.0
               },
               {
                 "type": "null"
@@ -1228,7 +1867,7 @@
             "anyOf": [
               {
                 "type": "number",
-                "exclusiveMinimum": 0
+                "exclusiveMinimum": 0.0
               },
               {
                 "type": "null"

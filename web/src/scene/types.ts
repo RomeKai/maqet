@@ -1,14 +1,47 @@
 /**
  * GENERATED — do not edit.
- * Source: snapshot C:\Users\lenovo\Desktop\kit\maqet\web\openapi.snapshot.json
+ * Source: snapshot C:\Users\lenovo\Desktop\kit\maqet-hardening\web\openapi.snapshot.json
  * Regenerate: npm run gen:types (from web/)
  */
+
+export interface AgentTurnIn {
+scene: Scene;
+message: string;
+stage: "reform" | "design" | "present";
+history?: OpRecordIn[];
+selected?: SelectedRef | null;
+}
+
+export interface AgentTurnOut {
+scene: Scene;
+reply: string;
+ops_applied: AppliedOpOut[];
+professional_flags: string[];
+history: OpRecordIn[];
+}
+
+export interface AppliedOpOut {
+name: string;
+arguments: unknown;
+flags?: string[];
+}
 
 export interface Body_post_intake_intake_post {
 file?: string | null;
 kind: string;
 anchor_index?: number | null;
 sample?: string | null;
+}
+
+export interface Body_post_transcribe_transcribe_post {
+audio?: string | null;
+language?: string | null;
+keywords?: string | null;
+}
+
+export interface ForkIn {
+label: string;
+from_branch?: string;
 }
 
 export interface Furniture {
@@ -83,6 +116,14 @@ tiling_m?: [number, number];
 concept?: boolean;
 }
 
+export interface OpRecordIn {
+op: string;
+args: unknown;
+before_version: number;
+after_version: number;
+actor: string;
+}
+
 export interface Opening {
 id: string;
 wall_id: string;
@@ -98,6 +139,7 @@ id: string;
 name: string;
 polygon: [number, number][];
 function?: string | null;
+level?: number;
 }
 
 export interface RoomSurfaceTarget {
@@ -118,12 +160,27 @@ rooms?: Room[];
 surfaces?: Surface[];
 furniture?: Furniture[];
 materials?: Material[];
+professional_flags?: string[];
+}
+
+export interface SelectedRef {
+kind: string;
+id: string;
 }
 
 export interface Surface {
 id: string;
 target: (RoomSurfaceTarget | WallSurfaceTarget);
 material_id: string;
+}
+
+export interface TranscribeOut {
+text: string;
+duration_ms: number;
+}
+
+export interface UndoIn {
+label?: string | null;
 }
 
 export interface ValidationError {
@@ -139,6 +196,19 @@ ok: boolean;
 errors?: string[];
 warnings?: string[];
 flags?: string[];
+}
+
+export interface VariantOut {
+label: string;
+parent: string | null;
+fork_at_version: number;
+op_count: number;
+scene: Scene;
+}
+
+export interface VariantsOut {
+chosen: string;
+variants: VariantOut[];
 }
 
 export interface Wall {
