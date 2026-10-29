@@ -15,7 +15,7 @@ from __future__ import annotations
 import math
 
 from server.scene.models import Furniture, Room, Surface
-from server.scene.validation import Finding
+from server.scene.validation import Finding, rooms_overlap_m2
 
 UNASSIGNED_ROOM_ID = "unassigned"
 
@@ -429,8 +429,14 @@ def recompute_rooms(
 
     taken = {r.id for r in new_rooms} | set(dead_ids)
     counter = len(taken) + 1
+    kept = list(new_rooms)
     for i, cand in enumerate(candidates):
         if i in claimed:
+            continue
+        # A face under a kept room (e.g. one spanning two wall faces) is
+        # that room's floor, not new space: minting it double-counts area.
+        probe = Room(id="_probe", name="_probe", polygon=cand)
+        if any(rooms_overlap_m2(probe, r) > 0.0 for r in kept):
             continue
         while f"r{counter}" in taken:
             counter += 1

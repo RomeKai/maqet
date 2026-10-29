@@ -11,7 +11,9 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from server.scene.models import HABITABLE_FUNCTIONS, Scene
+from shapely.geometry import Polygon
+
+from server.scene.models import HABITABLE_FUNCTIONS, Room, Scene
 from server.scene.rules import (
     CODE_CEILING_HEIGHT,
     CODE_CORRIDOR_SIDE,
@@ -20,6 +22,7 @@ from server.scene.rules import (
     CODE_OPENING_OVERFLOW,
     CODE_OPENING_UNKNOWN_WALL,
     CODE_ROOM_AREA,
+    CODE_ROOM_OVERLAP,
     CODE_ROOM_SIDE,
     CODE_SCENE_UNITS,
     CODE_WALL_THICKNESS,
@@ -89,6 +92,22 @@ class ValidationReport:
         return not self.errors
 
 
+# Shared-edge contact is not overlap; anything above this is (1 cm2).
+ROOM_OVERLAP_TOL_M2 = 1e-4
+
+
+def rooms_overlap_m2(a: Room, b: Room) -> float:
+    """Interior intersection area of two room polygons on the same level
+    (0.0 when they only touch or sit on different floors). Invalid rings
+    (self-intersecting) are repaired with buffer(0)."""
+    if a.level != b.level:
+        return 0.0
+    pa = Polygon(a.polygon).buffer(0)
+    pb = Polygon(b.polygon).buffer(0)
+    area = pa.intersection(pb).area
+    return round(area, 6) if area > ROOM_OVERLAP_TOL_M2 else 0.0
+
+
 def _polygon_area(poly: list[tuple[float, float]]) -> float:
     area = 0.0
     n = len(poly)
@@ -128,6 +147,19 @@ def validate_scene(scene: Scene, ctx: ValidationContext | None = None) -> Valida
                 {"height_m": scene.ceiling_height_m, "minimum_m": MIN_CEILING_HEIGHT_M},
             )
         )
+
+    for i, room in enumerate(scene.rooms):
+        for other in scene.rooms[i + 1 :]:
+            overlap = rooms_overlap_m2(room, other)
+            if overlap > 0.0:
+                errors.append(
+                    Finding(
+                        f"room {room.id} overlaps room {other.id} by {overlap:.2f} m2: "
+                        "rooms cannot share floor area, place it on a free side",
+                        CODE_ROOM_OVERLAP,
+                        {"room_id": room.id, "other_room_id": other.id, "overlap_m2": overlap},
+                    )
+                )
 
     for room in scene.rooms:
         area = _polygon_area(list(room.polygon))

@@ -519,8 +519,9 @@ def test_fallback_polygonize_drops_outer_face() -> None:
 
 
 def test_free_standing_room_survives_later_ops() -> None:
-    # A wall-less add_room footprint overlapping a walled room used to be kept
-    # by the op that added it, then silently deleted by the next unrelated op.
+    # A wall-less add_room footprint used to be kept by the op that added it,
+    # then silently deleted by the next unrelated op. One overlapping the
+    # walled kitchen is now rejected up front (room.overlaps_room).
     scene = Scene(
         id="free",
         scale_confirmed=True,
@@ -542,5 +543,20 @@ def test_free_standing_room_survives_later_ops() -> None:
             "polygon": [[x0, 0.0], [x0 + 3.0, 0.0], [x0 + 3.0, 3.0], [x0, 3.0]],
         }
         scene, result = execute(scene, history, "reform", "add_room", args)
-        assert result.ok, result.errors
-    assert sorted(r.name for r in scene.rooms) == ["Bed 0", "Bed 1", "Bed 2", "Kitchen"]
+        if i == 0:
+            assert [e.code for e in result.errors] == ["room.overlaps_room"]
+        else:
+            assert result.ok, result.errors
+    assert sorted(r.name for r in scene.rooms) == ["Bed 1", "Bed 2", "Kitchen"]
+
+
+def test_room_spanning_two_faces_does_not_mint_phantom_rooms() -> None:
+    # plano_70m: r_hall spans two wall faces (w_h3 crosses it at y=3). Any
+    # op used to mint both faces as new rooms on top of the kept hall.
+    path = Path(__file__).resolve().parents[2] / "samples" / "plans" / "plano_70m_2dorm.truth.json"
+    scene = Scene.model_validate(json.loads(path.read_text(encoding="utf-8")))
+    before = {r.id for r in scene.rooms}
+    wall = Wall(id="w_far", a=(20.0, 0.0), b=(22.0, 0.0), thickness_m=0.10, kind="interior")
+    new_scene, result = ops.add_wall(scene, wall)
+    assert result.ok, result.errors
+    assert {r.id for r in new_scene.rooms} == before

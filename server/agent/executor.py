@@ -23,6 +23,7 @@ from server.agent import stages as stage_table
 from server.agent import tools as tool_contracts
 from server.scene import ops
 from server.scene.models import Opening, Room, Scene, Wall
+from server.scene.validation import rooms_overlap_m2
 from server.scene.rules import (
     DOOR_WIDTH_M,
     PRO_FLAG_SECOND_FLOOR,
@@ -90,6 +91,30 @@ def _rooms_named(scene: Scene, ref: str) -> list[Room]:
 # --- Reform handlers: exactly one op each ---------------------------------------
 
 
+def _free_side(
+    scene: Scene, anchor: Room, size_m: tuple[float, float] | list[float], level: int
+) -> list[tuple[float, float]] | None:
+    """First side of the anchor's bounding box (E, S, W, N) where a w x h
+    rectangle overlaps no existing room on ``level``, flush with the anchor's
+    lower/left corner on that side; None when all four are taken."""
+    xs = [p[0] for p in anchor.polygon]
+    ys = [p[1] for p in anchor.polygon]
+    minx, maxx, miny, maxy = min(xs), max(xs), min(ys), max(ys)
+    w, h = float(size_m[0]), float(size_m[1])
+    origins = (
+        (maxx, miny),  # east
+        (minx, miny - h),  # south
+        (minx - w, miny),  # west
+        (minx, maxy),  # north
+    )
+    for x0, y0 in origins:
+        poly = [(x0, y0), (x0 + w, y0), (x0 + w, y0 + h), (x0, y0 + h)]
+        probe = Room(id="_probe", name="_probe", polygon=poly, level=level)
+        if all(rooms_overlap_m2(probe, r) == 0.0 for r in scene.rooms):
+            return poly
+    return None
+
+
 def _handle_add_room(
     scene: Scene, history: list, a: tool_contracts.AddRoomInput
 ) -> tuple[Scene, ToolResult]:
@@ -116,12 +141,15 @@ def _handle_add_room(
                     "anchor.ambiguous",
                     f"{len(matches)} rooms match {ref!r}; say which one; Scene unchanged",
                 )
-            anchor = matches[0]
-            xs = [p[0] for p in anchor.polygon]
-            ys = [p[1] for p in anchor.polygon]
-            w, h = a.size_m
-            ex, miy = max(xs), min(ys)
-            poly = [(ex, miy), (ex + w, miy), (ex + w, miy + h), (ex, miy + h)]
+            free = _free_side(scene, matches[0], a.size_m, a.level)
+            if free is None:
+                return _fail(
+                    scene,
+                    "anchor.no_free_side",
+                    f"every side of {ref!r} is taken by another room; "
+                    "say where it should go; Scene unchanged",
+                )
+            poly = free
         else:
             w, h = a.size_m
             poly = [(0.0, 0.0), (w, 0.0), (w, h), (0.0, h)]
