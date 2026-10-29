@@ -127,7 +127,12 @@ def _handle_add_room(
             poly = [(0.0, 0.0), (w, 0.0), (w, h), (0.0, h)]
     rid = a.room_id or _unique_id("r", [r.id for r in scene.rooms])
     room = Room(id=rid, name=a.name or a.function, polygon=poly, function=a.function)
-    new_scene, res = ops.add_room(scene, room)
+    new_scene, res = ops.add_room(
+        scene,
+        room,
+        needs_second_floor=a.level > 1,
+        soil_unknown=a.foundation_unknown_soil,
+    )
     if not res.ok:
         return _op_fail(scene, res)
     flags = [str(f) for f in res.flags]

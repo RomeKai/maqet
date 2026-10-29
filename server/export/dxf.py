@@ -161,7 +161,7 @@ def export_dxf(
         msp,
         scene,
         project_name,
-        validation.flags,
+        _active_flags(validation.flags, scene.professional_flags),
         date_str or date.today().isoformat(),
         base_scene,
     )
@@ -281,6 +281,16 @@ def _add_furniture(msp: Modelspace, item: Furniture) -> None:
     )
     cx, cy = item.position
     text.set_placement((_m(cx), _m(cy)), align=TextEntityAlignment.MIDDLE_CENTER)
+
+
+def _active_flags(report_flags: Sequence[str], persisted: Sequence[str]) -> list[str]:
+    """Report flags plus persisted Scene codes not already covered (a span
+    finding reads "<code>:<wall>", so match on the code prefix)."""
+    flags = list(report_flags)
+    for code in persisted:
+        if not any(f == code or f.startswith(f"{code}:") for f in flags):
+            flags.append(code)
+    return flags
 
 
 def _add_title_block(

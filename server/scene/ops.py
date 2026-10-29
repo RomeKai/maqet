@@ -54,6 +54,16 @@ def _fail(scene: Scene, *errors: str) -> tuple[Scene, OpResult]:
     return scene, OpResult(ok=False, errors=tuple(errors))
 
 
+def _merge_flags(persisted: list[str], raised: tuple[str, ...]) -> list[str]:
+    """Append each raised flag's stable code once; never drop one."""
+    merged = list(persisted)
+    for flag in raised:
+        code = getattr(flag, "code", str(flag))
+        if code not in merged:
+            merged.append(code)
+    return merged
+
+
 def _apply(
     scene: Scene,
     op: str,
@@ -88,7 +98,14 @@ def _apply(
     report = validate_scene(candidate, ctx)
     if report.errors:
         return scene, OpResult(ok=False, errors=report.errors)
-    new_scene = candidate.model_copy(update={"version": scene.version + 1})
+    new_scene = candidate.model_copy(
+        update={
+            "version": scene.version + 1,
+            "professional_flags": _merge_flags(
+                candidate.professional_flags, report.flags
+            ),
+        }
+    )
     record = OpRecord(
         op=op,
         args=args,
@@ -106,7 +123,12 @@ def _apply(
 
 
 def add_room(
-    scene: Scene, room: Room, *, actor: str = "agent"
+    scene: Scene,
+    room: Room,
+    *,
+    actor: str = "agent",
+    needs_second_floor: bool = False,
+    soil_unknown: bool = False,
 ) -> tuple[Scene, OpResult]:
     """Add a room polygon (rooms are derived from walls after intake; kept for naming/targeting)."""
     if (err := _check_actor(actor)) is not None:
@@ -118,14 +140,17 @@ def add_room(
     except ValidationError as exc:
         return _fail(scene, f"invalid room: {exc.errors()[0]['msg']}")
     candidate = scene.model_copy(update={"rooms": [*scene.rooms, valid]})
-    return _apply(
-        scene,
-        "add_room",
-        {"room": valid.model_dump()},
-        candidate,
-        [valid.id],
-        actor,
+    args: dict = {"room": valid.model_dump()}
+    # Recorded only when set so replay reproduces the flags and older
+    # history records stay byte-identical.
+    if needs_second_floor:
+        args["needs_second_floor"] = True
+    if soil_unknown:
+        args["soil_unknown"] = True
+    ctx = ValidationContext(
+        needs_second_floor=needs_second_floor, soil_unknown=soil_unknown
     )
+    return _apply(scene, "add_room", args, candidate, [valid.id], actor, ctx)
 
 
 def add_wall(
@@ -221,7 +246,13 @@ def move_opening(
 
 
 _OPS = {
-    "add_room": lambda s, a: add_room(s, Room.model_validate(a["room"]), actor=a.get("_actor", "agent")),
+    "add_room": lambda s, a: add_room(
+        s,
+        Room.model_validate(a["room"]),
+        actor=a.get("_actor", "agent"),
+        needs_second_floor=a.get("needs_second_floor", False),
+        soil_unknown=a.get("soil_unknown", False),
+    ),
     "add_wall": lambda s, a: add_wall(s, Wall.model_validate(a["wall"]), actor=a.get("_actor", "agent")),
     "remove_wall": lambda s, a: remove_wall(s, a["wall_id"], actor=a.get("_actor", "agent")),
     "add_opening": lambda s, a: add_opening(

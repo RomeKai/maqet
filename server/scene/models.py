@@ -129,3 +129,6 @@ class Scene(BaseModel):
     surfaces: list[Surface] = Field(default_factory=list)
     furniture: list[Furniture] = Field(default_factory=list)
     materials: list[Material] = Field(default_factory=list)
+    # Stable needs_professional:* codes raised by ops (rules.PRO_FLAG_*).
+    # Append-only via ops; optional so older Scene JSON still validates.
+    professional_flags: list[str] = Field(default_factory=list)
