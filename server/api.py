@@ -11,13 +11,16 @@ from __future__ import annotations
 
 import io
 import logging
-from typing import cast
+from dataclasses import asdict
+from typing import Any, Literal, cast
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from server.agent.loop import ReformClient, run_turn
+from server.agent.tools import SelectedRef
 from server.export.dxf import ScaleNotConfirmedError, export_dxf
 from server.intake.cleanup import ScaleError, build_scaled_plan, to_scene
 from server.intake.read_plan import ReadPlanError, read_plan
@@ -25,6 +28,7 @@ from server.intake.replay import ReplayMiss, load_sample
 from server.intake.schemas import InputKind, IntakeProposal
 from server.intake.voice import VoiceError, transcribe_audio
 from server.scene.models import Scene
+from server.scene.ops import OpRecord
 from server.scene.validation import ValidationReport, validate_scene
 
 logger = logging.getLogger(__name__)
@@ -262,6 +266,84 @@ def post_transcribe(
         raise
     logger.info("transcribe chars=%d duration_ms=%d", len(text), duration_ms)
     return TranscribeOut(text=text, duration_ms=duration_ms)
+
+
+class OpRecordIn(BaseModel):
+    """One op-history entry; the client echoes it back so `undo` spans turns."""
+
+    op: str
+    args: dict[str, Any]
+    before_version: int
+    after_version: int
+    actor: str
+
+
+class AgentTurnIn(BaseModel):
+    scene: Scene
+    message: str = Field(min_length=1)
+    stage: Literal["reform", "design", "present"]
+    history: list[OpRecordIn] = []
+    selected: SelectedRef | None = None
+
+
+class AppliedOpOut(BaseModel):
+    name: str
+    arguments: dict[str, Any]
+    flags: list[str] = []
+
+
+class AgentTurnOut(BaseModel):
+    scene: Scene
+    reply: str
+    ops_applied: list[AppliedOpOut]
+    professional_flags: list[str]
+    history: list[OpRecordIn]
+
+
+def get_reform_client() -> ReformClient:
+    """Production Meta client; tests override this dependency."""
+    from mme.client import client
+
+    return cast(ReformClient, client())
+
+
+@app.post("/agent/turn", response_model=AgentTurnOut)
+def post_agent_turn(
+    body: AgentTurnIn, reform_client: ReformClient = Depends(get_reform_client)
+) -> AgentTurnOut:
+    history = [OpRecord(**record.model_dump()) for record in body.history]
+    try:
+        result = run_turn(
+            body.scene, history, body.stage, body.message, reform_client, selected=body.selected
+        )
+    except Exception as exc:
+        # Same contract as /transcribe: a turn with no recorded model
+        # response in MME_MODE=replay is a 409, never a 500.
+        if type(exc).__name__ == "ReplayMiss":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "no recorded agent response for this turn "
+                    f"({exc}): use a recorded demo turn or record it in live mode"
+                ),
+            ) from exc
+        raise
+    applied = [
+        AppliedOpOut(name=ev["name"], arguments=ev["arguments"], flags=ev["flags"])
+        for ev in result.tool_events
+        if ev["ok"]
+    ]
+    flags = list(result.scene.professional_flags)
+    for op in applied:
+        flags += [f for f in op.flags if f not in flags]
+    logger.info("agent turn stage=%s ops=%d", body.stage, len(applied))
+    return AgentTurnOut(
+        scene=result.scene,
+        reply=result.reply,
+        ops_applied=applied,
+        professional_flags=flags,
+        history=[OpRecordIn(**asdict(record)) for record in history],
+    )
 
 
 @app.post("/export/dxf")
