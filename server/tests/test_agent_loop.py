@@ -175,26 +175,24 @@ def test_multi_step_turn() -> None:
 
 
 def test_rule_violation_surfaced() -> None:
+    # Overflow is a geometric impossibility; narrow door is now advisory.
     client = ScriptedClient(
         [
             {"calls": [{"name": "add_opening", "arguments": {
-                "wall_id": "w1", "kind": "door", "offset_m": 2.0, "width_m": 0.5}}]},
-            {"reply": "I can't put a 0.50 m door there: the minimum door width is "
-                      "0.80 m. I left the plan unchanged. This is preliminary."},
+                "wall_id": "w1", "kind": "door", "offset_m": 3.5, "width_m": 0.9}}]},
+            {"reply": "I can't put that door there: it overflows the wall. "
+                      "I left the plan unchanged. This is preliminary."},
         ]
     )
     scene = _base_scene()
     result = run_turn(
         scene=scene, history=[], stage="reform",
-        user_text="Put a 50 cm door on the south kitchen wall", client=client,
+        user_text="Put a door at the end of the south kitchen wall", client=client,
     )
-    # The loop's job is a faithful round-trip, not rewriting the model's
-    # words: the failed attempt lands in tool_events, the scripted reply
-    # flows through untouched.
     assert len(result.scene.openings) == 0
     assert result.tool_events[0]["ok"] is False
     assert result.tool_events[0]["errors"], "refusal must carry error codes"
-    assert "minimum door width is 0.80 m" in result.reply
+    assert "overflows" in result.reply.lower()
 
 
 def test_professional_flag_surfaced() -> None:
