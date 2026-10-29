@@ -23,6 +23,9 @@ class LayerDef:
 
 LAYERS: tuple[LayerDef, ...] = (
     LayerDef("A-WALL", 7, "Continuous"),
+    LayerDef("A-WALL-EXST", 7, "Continuous"),
+    LayerDef("A-WALL-NEWW", 3, "Continuous"),
+    LayerDef("A-WALL-DEMO", 1, "Dashed"),
     LayerDef("A-DOOR", 2, "Continuous"),
     LayerDef("A-GLAZ", 4, "Continuous"),
     LayerDef("A-FLOR-FURN", 6, "Continuous"),
