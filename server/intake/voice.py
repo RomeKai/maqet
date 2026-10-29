@@ -11,6 +11,11 @@ import io
 import wave
 from typing import Any
 
+try:
+    from mme.client import client as _mme_client  # type: ignore[import-not-found]
+except ImportError:  # harness not installed (worktree without .mme)
+    _mme_client = None  # type: ignore[assignment]
+
 TAG = "asr"
 _SAMPLE_RATES = (16000, 24000)
 _LANGUAGE_BIAS = {"en": ["English"], "es": ["Spanish"]}
@@ -69,11 +74,9 @@ def transcribe_audio(
     if language is not None and language not in _LANGUAGE_BIAS:
         raise VoiceError(f"language must be 'en' or 'es', got {language!r}")
 
-    # Lazy import: this module stays importable (and test-collectible)
-    # without the harness installed; only the live call needs mme.client.
-    from mme.client import client
-
-    mme = client()
+    if _mme_client is None:
+        raise RuntimeError("mme.client not available: install the harness or mock in tests")
+    mme = _mme_client()
     response: dict[str, Any] = mme.transcribe(
         audio,
         tag=TAG,

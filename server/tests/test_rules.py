@@ -145,8 +145,9 @@ def test_door_width_fail() -> None:
     scene = _base_scene()
     scene.openings[0].width_m = 0.70
     report = validate_scene(scene)
-    assert not report.ok
-    assert any("below minimum" in e for e in report.errors)
+    # Narrow door is advisory (FLAG/warning), not a geometric rejection.
+    assert report.ok
+    assert any("below minimum" in w for w in report.warnings)
 
 
 # --- Wall thickness -----------------------------------------------------------

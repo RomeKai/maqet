@@ -24,6 +24,7 @@ from server.agent import tools as tool_contracts
 from server.scene import ops
 from server.scene.models import Opening, Room, Scene, Wall
 from server.scene.validation import rooms_overlap_m2
+from server.scene import geom
 from server.scene.rules import (
     DOOR_WIDTH_M,
     PRO_FLAG_SECOND_FLOOR,
@@ -297,7 +298,51 @@ def _handle_add_opening(
     height = a.height_m if a.height_m is not None else (
         _DEFAULT_DOOR_HEIGHT_M if a.kind == "door" else _DEFAULT_WINDOW_HEIGHT_M
     )
-    offset = a.offset_m if a.offset_m is not None else a.at_ratio * max(length - width, 0.0)
+    if a.offset_m is not None:
+        offset = a.offset_m
+    else:
+        offset = a.at_ratio * max(length - width, 0.0)
+    # Avoid overlapping existing openings on the same wall (validator
+    # rejects geometric overlap; placement must respect it).
+    existing = sorted(
+        [o for o in scene.openings if o.wall_id == wall.id],
+        key=lambda o: o.offset_m,
+    )
+    if existing:
+        def _overlaps(off: float) -> bool:
+            return any(
+                not (geom.approx_le(off + width, o.offset_m) or geom.approx_ge(off, o.offset_m + o.width_m))
+                for o in existing
+            )
+        if _overlaps(offset):
+            gaps: list[tuple[float, float]] = []
+            gaps.append((0.0, existing[0].offset_m))
+            for i in range(len(existing) - 1):
+                gaps.append((existing[i].offset_m + existing[i].width_m, existing[i + 1].offset_m))
+            gaps.append((existing[-1].offset_m + existing[-1].width_m, length))
+            if a.offset_m is None:
+                # Default placement: pick largest gap that fits.
+                best = None
+                best_len = 0.0
+                for g0, g1 in gaps:
+                    glen = g1 - g0
+                    if geom.approx_ge(glen, width) and glen > best_len:
+                        best = (g0, g1)
+                        best_len = glen
+                if best is not None:
+                    offset = best[0] + (best[1] - best[0] - width) / 2.0
+            else:
+                # Explicit offset overlaps: nudge to nearest gap that fits.
+                candidates: list[tuple[float, float]] = []
+                for g0, g1 in gaps:
+                    if geom.approx_ge(g1 - g0, width):
+                        clamped = max(g0, min(offset, g1 - width))
+                        dist = abs(clamped - offset)
+                        candidates.append((dist, clamped))
+                if candidates:
+                    candidates.sort()
+                    offset = candidates[0][1]
+            # else: no gap fits — keep computed offset and let validator decide
     oid = a.opening_id or _unique_id("o", [o.id for o in scene.openings])
     opening = Opening(
         id=oid, wall_id=wall.id, kind=a.kind,

@@ -196,14 +196,13 @@ def test_violation_thin_interior_wall_rejected() -> None:
 
 
 def test_violation_narrow_door_rejected() -> None:
+    # Narrow doors are advisory (warning), not a geometric rejection.
     scene = _room_scene()
-    before = scene.model_dump_json()
     door = Opening(id="d1", wall_id="w1", kind="door", offset_m=0.5,
                    width_m=MIN_DOOR_WIDTH_M - 0.1, height_m=2.10)
     same, result = add_opening(scene, door)
-    assert not result.ok
-    assert any("door" in e for e in result.errors)
-    assert same.model_dump_json() == before
+    assert result.ok
+    assert any("below minimum" in w for w in result.warnings)
 
 
 def test_violation_opening_overflow_rejected() -> None:
@@ -250,8 +249,8 @@ def test_violation_low_ceiling_rejected() -> None:
 def test_no_mutation_on_failure() -> None:
     scene = _room_scene()
     snapshot = copy.deepcopy(scene)
-    bad_door = Opening(id="d1", wall_id="w1", kind="door", offset_m=0.5,
-                       width_m=0.10, height_m=2.10)
+    bad_door = Opening(id="d1", wall_id="w1", kind="door", offset_m=2.5,
+                       width_m=0.90, height_m=2.10)
     same, result = add_opening(scene, bad_door)
     assert not result.ok
     assert scene == snapshot

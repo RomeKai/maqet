@@ -26,13 +26,21 @@ real family's result), **M** (robustness/UX), **L** (polish). Status: open / don
 | I17 | H | The HTTPS demo page must not call the API over plain HTTP or to a host that is `localhost` from the phone's view: mixed content is blocked and `localhost` means the phone itself | On LAN the capture upload silently fails and the demo table has no Scene draft | One HTTPS origin serves both: Vite dev proxy `/api` -> `http://localhost:8000` (prefix stripped), client defaults to `/api` when `VITE_API_URL` is unset; demo checklist confirms upload works from the phone browser |
 | I18 | H | three.js r186 uses XRProjectionLayer when the device exposes createProjectionLayer; on our test Android/Chrome the compositor never presents it | AR reticle invisible despite a working hit-test — taps land but the tech gets no visual feedback | Plan B: AR feedback drawn in the DOM overlay (projectToScreen + SVG in dom-overlay HUD, transparent XRWebGLLayer in the session so frame callbacks flow); three.js kept only for the 3D view outside AR; web/xr-test.html kept as dev diagnostic. VERIFIED 2026-10-28 on Android Chrome: reticle, corner dots, rubber-band + live lengths, walls from AR taps — see manual AR checklist below |
 
+## Product: openings (AR door/window capture, 2026-10-29)
+| # | Pri | Assumption or patch | Why it matters | Hardening |
+|---|---|---|---|---|
+| O1 | H | `Opening.sill_m` is the single field name (no alias); window sill is stored there, doors leave it null | A rename would break every saved Scene and the DXF/export pipeline | Keep `sill_m` as the contract; document it here and in the Scene model |
+| O2 | H | `MIN_DOOR_WIDTH_M = 0.80` is advisory (warning), not a hard rejection — narrow doors are flagged for a licensed professional | A family can have an existing narrow door; blocking it hides reality | Validator emits a warning; ops still apply the opening and surface the warning in the takeoff/DXF notes |
+| O3 | H | Overlapping openings on the same wall are a geometric impossibility — the validator rejects them | Two openings occupying the same wall interval would render and build wrong | Validator groups by `wall_id` and checks interval overlap with 1e-9 tolerance; executor's default placement picks the largest gap that fits |
+| O4 | M | `offset_m < 0`, `offset_m + width_m > wall length`, `width/height <= 0`, and `sill_m + height_m > wall height` are hard rejections | They produce geometry that cannot exist or be built | Each has a dedicated finding code (`opening.negative_offset`, `opening.invalid_dimensions`, `opening.overflows_wall`, `opening.sill_overflows_wall`) |
+
 ## Product: rules and takeoff
 | # | Pri | Assumption or patch | Why it matters | Hardening |
 |---|---|---|---|---|
 | R1 | H | All values in `server/scene/rules.py` are unverified rules of thumb | A family may trust a "passes" result | Review with an architect or master builder; per-jurisdiction rule sets (CABA Ley 6100, provinces) |
 | R2 | H | Window-to-floor ratio 1/10 conflicts with a GCBA secondary source (lighting 20%, ventilation 1/3 of it) | Wrong ventilation verdicts | Resolve with the current code text; make the ratio jurisdiction-specific |
 | R3 | H | Material recipes for the staged takeoff are rules of thumb (to be built, ADR-024) | Over- or under-buying wastes savings | Validate recipes with a builder or supplier tables; show ranges, not single numbers |
-| R4 | M | Geometric comparisons use `tol + 1e-9` | Float noise at tolerance boundaries | Central `geom.approx_le` helper used everywhere; property tests |
+| R4 | H | Geometric comparisons used ad-hoc `+/- 1e-9` in each check | Float noise at tolerance boundaries hides or creates false positives | **DONE 2026-10-29**: `server/scene/geom.py` central helpers (`approx_le/lt/ge/gt/eq` with EPS=1e-9); `validation.py` + `agent/executor.py` use them; `server/tests/test_geom.py` pins boundaries |
 
 ## Product: privacy and cost
 | # | Pri | Assumption or patch | Why it matters | Hardening |

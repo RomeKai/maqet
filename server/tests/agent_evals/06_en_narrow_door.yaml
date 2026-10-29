@@ -10,5 +10,7 @@ script:
           kind: door
           offset_m: 2.0
           width_m: 0.5
-  - reply: "I can't put a 0.50 m door there: the minimum door width is 0.80 m. I left the plan unchanged — want me to add the door at 0.80 m instead? This is preliminary."
+  - reply: "Done — the 0.50 m door is narrower than the 0.80 m minimum, so I flagged it. This is preliminary: needs a licensed professional to confirm."
 must_mention: ["minimum", "0.80", "preliminary"]
+expect:
+  openings_delta: 1
