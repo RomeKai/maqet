@@ -106,6 +106,36 @@ describe("sceneToMeshes", () => {
     expect(walls.find((w) => w.id.includes("lintel"))).toBeDefined();
   });
 
+  it("window in the middle splits into 2 sides plus lintel and sill", () => {
+    const sc = scene({
+      walls: [wall()],
+      openings: [opening({ kind: "window", offset_m: 1, width_m: 1.2, height_m: 1.2, sill_m: 0.9 })],
+    });
+    const { walls } = sceneToMeshes(sc);
+    // 2 sides + lintel + sill = 4
+    expect(walls).toHaveLength(4);
+    const lintel = walls.find((w) => w.id.includes("lintel"));
+    const sill = walls.find((w) => w.id.includes("sill"));
+    expect(lintel).toBeDefined();
+    expect(sill).toBeDefined();
+    // Sill sits at 0.45m center (0.9/2), lintel at 2.35m (2.1 + 0.5/2)
+    expect(sill!.center[2]).toBeCloseTo(0.45, 9);
+    expect(lintel!.center[2]).toBeCloseTo(2.35, 9);
+    expect(sill!.size[2]).toBeCloseTo(0.9, 9);
+    expect(lintel!.size[2]).toBeCloseTo(0.5, 9);
+  });
+
+  it("door has lintel but no sill; window has both", () => {
+    const doorScene = scene({ walls: [wall()], openings: [opening({ kind: "door", height_m: 2.0, sill_m: null })] });
+    const winScene = scene({ walls: [wall()], openings: [opening({ kind: "window", height_m: 1.2, sill_m: 0.9 })] });
+    const doorWalls = sceneToMeshes(doorScene).walls;
+    const winWalls = sceneToMeshes(winScene).walls;
+    expect(doorWalls.some((w) => w.id.includes("lintel"))).toBe(true);
+    expect(doorWalls.some((w) => w.id.includes("sill"))).toBe(false);
+    expect(winWalls.some((w) => w.id.includes("lintel"))).toBe(true);
+    expect(winWalls.some((w) => w.id.includes("sill"))).toBe(true);
+  });
+
   it("heights: wall override, scene ceiling, global default", () => {
     expect(wallHeightM(wall({ height_m: 3 }), scene())).toBe(3);
     expect(wallHeightM(wall(), scene({ ceiling_height_m: 2.4 }))).toBe(2.4);

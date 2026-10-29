@@ -52,9 +52,17 @@
 }
 
 .maquette-sheet[data-state="expanded"] .maquette-canvas {
-  height: 60dvh;
+  height: 40dvh;
+  max-height: 320px;
   min-height: 0;
   overflow: hidden;
+}
+
+@media (max-height: 700px) {
+  .maquette-sheet[data-state="expanded"] .maquette-canvas {
+    height: 32dvh;
+    max-height: 220px;
+  }
 }
 
 .maquette-sheet[data-state="expanded"] .maquette-canvas .scene-view {
