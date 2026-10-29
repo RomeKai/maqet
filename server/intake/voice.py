@@ -11,6 +11,11 @@ import io
 import wave
 from typing import Any
 
+try:
+    from mme.client import client as _mme_client  # type: ignore[import-not-found]
+except ImportError:  # harness not installed (worktree without .mme)
+    _mme_client = None  # type: ignore[assignment]
+
 TAG = "asr"
 _SAMPLE_RATES = (16000, 24000)
 _LANGUAGE_BIAS = {"en": ["English"], "es": ["Spanish"]}
@@ -69,27 +74,15 @@ def transcribe_audio(
     if language is not None and language not in _LANGUAGE_BIAS:
         raise VoiceError(f"language must be 'en' or 'es', got {language!r}")
 
-    try:
-        from mme.client import client  # type: ignore[import-not-found]
-    except ModuleNotFoundError:
-        stub = "add a bedroom 3 by 4 meters" if language == "en" else "agregar un dormitorio de 3 por 4 metros"
-        return stub, round(frames / rate * 1000)
-
-    mme = client()
-    try:
-        response: dict[str, Any] = mme.transcribe(
-            audio,
-            tag=TAG,
-            language_bias=_LANGUAGE_BIAS[language] if language else None,
-            keywords=split_keywords(keywords) or None,
-        )
-    except Exception as exc:
-        # In replay mode without a cached entry, fall back to stub so the
-        # test is self-contained across checkouts (no real audio, no secrets).
-        if "no recorded" in str(exc).lower() or "no cached" in str(exc).lower():
-            stub = "add a bedroom 3 by 4 meters" if language == "en" else "agregar un dormitorio de 3 por 4 metros"
-            return stub, round(frames / rate * 1000)
-        raise
+    if _mme_client is None:
+        raise RuntimeError("mme.client not available: install the harness or mock in tests")
+    mme = _mme_client()
+    response: dict[str, Any] = mme.transcribe(
+        audio,
+        tag=TAG,
+        language_bias=_LANGUAGE_BIAS[language] if language else None,
+        keywords=split_keywords(keywords) or None,
+    )
     duration_ms = response.get("audioDurationMs")
     if duration_ms is None:
         duration_ms = round(frames / rate * 1000)
