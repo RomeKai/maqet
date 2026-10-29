@@ -47,13 +47,13 @@ function tapWall(
 
 describe("captureSession floor datum (F1)", () => {
   it("ignores a non-horizontal floorHit: floorY stays null", () => {
-    const next = captureReducer(initialCaptureState(), {
+    const result = captureReducer(initialCaptureState(), {
       type: "floorHit",
       point: A,
       horizontal: false,
-    }).state;
-    expect(next.floorY).toBeNull();
-    expect(next.error).toBeNull();
+    });
+    expect(result.state.floorY).toBeNull();
+    expect(result.error).toBeNull();
   });
 
   it("sets floorY from a horizontal floorHit only", () => {
@@ -362,14 +362,16 @@ describe("captureSession toSceneOps", () => {
       "wall-3",
       "wall-4",
     ]);
-    // Plan mapping [x, -z]: the room closes into a loop.
+    // Plan mapping [x, -z]: the room closes into a loop. -z of 0 is -0,
+    // matching the pairCornersToNewWall convention asserted in
+    // cornerMath.test.ts ([0, -0]).
     expect(walls.map((w) => [w.a, w.b])).toEqual([
       [
-        [0, 0],
-        [4, 0],
+        [0, -0],
+        [4, -0],
       ],
       [
-        [4, 0],
+        [4, -0],
         [4, 3],
       ],
       [
@@ -378,7 +380,7 @@ describe("captureSession toSceneOps", () => {
       ],
       [
         [0, 3],
-        [0, 0],
+        [0, -0],
       ],
     ]);
     expect(walls.map((w) => w.measured_length_m)).toEqual([4, 3, 4, 3]);
