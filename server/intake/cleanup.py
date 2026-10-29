@@ -121,12 +121,18 @@ def select_anchor(
                 "La dimensión elegida no tiene un número legible: pedí al "
                 "humano que la corrija."
             )
+        if value <= 0:
+            # A zero anchor scales every wall to a point (empty Scene).
+            raise ScaleError(
+                f"La dimensión elegida ({dim.text!r}) mide cero: pedí al "
+                "humano una medida real."
+            )
         return anchor_index, value
     scored: list[tuple[int, int, float, float]] = []  # (rank, -span, idx, val)
     for i, dim in enumerate(dims):
         assert isinstance(dim, IntakeDimension)
         value = parse_dimension_meters(dim.text)
-        if value is None:
+        if value is None or value <= 0:
             continue
         lowered = dim.text.lower()
         rank = 2 if "total" in lowered else (1 if "m" in lowered else 0)
