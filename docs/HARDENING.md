@@ -56,7 +56,7 @@ real family's result), **M** (robustness/UX), **L** (polish). Status: open / don
 ## Process: gates and integration
 | # | Pri | Assumption or patch | Why it matters | Hardening |
 |---|---|---|---|---|
-| Q1 | M | The Day 1 and 2 gates verified components, not integration: nothing was wired end to end (no `POST /intake`, the web never called the server, `IntakeScreen` not mounted, no `dev` script). Lesson learned 2026-10-26 | A green `mme gate` did not mean the app worked | At least one integration gate per day (route + API test, App renders the stage screen, upload -> Scene); a full-flow replay test (`test_e2e_flow.py`) |
+| Q1 | M | The Day 1 and 2 gates verified components, not integration: nothing was wired end to end (no `POST /intake`, the web never called the server, `IntakeScreen` not mounted, no `dev` script). Lesson learned 2026-10-26 | A green `mme gate` did not mean the app worked | At least one integration gate per day (route + API test, App renders the stage screen, upload -> Scene); **DONE 2026-10-29**: `server/tests/test_e2e_flow.py` — one replay scenario across intake (recorded sample) -> agent turn (add door, Scene id stable) -> variants fork+choose -> snapshot.svg (non-empty, svg tag) -> DXF export ($INSUNITS, A-WALL layer, CORS-safe 500); professional-flag check on load-bearing removal; no vision/Meta calls |
 
 ## Manual AR checklist (device-only; verified 2026-10-28 on Android Chrome)
 1. `@vitejs/plugin-basic-ssl` + `vite --host`; accept the self-signed cert on the phone; open `https://<laptop-ip>:5173`.
