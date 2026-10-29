@@ -251,7 +251,7 @@ def validate_scene(scene: Scene, ctx: ValidationContext | None = None) -> Valida
 
     if context.removed_load_bearing_wall:
         flags.append(Finding(FLAG_LOAD_BEARING, FLAG_LOAD_BEARING, {}))
-    if context.needs_second_floor:
+    if context.needs_second_floor or any(r.level > 1 for r in scene.rooms):
         flags.append(Finding(FLAG_SECOND_FLOOR, FLAG_SECOND_FLOOR, {}))
     if context.soil_unknown:
         flags.append(Finding(FLAG_SOIL, FLAG_SOIL, {}))

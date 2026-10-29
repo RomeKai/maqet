@@ -329,7 +329,13 @@ def recompute_rooms(
     walls) keeps its own polygon unless walls now enclose exactly that shape;
     it is never killed because a walled room claimed the face under it.
     ``old_derived_polys=None`` treats every old room as wall-backed.
+    Upper-level rooms (level > 1) sit above the walls: they pass through
+    unchanged and never claim or mint a wall face.
     """
+    upper = [r for r in explicit_rooms if r.level > 1]
+    explicit_rooms = [r for r in explicit_rooms if r.level == 1]
+    old_upper_ids = {r.id for r in old_rooms if r.level > 1}
+    old_rooms = [r for r in old_rooms if r.level == 1]
     candidates: list[list[tuple[float, float]]] = []
     for poly in derived_polys:
         norm = _normalize_ring([tuple(p) for p in poly])
@@ -408,16 +414,18 @@ def recompute_rooms(
                     name=room.name,
                     polygon=new_poly,
                     function=room.function,
+                    level=room.level,
                 )
             )
 
     # Old rooms the op no longer carries are dead too (explicit list is
     # authoritative): their furniture/surfaces must drop to unassigned,
     # never silently follow a minted copy of the polygon.
-    explicit_ids = {r.id for r in explicit_rooms}
-    for old_id in old_by_id:
+    explicit_ids = {r.id for r in explicit_rooms} | {r.id for r in upper}
+    for old_id in [*old_by_id, *sorted(old_upper_ids)]:
         if old_id not in explicit_ids and old_id not in dead_ids:
             dead_ids.append(old_id)
+    new_rooms.extend(upper)
 
     taken = {r.id for r in new_rooms} | set(dead_ids)
     counter = len(taken) + 1

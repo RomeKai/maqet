@@ -126,7 +126,9 @@ def _handle_add_room(
             w, h = a.size_m
             poly = [(0.0, 0.0), (w, 0.0), (w, h), (0.0, h)]
     rid = a.room_id or _unique_id("r", [r.id for r in scene.rooms])
-    room = Room(id=rid, name=a.name or a.function, polygon=poly, function=a.function)
+    room = Room(
+        id=rid, name=a.name or a.function, polygon=poly, function=a.function, level=a.level
+    )
     new_scene, res = ops.add_room(
         scene,
         room,

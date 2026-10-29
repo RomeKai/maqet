@@ -10,7 +10,9 @@ A-ANNO-TEXT, one measured dimension per wall on A-ANNO-DIMS, title block
 on A-ANNO-TEXT carrying the preliminary label plus one line per
 professional-required flag. With a base Scene, walls split into status
 layers A-WALL-EXST / A-WALL-NEWW / A-WALL-DEMO; without one every wall
-stays on plain A-WALL (Day-1 behavior). Export is blocked while
+stays on plain A-WALL (Day-1 behavior). Rooms with level > 1 go to
+"-L<level>" layers (A-AREA-L2, A-ANNO-TEXT-L2) so the ground-floor plan
+stays clean; the title block stays on A-ANNO-TEXT. Export is blocked while
 scale_confirmed is false.
 """
 
@@ -29,7 +31,7 @@ from ezdxf.layouts import Modelspace
 from shapely.geometry import Polygon
 
 from server.export import dxf_dims, dxf_status, dxf_walls
-from server.export.layers import ensure_layers
+from server.export.layers import ensure_layers, level_layer
 from server.scene.models import Furniture, Opening, Room, Scene, Wall
 from server.scene.validation import ValidationReport, validate_scene
 
@@ -228,16 +230,18 @@ def _add_opening_adornment(msp: Modelspace, wall: Wall, opening: Opening) -> Non
 def _add_room(msp: Modelspace, room: Room) -> None:
     shape = _room_shape(room)
     outline = list(shape.exterior.coords)[:-1]
+    area_layer = level_layer(msp.doc, "A-AREA", room.level)
+    text_layer = level_layer(msp.doc, "A-ANNO-TEXT", room.level)
     msp.add_lwpolyline(
         [(_m(x), _m(y)) for x, y in outline],
         close=True,
-        dxfattribs={"layer": "A-AREA"},
+        dxfattribs={"layer": area_layer},
     )
     center = shape.representative_point()
     label = msp.add_text(
         room.name,
         height=_m(ROOM_LABEL_HEIGHT_M),
-        dxfattribs={"layer": "A-AREA"},
+        dxfattribs={"layer": area_layer},
     )
     label.set_placement(
         (_m(center.x), _m(center.y)), align=TextEntityAlignment.MIDDLE_CENTER
@@ -245,7 +249,7 @@ def _add_room(msp: Modelspace, room: Room) -> None:
     area = msp.add_text(
         f"{shape.area:.1f} m2",
         height=_m(ROOM_AREA_HEIGHT_M),
-        dxfattribs={"layer": "A-ANNO-TEXT"},
+        dxfattribs={"layer": text_layer},
     )
     area.set_placement(
         (_m(center.x), _m(center.y - ROOM_AREA_DY_M)),

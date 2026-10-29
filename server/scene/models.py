@@ -59,6 +59,10 @@ class Room(BaseModel):
     name: str = Field(min_length=1)
     polygon: list[Point2D] = Field(min_length=3)
     function: str | None = None
+    # 1 = ground floor. Upper levels have no walls of their own yet: they
+    # never take part in wall polygonization and only overlap rooms on the
+    # same level. Optional so Scenes saved before levels still validate.
+    level: int = Field(default=1, ge=1)
 
 
 class RoomSurfaceTarget(BaseModel):
