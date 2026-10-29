@@ -1,7 +1,9 @@
-"""DXF export tests, Day 1 (walls). Offline, no Meta calls.
+"""DXF export tests, Day 1 (walls) + Day 5 (openings) expectations. Offline, no Meta calls.
 
 Gate checks: audit clean, reopen + per-layer counts, bbox vs site, golden
-shapely geometry (never file bytes). Full openings land on Day 5.
+shapely geometry (never file bytes). The fixture carries openings, so walls
+with interior cuts export as one polyline per disjoint part (Day 5 full
+export); the golden test compares the union against the cut geometry.
 """
 
 from __future__ import annotations

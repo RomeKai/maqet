@@ -295,7 +295,7 @@ def test_status_layers_with_base_and_plain_wall_without() -> None:
     assert (minx, miny, maxx, maxy) == pytest.approx((-0.1, 0.0, 0.1, 3.0), abs=TOL)
 
     doc = export_dxf(current, base_scene=base)
-    assert doc.layers.get("A-WALL-DEMO").linetype == "Dashed"
+    assert doc.layers.get("A-WALL-DEMO").dxf.linetype == "Dashed"
 
     plain = export_dxf(current).modelspace()
     assert len(_on(plain, "A-WALL", "LWPOLYLINE")) == len(current.walls)
