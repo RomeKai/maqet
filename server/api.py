@@ -143,7 +143,7 @@ def post_intake(
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return _finish_intake(proposal, image_w, image_h, kind)
+        return _finish_intake(proposal, image_w, image_h, kind, anchor_index)
     if file is None:
         raise HTTPException(
             status_code=400,

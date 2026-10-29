@@ -1,16 +1,24 @@
-"""Scene -> DXF export (Day 1 scope: walls + rooms + title block).
+"""Scene -> DXF export (full: walls + openings + furniture + areas + dims).
 
 Conventions (dxf-export skill): ezdxf R2018 with explicit meter units, ONE
-scale factor at the boundary, walls as closed polylines on A-WALL via a
-shapely centerline offset, rooms on A-AREA with labels centered on
-representative_point(), title block on A-ANNO-TEXT carrying the preliminary
-label plus one line per professional-required flag. Export is blocked while
-scale_confirmed is false. Full openings (wall cuts + door swing arcs) land
-on Day 5.
+scale factor at the boundary, walls as closed polylines via a shapely
+centerline offset with opening cuts, doors get a swing arc on A-DOOR,
+windows a centerline on A-GLAZ, furniture footprints with labels on
+A-FLOR-FURN (CONCEPT suffix for imagined items), rooms on A-AREA with
+labels centered on representative_point() plus an area text on
+A-ANNO-TEXT, one measured dimension per wall on A-ANNO-DIMS, title block
+on A-ANNO-TEXT carrying the preliminary label plus one line per
+professional-required flag. With a base Scene, walls split into status
+layers A-WALL-EXST / A-WALL-NEWW / A-WALL-DEMO; without one every wall
+stays on plain A-WALL (Day-1 behavior). Rooms with level > 1 go to
+"-L<level>" layers (A-AREA-L2, A-ANNO-TEXT-L2) so the ground-floor plan
+stays clean; the title block stays on A-ANNO-TEXT. Export is blocked while
+scale_confirmed is false.
 """
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
@@ -20,10 +28,11 @@ from ezdxf import units
 from ezdxf.document import Drawing
 from ezdxf.enums import TextEntityAlignment
 from ezdxf.layouts import Modelspace
-from shapely.geometry import LineString, Polygon
+from shapely.geometry import Polygon
 
-from server.export.layers import ensure_layers
-from server.scene.models import Room, Scene, Wall
+from server.export import dxf_dims, dxf_status, dxf_walls
+from server.export.layers import ensure_layers, level_layer
+from server.scene.models import Furniture, Opening, Room, Scene, Wall
 from server.scene.validation import ValidationReport, validate_scene
 
 PRELIMINARY_NOTE = "Preliminary: not a structural certification"
@@ -36,6 +45,9 @@ EXPORT_UNITS = units.M
 SCALE = 1.0
 
 ROOM_LABEL_HEIGHT_M = 0.25  # legible room label at 1:100 plot scale
+ROOM_AREA_HEIGHT_M = 0.18
+ROOM_AREA_DY_M = 0.35  # area text sits just below the room name
+FURN_LABEL_HEIGHT_M = 0.15
 TITLE_TEXT_HEIGHT_M = 0.18
 TITLE_LINE_STEP_M = 0.35
 TITLE_BELOW_SITE_M = 1.0
@@ -54,10 +66,12 @@ def _m(value: float) -> float:
     return value * SCALE
 
 
-def _wall_footprint(wall: Wall) -> Polygon:
-    """Wall centerline offset by half thickness on each side (flat caps)."""
-    line = LineString([tuple(wall.a), tuple(wall.b)])
-    return line.buffer(wall.thickness_m / 2.0, cap_style="flat")
+def _openings_by_wall(openings: Sequence[Opening]) -> dict[str, list[Opening]]:
+    """Group openings per wall id (deterministic input order preserved)."""
+    grouped: dict[str, list[Opening]] = {}
+    for opening in openings:
+        grouped.setdefault(opening.wall_id, []).append(opening)
+    return grouped
 
 
 def _room_shape(room: Room) -> Polygon:
@@ -79,10 +93,23 @@ def _room_shape(room: Room) -> Polygon:
     return poly
 
 
-def scene_bbox(scene: Scene) -> tuple[float, float, float, float]:
-    """Site extents in meters: wall footprints plus room polygons."""
-    boxes = [_wall_footprint(wall).bounds for wall in scene.walls]
+def scene_bbox(
+    scene: Scene, base_scene: Scene | None = None
+) -> tuple[float, float, float, float]:
+    """Site extents in meters: wall footprints plus room polygons.
+
+    With a base scene, demolished-only (DEMO) walls join the union so the
+    title block sits below the full exported extent.
+    """
+    boxes = [dxf_walls.wall_footprint(wall).bounds for wall in scene.walls]
     boxes += [_room_shape(room).bounds for room in scene.rooms]
+    if base_scene is not None:
+        current_ids = {wall.id for wall in scene.walls}
+        boxes += [
+            dxf_walls.wall_footprint(wall).bounds
+            for wall in base_scene.walls
+            if wall.id not in current_ids
+        ]
     if not boxes:
         raise ValueError("cannot compute extents of an empty scene")
     return (
@@ -99,6 +126,7 @@ def export_dxf(
     project_name: str = "Maqet",
     report: ValidationReport | None = None,
     date_str: str | None = None,
+    base_scene: Scene | None = None,
 ) -> Drawing:
     """Build the DXF document for a scale-confirmed Scene."""
     if not scene.scale_confirmed:
@@ -112,16 +140,32 @@ def export_dxf(
     ensure_layers(doc)
     msp = doc.modelspace()
 
-    for wall in scene.walls:
-        _add_wall(msp, wall)
+    openings = _openings_by_wall(scene.openings)
+    base_openings = _openings_by_wall(base_scene.openings) if base_scene else {}
+    current_ids = {wall.id for wall in scene.walls}
+    for wall, layer in dxf_status.wall_layers(scene, base_scene):
+        wall_openings = (
+            openings.get(wall.id, [])
+            if wall.id in current_ids
+            else base_openings.get(wall.id, [])
+        )
+        for part in dxf_walls.wall_shapes(wall, tuple(wall_openings)):
+            _add_outline(msp, part, layer)
+        for opening in wall_openings:
+            _add_opening_adornment(msp, wall, opening)
     for room in scene.rooms:
         _add_room(msp, room)
+    for item in scene.furniture:
+        _add_furniture(msp, item)
+    for wall in scene.walls:
+        dxf_dims.add_wall_dimension(msp, wall)
     _add_title_block(
         msp,
         scene,
         project_name,
-        validation.flags,
+        _active_flags(validation.flags, scene.professional_flags),
         date_str or date.today().isoformat(),
+        base_scene,
     )
     return doc
 
@@ -133,9 +177,16 @@ def save_dxf(
     project_name: str = "Maqet",
     report: ValidationReport | None = None,
     date_str: str | None = None,
+    base_scene: Scene | None = None,
 ) -> Path:
     """Export, audit, and write the DXF file. Returns the written path."""
-    doc = export_dxf(scene, project_name=project_name, report=report, date_str=date_str)
+    doc = export_dxf(
+        scene,
+        project_name=project_name,
+        report=report,
+        date_str=date_str,
+        base_scene=base_scene,
+    )
     auditor = doc.audit()
     if auditor.errors:
         raise DXFAuditError(
@@ -146,32 +197,104 @@ def save_dxf(
     return out
 
 
-def _add_wall(msp: Modelspace, wall: Wall) -> None:
-    outline = list(_wall_footprint(wall).exterior.coords)[:-1]
+def _add_outline(msp: Modelspace, shape: Polygon, layer: str) -> None:
+    outline = list(shape.exterior.coords)[:-1]
     msp.add_lwpolyline(
         [(_m(x), _m(y)) for x, y in outline],
         close=True,
-        dxfattribs={"layer": "A-WALL"},
+        dxfattribs={"layer": layer},
     )
+
+
+def _add_opening_adornment(msp: Modelspace, wall: Wall, opening: Opening) -> None:
+    swing = dxf_walls.door_swing(wall, opening)
+    if swing is not None:
+        center, radius, start_deg, end_deg = swing
+        msp.add_arc(
+            (_m(center[0]), _m(center[1])),
+            _m(radius),
+            start_deg,
+            end_deg,
+            dxfattribs={"layer": "A-DOOR"},
+        )
+    centerline = dxf_walls.window_centerline(wall, opening)
+    if centerline is not None:
+        (sx, sy), (ex, ey) = centerline
+        msp.add_line(
+            (_m(sx), _m(sy)),
+            (_m(ex), _m(ey)),
+            dxfattribs={"layer": "A-GLAZ"},
+        )
 
 
 def _add_room(msp: Modelspace, room: Room) -> None:
     shape = _room_shape(room)
     outline = list(shape.exterior.coords)[:-1]
+    area_layer = level_layer(msp.doc, "A-AREA", room.level)
+    text_layer = level_layer(msp.doc, "A-ANNO-TEXT", room.level)
     msp.add_lwpolyline(
         [(_m(x), _m(y)) for x, y in outline],
         close=True,
-        dxfattribs={"layer": "A-AREA"},
+        dxfattribs={"layer": area_layer},
     )
     center = shape.representative_point()
     label = msp.add_text(
         room.name,
         height=_m(ROOM_LABEL_HEIGHT_M),
-        dxfattribs={"layer": "A-AREA"},
+        dxfattribs={"layer": area_layer},
     )
     label.set_placement(
         (_m(center.x), _m(center.y)), align=TextEntityAlignment.MIDDLE_CENTER
     )
+    area = msp.add_text(
+        f"{shape.area:.1f} m2",
+        height=_m(ROOM_AREA_HEIGHT_M),
+        dxfattribs={"layer": text_layer},
+    )
+    area.set_placement(
+        (_m(center.x), _m(center.y - ROOM_AREA_DY_M)),
+        align=TextEntityAlignment.MIDDLE_CENTER,
+    )
+
+
+def _furniture_corners(item: Furniture) -> list[tuple[float, float]]:
+    """Footprint corners: w x d rectangle rotated about its center."""
+    width_m, depth_m, _ = item.size_m
+    hx, hy = width_m / 2.0, depth_m / 2.0
+    theta = math.radians(item.rotation_deg)
+    cos_t, sin_t = math.cos(theta), math.sin(theta)
+    cx, cy = item.position
+    return [
+        (cx + lx * cos_t - ly * sin_t, cy + lx * sin_t + ly * cos_t)
+        for lx, ly in ((-hx, -hy), (hx, -hy), (hx, hy), (-hx, hy))
+    ]
+
+
+def _add_furniture(msp: Modelspace, item: Furniture) -> None:
+    corners = _furniture_corners(item)
+    msp.add_lwpolyline(
+        [(_m(x), _m(y)) for x, y in corners],
+        close=True,
+        dxfattribs={"layer": "A-FLOR-FURN"},
+    )
+    name = item.catalog_id or item.concept_id or item.id
+    text = msp.add_text(
+        f"{name} CONCEPT" if item.concept else name,
+        height=_m(FURN_LABEL_HEIGHT_M),
+        dxfattribs={"layer": "A-FLOR-FURN"},
+    )
+    cx, cy = item.position
+    text.set_placement((_m(cx), _m(cy)), align=TextEntityAlignment.MIDDLE_CENTER)
+
+
+def _active_flags(report_flags: Sequence[str], persisted: Sequence[str]) -> list[str]:
+    """Report flags plus persisted Scene codes not already covered (a span
+    finding reads "<code>:<wall>", so match on the code prefix)."""
+    flags = list(report_flags)
+    for code in persisted:
+        if not any(f == code or f.startswith(f"{code}:") for f in flags):
+            flags.append(code)
+    return flags
 
 
 def _add_title_block(
@@ -180,8 +303,9 @@ def _add_title_block(
     project_name: str,
     flags: Sequence[str],
     date_str: str,
+    base_scene: Scene | None = None,
 ) -> None:
-    min_x, min_y, _, _ = scene_bbox(scene)
+    min_x, min_y, _, _ = scene_bbox(scene, base_scene)
     lines = [
         f"Project: {project_name}",
         f"Date: {date_str}",

@@ -121,12 +121,18 @@ def select_anchor(
                 "La dimensión elegida no tiene un número legible: pedí al "
                 "humano que la corrija."
             )
+        if value <= 0:
+            # A zero anchor scales every wall to a point (empty Scene).
+            raise ScaleError(
+                f"La dimensión elegida ({dim.text!r}) mide cero: pedí al "
+                "humano una medida real."
+            )
         return anchor_index, value
     scored: list[tuple[int, int, float, float]] = []  # (rank, -span, idx, val)
     for i, dim in enumerate(dims):
         assert isinstance(dim, IntakeDimension)
         value = parse_dimension_meters(dim.text)
-        if value is None:
+        if value is None or value <= 0:
             continue
         lowered = dim.text.lower()
         rank = 2 if "total" in lowered else (1 if "m" in lowered else 0)
@@ -535,15 +541,21 @@ def build_scaled_plan(
     def shift(p: tuple[float, float]) -> tuple[float, float]:
         return (p[0] - min_x, p[1] - min_y)
 
-    walls = tuple(
-        ScaledWall(
-            a=shift(solved[u]),
-            b=shift(solved[v]),
-            kind=kind,
-            measured_m=targets_m.get(j),
-        )
-        for j, ((u, v), (_, _, kind)) in enumerate(zip(wall_vids, fused))
-    )
+    # Endpoint clustering can collapse a tiny (or zero-length) drawn wall
+    # into one vertex. A zero-length wall is invalid in the Scene, so drop
+    # it here with a warning and renumber; never crash /intake on it.
+    kept: dict[int, int] = {}
+    scaled: list[ScaledWall] = []
+    for j, ((u, v), (_, _, kind)) in enumerate(zip(wall_vids, fused)):
+        a, b = shift(solved[u]), shift(solved[v])
+        if math.dist(a, b) <= _MERGE_EPS:
+            warnings.append(
+                f"wall_dropped: drawn wall {j} collapsed to a point, verify with human"
+            )
+            continue
+        kept[j] = len(scaled)
+        scaled.append(ScaledWall(a=a, b=b, kind=kind, measured_m=targets_m.get(j)))
+    walls = tuple(scaled)
     estimated = [str(j) for j, w in enumerate(walls) if w.measured_m is None]
     if estimated:
         warnings.append(
@@ -553,7 +565,12 @@ def build_scaled_plan(
 
     openings: list[ScaledOpening] = []
     for pos, op in enumerate(proposal.openings):
-        new_idx = old_to_new[op.wall_index]
+        if old_to_new[op.wall_index] not in kept:
+            warnings.append(
+                f"opening_dropped: opening {pos} sat on a dropped wall, verify with human"
+            )
+            continue
+        new_idx = kept[old_to_new[op.wall_index]]
         wall = walls[new_idx]
         length = math.dist(wall.a, wall.b)
         width = opening_labels.get(pos, (op.t1 - op.t0) * length)

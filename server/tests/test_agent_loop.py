@@ -256,7 +256,7 @@ def test_out_of_stage_refused() -> None:
 def test_six_round_stop(user_text: str, fragments: tuple[str, str]) -> None:
     script = [
         {"calls": [{"name": "add_room",
-                    "arguments": _bedroom_args(f"Cuarto {i}", 10.0 * i)}]}
+                    "arguments": _bedroom_args(f"Cuarto {i}", 10.0 * (i + 1))}]}
         for i in range(7)
     ]
     client = ScriptedClient(script)
@@ -419,7 +419,7 @@ def test_six_round_stop_applies_changes_before_stopping() -> None:
     """The 6-round stop keeps the 6 executed changes; the 7th never runs."""
     script = [
         {"calls": [{"name": "add_room",
-                    "arguments": _bedroom_args(f"Cuarto {i}", 10.0 * i)}]}
+                    "arguments": _bedroom_args(f"Cuarto {i}", 10.0 * (i + 1))}]}
         for i in range(7)
     ]
     client = ScriptedClient(script)

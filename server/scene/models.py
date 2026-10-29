@@ -9,9 +9,17 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 Point2D = tuple[float, float]
+
+
+class _FiniteModel(BaseModel):
+    """Every float in the Scene is a real measurement: NaN and +/-inf are
+    rejected at the boundary (JSON from the client or the model can carry
+    them) instead of crashing shapely or reaching the DXF."""
+
+    model_config = ConfigDict(allow_inf_nan=False)
 
 
 def _positive_dims(v: tuple[float, ...], name: str) -> tuple[float, ...]:
@@ -25,7 +33,7 @@ def _positive_dims(v: tuple[float, ...], name: str) -> tuple[float, ...]:
 HABITABLE_FUNCTIONS = frozenset({"living", "kitchen", "bedroom", "dining"})
 
 
-class Wall(BaseModel):
+class Wall(_FiniteModel):
     id: str = Field(min_length=1)
     a: Point2D
     b: Point2D
@@ -43,8 +51,14 @@ class Wall(BaseModel):
     # Real length in meters when provenance != estimated (per-wall measure).
     measured_length_m: float | None = Field(default=None, gt=0)
 
+    @model_validator(mode="after")
+    def _non_zero_length(self) -> Wall:
+        if tuple(self.a) == tuple(self.b):
+            raise ValueError("wall endpoints a and b must differ (zero-length wall)")
+        return self
 
-class Opening(BaseModel):
+
+class Opening(_FiniteModel):
     id: str = Field(min_length=1)
     wall_id: str = Field(min_length=1)
     kind: Literal["door", "window"]
@@ -54,20 +68,24 @@ class Opening(BaseModel):
     sill_m: float | None = Field(default=None, ge=0)
 
 
-class Room(BaseModel):
+class Room(_FiniteModel):
     id: str = Field(min_length=1)
     name: str = Field(min_length=1)
     polygon: list[Point2D] = Field(min_length=3)
     function: str | None = None
+    # 1 = ground floor. Upper levels have no walls of their own yet: they
+    # never take part in wall polygonization and only overlap rooms on the
+    # same level. Optional so Scenes saved before levels still validate.
+    level: int = Field(default=1, ge=1)
 
 
-class RoomSurfaceTarget(BaseModel):
+class RoomSurfaceTarget(_FiniteModel):
     type: Literal["room"] = "room"
     room_id: str = Field(min_length=1)
     part: Literal["floor", "ceiling"]
 
 
-class WallSurfaceTarget(BaseModel):
+class WallSurfaceTarget(_FiniteModel):
     type: Literal["wall"] = "wall"
     wall_id: str = Field(min_length=1)
     side: Literal["left", "right"]
@@ -78,13 +96,13 @@ SurfaceTarget = Annotated[
 ]
 
 
-class Surface(BaseModel):
+class Surface(_FiniteModel):
     id: str = Field(min_length=1)
     target: SurfaceTarget
     material_id: str = Field(min_length=1)
 
 
-class Furniture(BaseModel):
+class Furniture(_FiniteModel):
     id: str = Field(min_length=1)
     catalog_id: str | None = None
     concept_id: str | None = None
@@ -102,7 +120,7 @@ class Furniture(BaseModel):
         return _positive_dims(v, "size_m")
 
 
-class Material(BaseModel):
+class Material(_FiniteModel):
     id: str = Field(min_length=1)
     source: Literal["catalog", "generated"]
     catalog_id: str | None = None
@@ -117,7 +135,7 @@ class Material(BaseModel):
         return _positive_dims(v, "tiling_m")
 
 
-class Scene(BaseModel):
+class Scene(_FiniteModel):
     id: str = Field(min_length=1)
     version: int = Field(default=0, ge=0)
     units: Literal["m"] = "m"
@@ -129,3 +147,6 @@ class Scene(BaseModel):
     surfaces: list[Surface] = Field(default_factory=list)
     furniture: list[Furniture] = Field(default_factory=list)
     materials: list[Material] = Field(default_factory=list)
+    # Stable needs_professional:* codes raised by ops (rules.PRO_FLAG_*).
+    # Append-only via ops; optional so older Scene JSON still validates.
+    professional_flags: list[str] = Field(default_factory=list)
