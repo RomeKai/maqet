@@ -1,0 +1,66 @@
+/* MaquetteSheet: two-state 3D bottom sheet (mobile-ui). Kept out of
+   styles.css: Capture owns this layout, not the global shell. */
+
+.viewport-capture {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0;
+  overflow: hidden;
+}
+
+.capture-editor {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.maquette-sheet {
+  flex: none;
+  background: var(--surface);
+  border-top: 1px solid var(--hairline);
+  border-radius: var(--radius) var(--radius) 0 0;
+  box-shadow: 0 -4px 16px rgba(30, 33, 36, 0.08);
+}
+
+.maquette-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 12px;
+  background: none;
+  border: none;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  touch-action: none;
+  cursor: pointer;
+}
+
+.maquette-grip {
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--hairline);
+}
+
+.maquette-label {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+.maquette-sheet[data-state="expanded"] .maquette-canvas {
+  height: 60dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.maquette-sheet[data-state="expanded"] .maquette-canvas .scene-view {
+  height: 100%;
+}
+
+.maquette-sheet[data-state="collapsed"] .maquette-canvas {
+  display: none;
+}

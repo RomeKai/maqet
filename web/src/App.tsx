@@ -3,6 +3,7 @@ import { DEFAULT_LOCALE, getStrings, type Locale, type StringKey } from "./i18n"
 import { IntakeScreen } from "./intake/IntakeScreen";
 import { ScaleBadge } from "./intake/ScaleBadge";
 import { SceneView } from "./view3d/SceneView";
+import { MaquetteSheet } from "./view3d/MaquetteSheet";
 import type { Scene } from "./scene/types";
 
 const STAGES: StringKey[] = [
@@ -48,6 +49,8 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: App
 
   const otherLocale: Locale = locale === "es-AR" ? "en" : "es-AR";
 
+  const wallsCount = intakeScene?.walls?.length ?? 0;
+
   return (
     <div className={arSession ? "app ar-session" : "app"}>
       <header className="topbar">
@@ -63,30 +66,48 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: App
         </button>
       </header>
 
-      <main className="viewport" aria-label={t["app.name"]}>
-        {intakeScene !== null && (intakeScene.walls?.length ?? 0) > 0 ? (
-          <SceneView
-            scene={intakeScene}
-            selectedWallId={selectedWallId}
-            onSelectWall={setSelectedWallId}
-          />
-        ) : (
-          <div className="viewport-placeholder">
-            <p className="viewport-hint">{t["sheet.hint"]}</p>
+      {stage === "stage.capture" ? (
+        <main className="viewport viewport-capture" aria-label={t["app.name"]}>
+          {wallsCount === 0 && (
+            <div className="viewport-placeholder">
+              <p className="viewport-hint">{t["sheet.hint"]}</p>
+            </div>
+          )}
+          <div className="capture-editor">
+            <IntakeScreen
+              locale={locale}
+              initialScene={initialScene ?? undefined}
+              onSceneChange={handleIntakeScene}
+              onPhotoChange={setHasPhoto}
+              onArSessionChange={setArSession}
+            />
           </div>
-        )}
-      </main>
+          {intakeScene !== null && wallsCount > 0 && (
+            <MaquetteSheet
+              scene={intakeScene}
+              locale={locale}
+              selectedWallId={selectedWallId}
+              onSelectWall={setSelectedWallId}
+            />
+          )}
+        </main>
+      ) : (
+        <main className="viewport" aria-label={t["app.name"]}>
+          {intakeScene !== null && wallsCount > 0 ? (
+            <SceneView
+              scene={intakeScene}
+              selectedWallId={selectedWallId}
+              onSelectWall={setSelectedWallId}
+            />
+          ) : (
+            <div className="viewport-placeholder">
+              <p className="viewport-hint">{t["sheet.hint"]}</p>
+            </div>
+          )}
+        </main>
+      )}
 
       <section className="sheet" aria-label={t["app.name"]}>
-        {stage === "stage.capture" && (
-          <IntakeScreen
-            locale={locale}
-            initialScene={initialScene ?? undefined}
-            onSceneChange={handleIntakeScene}
-            onPhotoChange={setHasPhoto}
-            onArSessionChange={setArSession}
-          />
-        )}
         <div className="chips" role="tablist">
           {STAGES.map((key) => (
             <button

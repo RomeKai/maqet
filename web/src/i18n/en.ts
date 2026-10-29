@@ -23,6 +23,8 @@ export const en: Record<keyof typeof esAR, string> = {
   "sheet.placeholder": "Ask or describe the change…",
   "sheet.mic": "Hold to talk",
   "sheet.hint": "Tap a wall, then describe the change.",
+  "maquette.expand": "Show 3D",
+  "maquette.collapse": "Hide 3D",
   "intake.step.capture": "Step 1 · Capture",
   "intake.editor": "Plan editor",
   "intake.tool.select": "Select",

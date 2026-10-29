@@ -22,6 +22,8 @@ export const esAR = {
   "sheet.placeholder": "Pedí o describí el cambio…",
   "sheet.mic": "Mantené para hablar",
   "sheet.hint": "Tocá una pared y describí el cambio.",
+  "maquette.expand": "Ver 3D",
+  "maquette.collapse": "Ocultar 3D",
   "intake.step.capture": "Paso 1 · Captura",
   "intake.editor": "Editor del plano",
   "intake.tool.select": "Elegir",
