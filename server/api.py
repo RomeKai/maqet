@@ -11,21 +11,35 @@ from __future__ import annotations
 
 import io
 import logging
-from typing import cast
+from dataclasses import asdict
+from pathlib import Path
+from typing import Any, Literal, cast
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from server.agent.loop import ReformClient, run_turn
+from server.agent.tools import SelectedRef
+from server.db import load_project, save_project
 from server.export.dxf import ScaleNotConfirmedError, export_dxf
 from server.intake.cleanup import ScaleError, build_scaled_plan, to_scene
 from server.intake.read_plan import ReadPlanError, read_plan
 from server.intake.replay import ReplayMiss, load_sample
 from server.intake.schemas import InputKind, IntakeProposal
 from server.intake.voice import VoiceError, transcribe_audio
+from server.render.snapshot import render_snapshot
 from server.scene.models import Scene
+from server.scene.ops import OpRecord
 from server.scene.validation import ValidationReport, validate_scene
+from server.scene.variants import (
+    Project,
+    choose,
+    create_variant,
+    materialize,
+    undo_in_branch,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +80,9 @@ _MAX_IMAGE_BYTES = 15 * 1024 * 1024
 # Day-1 in-memory store: a single current Scene. Deliver (Day 5) replaces
 # this with real persistence behind server.db.
 _current: Scene | None = None
+
+# Variant projects (ADR-013) persist through server.db; None = its default file.
+_DB_PATH: Path | None = None
 
 
 class HealthOut(BaseModel):
@@ -111,6 +128,24 @@ def put_scene(scene: Scene) -> Scene:
 @app.post("/scene/validate", response_model=ValidationReportOut)
 def validate(scene: Scene) -> ValidationReportOut:
     return _report_out(validate_scene(scene))
+
+
+SnapshotLocale = Literal["en", "es-AR"]
+_SVG = "image/svg+xml"
+
+
+def _svg(scene: Scene, locale: str) -> Response:
+    return Response(content=render_snapshot(scene, locale=locale), media_type=_SVG)
+
+
+@app.get("/scene/snapshot.svg", response_class=Response, responses={200: {"content": {_SVG: {}}}})
+def get_snapshot(locale: SnapshotLocale = "en") -> Response:
+    return _svg(get_scene(), locale)
+
+
+@app.post("/scene/snapshot.svg", response_class=Response, responses={200: {"content": {_SVG: {}}}})
+def post_snapshot(scene: Scene, locale: SnapshotLocale = "en") -> Response:
+    return _svg(scene, locale)
 
 
 class IntakeOut(BaseModel):
@@ -262,6 +297,175 @@ def post_transcribe(
         raise
     logger.info("transcribe chars=%d duration_ms=%d", len(text), duration_ms)
     return TranscribeOut(text=text, duration_ms=duration_ms)
+
+
+class OpRecordIn(BaseModel):
+    """One op-history entry; the client echoes it back so `undo` spans turns."""
+
+    op: str
+    args: dict[str, Any]
+    before_version: int
+    after_version: int
+    actor: str
+
+
+class AgentTurnIn(BaseModel):
+    scene: Scene
+    message: str = Field(min_length=1)
+    stage: Literal["reform", "design", "present"]
+    history: list[OpRecordIn] = []
+    selected: SelectedRef | None = None
+
+
+class AppliedOpOut(BaseModel):
+    name: str
+    arguments: dict[str, Any]
+    flags: list[str] = []
+
+
+class AgentTurnOut(BaseModel):
+    scene: Scene
+    reply: str
+    ops_applied: list[AppliedOpOut]
+    professional_flags: list[str]
+    history: list[OpRecordIn]
+
+
+def get_reform_client() -> ReformClient:
+    """Production Meta client; tests override this dependency."""
+    from mme.client import client
+
+    return cast(ReformClient, client())
+
+
+@app.post("/agent/turn", response_model=AgentTurnOut)
+def post_agent_turn(
+    body: AgentTurnIn, reform_client: ReformClient = Depends(get_reform_client)
+) -> AgentTurnOut:
+    history = [OpRecord(**record.model_dump()) for record in body.history]
+    try:
+        result = run_turn(
+            body.scene, history, body.stage, body.message, reform_client, selected=body.selected
+        )
+    except Exception as exc:
+        # Same contract as /transcribe: a turn with no recorded model
+        # response in MME_MODE=replay is a 409, never a 500.
+        if type(exc).__name__ == "ReplayMiss":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "no recorded agent response for this turn "
+                    f"({exc}): use a recorded demo turn or record it in live mode"
+                ),
+            ) from exc
+        raise
+    applied = [
+        AppliedOpOut(name=ev["name"], arguments=ev["arguments"], flags=ev["flags"])
+        for ev in result.tool_events
+        if ev["ok"]
+    ]
+    flags = list(result.scene.professional_flags)
+    for op in applied:
+        flags += [f for f in op.flags if f not in flags]
+    logger.info("agent turn stage=%s ops=%d", body.stage, len(applied))
+    return AgentTurnOut(
+        scene=result.scene,
+        reply=result.reply,
+        ops_applied=applied,
+        professional_flags=flags,
+        history=[OpRecordIn(**asdict(record)) for record in history],
+    )
+
+
+class VariantOut(BaseModel):
+    label: str
+    parent: str | None
+    fork_at_version: int
+    op_count: int
+    scene: Scene
+
+
+class VariantsOut(BaseModel):
+    chosen: str
+    variants: list[VariantOut]
+
+
+class ForkIn(BaseModel):
+    label: str
+    from_branch: str = "A"
+
+
+class UndoIn(BaseModel):
+    label: str | None = None  # defaults to the chosen branch
+
+
+def _load_or_seed_project() -> Project:
+    """Persisted project, or a fresh one whose branch 'A' is the current Scene."""
+    try:
+        return load_project(db_path=_DB_PATH)
+    except KeyError:
+        return Project(base=get_scene())
+
+
+def _variant_out(project: Project, label: str) -> VariantOut:
+    branch = project.branches[label]
+    return VariantOut(
+        label=label,
+        parent=branch.parent,
+        fork_at_version=branch.fork_at_version,
+        op_count=len(branch.ops),
+        scene=materialize(project, label),
+    )
+
+
+def _variants_out(project: Project) -> VariantsOut:
+    return VariantsOut(
+        chosen=project.chosen,
+        variants=[_variant_out(project, label) for label in sorted(project.branches)],
+    )
+
+
+def _require_branch(project: Project, label: str) -> None:
+    if label not in project.branches:
+        raise HTTPException(status_code=404, detail=f"unknown variant {label!r}")
+
+
+@app.get("/variants", response_model=VariantsOut)
+def get_variants() -> VariantsOut:
+    return _variants_out(_load_or_seed_project())
+
+
+@app.post("/variants/fork", response_model=VariantsOut)
+def post_variant_fork(body: ForkIn) -> VariantsOut:
+    project = _load_or_seed_project()
+    _require_branch(project, body.from_branch)
+    if body.label in project.branches:
+        raise HTTPException(status_code=409, detail=f"variant {body.label!r} already exists")
+    try:
+        create_variant(project, body.from_branch, body.label)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    save_project(project, db_path=_DB_PATH)
+    return _variants_out(project)
+
+
+@app.post("/variants/{label}/choose", response_model=VariantsOut)
+def post_variant_choose(label: str) -> VariantsOut:
+    project = _load_or_seed_project()
+    _require_branch(project, label)
+    choose(project, label)
+    save_project(project, db_path=_DB_PATH)
+    return _variants_out(project)
+
+
+@app.post("/variants/undo", response_model=VariantOut)
+def post_variant_undo(body: UndoIn) -> VariantOut:
+    project = _load_or_seed_project()
+    label = body.label or project.chosen
+    _require_branch(project, label)
+    undo_in_branch(project, label)
+    save_project(project, db_path=_DB_PATH)
+    return _variant_out(project, label)
 
 
 @app.post("/export/dxf")
