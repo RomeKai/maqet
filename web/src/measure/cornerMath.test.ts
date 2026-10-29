@@ -163,7 +163,7 @@ describe("cornerMath", () => {
     const first: Vec3 = [0, 0, 0];
     const near: Vec3 = [0.1, 0, 0.05]; // ~11 cm away
     expect(shouldCloseRoom(first, near)).toBe(true);
-    const far: Vec3 = [0.2, 0, 0]; // 20 cm away
+    const far: Vec3 = [0.26, 0, 0]; // 26 cm away, outside the 0.25 m W2 radius
     expect(shouldCloseRoom(first, far)).toBe(false);
   });
 

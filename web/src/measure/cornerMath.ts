@@ -106,13 +106,15 @@ export function pairCornersToNewWall(
 
 /**
  * Snap radius in meters: a tap within this distance of the first corner
- * closes the room (shared endpoint, not a new wall stub).
+ * closes the room (shared endpoint, not a new wall stub). 0.25 m per the
+ * W2 walls-flow decision (mission ar-capture-walls): a closing gesture from
+ * chest height must land comfortably inside the radius on a phone screen.
  */
-export const CLOSE_ROOM_M = 0.15;
+export const CLOSE_ROOM_M = 0.25;
 
 /** True when a tap lands close enough to the first corner to close the room. */
 export function shouldCloseRoom(first: Vec3, tap: Vec3): boolean {
-  const d = distanceM(first, tap);
+  const d = floorPlaneDistanceM(first, tap);
   return Number.isFinite(d) && d <= CLOSE_ROOM_M;
 }
 
