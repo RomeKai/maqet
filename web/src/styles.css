@@ -569,11 +569,26 @@ body {
   stroke-linecap: butt;
 }
 
-.intake-svg .opening-window {
-  stroke: var(--accent-2);
-  stroke-width: 4;
+.intake-svg .opening-door-gap {
+  stroke: var(--surface);
+  stroke-width: 5;
+  stroke-linecap: butt;
+  opacity: 0.95;
+}
+
+.intake-svg .opening-door-arc {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
   stroke-linecap: butt;
   stroke-dasharray: 6 3;
+  opacity: 0.95;
+}
+
+.intake-svg .opening-window {
+  stroke: var(--accent-2);
+  stroke-width: 2;
+  stroke-linecap: butt;
 }
 
 .intake-svg .opening-selected {

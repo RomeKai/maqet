@@ -271,6 +271,110 @@ describe("shared corner handles", () => {
     expect(html).toContain("handle-active");
   });
 });
+describe("Mode C toolbar — Door/Window tools (RED: toolbar regression from a24ea68)", () => {
+  function toolbarHtml(locale: "en" | "es-AR" = "en"): string {
+    return renderToString(
+      <CornerEditor
+        locale={locale}
+        scene={scene}
+        imageUrl={null}
+        imageWidth={800}
+        imageHeight={600}
+        onChange={noopScene}
+        onUndo={noopUndo}
+        canUndo={false}
+      />,
+    );
+  }
+
+  it("toolbar shows Select / Wall / Door / Window / Undo (Door and Window were removed in a24ea68)", () => {
+    const html = toolbarHtml();
+    expect(html).toContain("Select");
+    expect(html).toContain("Wall");
+    expect(html).toContain("Door");
+    expect(html).toContain("Window");
+    expect(html).toContain("Undo");
+  });
+
+  it("toolbar labels are localized (es-AR: Puerta / Ventana)", () => {
+    const html = toolbarHtml("es-AR");
+    expect(html).toContain("Puerta");
+    expect(html).toContain("Ventana");
+  });
+});
+
+describe("Mode C opening — two taps on a wall span produce markOpening (RED)", () => {
+  it("two taps along a wall project to an opening placement (form prefilled from span)", async () => {
+    const { tapsToPlacement, placementToOpening } = await import("./opening");
+    const { applySceneOp, createEmptyScene } = await import("../scene/store");
+    const wall = { id: "w0", a: [0, 0] as [number, number], b: [4, 0] as [number, number], thickness_m: 0.1, kind: "interior" as const };
+    const res = tapsToPlacement(wall, "door", [0.5, 0], [1.4, 0]);
+    expect("placement" in res).toBe(true);
+    if (!("placement" in res)) throw new Error("taps rejected");
+    expect(res.placement.width_m).toBeCloseTo(0.9, 9);
+    expect(res.placement.offset_m).toBeCloseTo(0.5, 9);
+    // Form is prefilled from the span: width/height/sill per spec (door 0.9/2.05, window 1.4/1.4 sill 0.8)
+    expect(res.placement.height_m).toBeCloseTo(2.05, 9);
+    const opening = placementToOpening(res.placement, "o1");
+    let sc = createEmptyScene();
+    sc = applySceneOp(sc, { type: "addWall", wall });
+    sc = applySceneOp(sc, { type: "markOpening", opening });
+    expect(sc.openings).toHaveLength(1);
+    expect(sc.openings![0]!.kind).toBe("door");
+  });
+
+  it("window span prefills sill 0.80 and double-tap still yields window opening", async () => {
+    const { tapsToPlacement, placementToOpening } = await import("./opening");
+    const wall = { id: "w0", a: [0, 0] as [number, number], b: [4, 0] as [number, number], thickness_m: 0.1, kind: "interior" as const };
+    const res = tapsToPlacement(wall, "window", [0.2, 0], [1.6, 0]);
+    expect("placement" in res).toBe(true);
+    if (!("placement" in res)) throw new Error("taps rejected");
+    expect(res.placement.sill_m).toBeCloseTo(0.8, 9);
+    expect(res.placement.height_m).toBeCloseTo(1.4, 9);
+    const opening = placementToOpening(res.placement, "o2");
+    expect(opening.sill_m).toBeCloseTo(0.8, 9);
+  });
+});
+
+
+describe("Mode C opening line styles — door arc+gap vs window double line (RED)", () => {
+  const makeScene = (): Scene => ({
+    id: "intake",
+    version: 1,
+    units: "m",
+    scale_confirmed: false,
+    ceiling_height_m: 2.6,
+    walls: [{ id: "w0", a: [0, 0], b: [4, 0], thickness_m: 0.1, kind: "interior" }],
+    openings: [
+      { id: "o-door", wall_id: "w0", kind: "door", offset_m: 0.5, width_m: 0.9, height_m: 2.05 },
+      { id: "o-win", wall_id: "w0", kind: "window", offset_m: 2, width_m: 1.2, height_m: 1.4, sill_m: 0.8 },
+    ],
+    rooms: [],
+  });
+
+  it("door renders as an arc+gap (not same style as window) and window as double line", () => {
+    const html = renderToString(
+      <CornerEditor
+        locale="en"
+        scene={makeScene()}
+        imageUrl={null}
+        imageWidth={800}
+        imageHeight={600}
+        onChange={noopScene}
+        onUndo={noopUndo}
+        canUndo={false}
+      />,
+    );
+    // Door: a swung-arc path + a gap marker on the wall line
+    expect(html).toContain('class="opening-door"');
+    expect(html).toContain('class="opening-door-arc"');
+    expect(html).toContain('class="opening-door-gap"');
+    // Window: two thin parallel lines (double line), not a single dashed line
+    expect(html).toContain('class="opening-window"');
+    expect((html.match(/class="opening-window"/g) ?? []).length).toBeGreaterThanOrEqual(2);
+  });
+});
+
 describe("previewEndpoint (live drag preview)", () => {
   const wall = scene.walls![0]!;
 
