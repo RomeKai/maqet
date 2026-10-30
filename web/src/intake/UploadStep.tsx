@@ -146,11 +146,15 @@ export function UploadStep({
     });
   }
 
-  /** Take the file and clear the input so choosing the same photo again still fires change. */
+  /**
+   * Take the file and clear the input only after the upload settles, so choosing the same photo again still fires
+   * change. Clearing it right away invalidates a fresh camera capture on Android Chrome: the upload hangs.
+   */
   function onPicked(input: HTMLInputElement): void {
     const file = input.files?.[0];
-    input.value = "";
-    void handleFile(file);
+    void handleFile(file).finally(() => {
+      input.value = "";
+    });
   }
 
   return (
