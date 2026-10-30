@@ -756,3 +756,31 @@ body {
     border-color: var(--lg-accent);
   }
 }
+
+/* Mode C redesign: step header, instruction, warnings chip, wall labels, 3D sheet */
+.capture-step-header { display: flex; flex-direction: column; gap: 8px; }
+.capture-steps { display: flex; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.capture-step { font-size: 13px; color: var(--muted); padding: 6px 10px; border-radius: 999px; border: 1px solid var(--hairline); }
+.capture-step-active { background: var(--ink); color: var(--surface); border-color: var(--ink); font-weight: 600; }
+.capture-instruction { margin: 0; font-size: 16px; font-weight: 600; color: var(--ink); line-height: 1.3; }
+.capture-error-banner { margin: 0; padding: 10px 12px; border-radius: 10px; background: #b3261e; color: #fff; font-size: 14px; font-weight: 600; }
+.warnings-chip-wrap { display: flex; flex-direction: column; gap: 8px; }
+.warnings-chip { align-self: flex-start; min-height: 44px; padding: 8px 14px; border-radius: 999px; border: 2px solid #8a5a00; background: #fdf3d7; color: #5a3d00; font-weight: 700; font-size: 14px; }
+.warnings-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.warnings-item { width: 100%; text-align: left; min-height: 44px; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--hairline); background: var(--surface); color: var(--ink); font-size: 14px; }
+.intake-canvas { flex: 1; min-height: 220px; }
+.intake-editor { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+.viewport-capture { flex-direction: column; align-items: stretch; padding: 12px; gap: 10px; }
+.viewport-capture .intake { flex: 1; min-height: 0; }
+.viewport-capture .intake-editor { flex: 1; }
+.intake-segmented { display: flex; gap: 8px; overflow-x: auto; padding: 8px 0; position: sticky; bottom: 0; background: var(--surface); border-top: 1px solid var(--hairline); }
+.wall-label { font-size: 14px; font-family: "JetBrains Mono", ui-monospace, monospace; fill: var(--ink); text-anchor: middle; }
+.intake-svg .wall-label { font-size: 14px; }
+.wall-length-sheet { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--radius); padding: 16px; box-shadow: 0 -4px 16px rgba(30,33,36,0.12); z-index: 20; display: flex; flex-direction: column; gap: 10px; }
+.wall-length-title { margin: 0; font-size: 16px; font-weight: 600; }
+.wall-length-input { min-height: 48px; border: 1px solid var(--hairline); border-radius: 10px; padding: 0 12px; font-size: 18px; font-family: "JetBrains Mono", ui-monospace, monospace; }
+.wall-length-actions { display: flex; gap: 8px; }
+.wall-highlight { stroke: #b3261e !important; stroke-width: 5 !important; }
+.maquette-viewport-hidden { display: none; }
+.maquette-open-btn { min-height: 44px; align-self: center; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--hairline); background: var(--surface); color: var(--ink); font-weight: 600; }
+.maquette-close-btn { position: absolute; top: 8px; right: 8px; z-index: 5; min-width: 44px; min-height: 44px; border-radius: 10px; border: 1px solid var(--hairline); background: var(--surface); }

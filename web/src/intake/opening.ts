@@ -131,3 +131,91 @@ export function placementToOpening(placement: OpeningPlacement, id: string): Ope
     ...(placement.kind === "window" ? { sill_m: placement.sill_m ?? 0.8 } : {}),
   };
 }
+
+/** Screen-px snap: project point onto nearest wall within maxPx; null if none. */
+export function snapPointToWallPx(
+  point: [number, number],
+  walls: Wall[],
+  toDisplay: (x: number, y: number) => { x: number; y: number },
+  maxPx = 24,
+): { wall: Wall; point: [number, number]; t: number } | null {
+  let best: { wall: Wall; point: [number, number]; t: number; dpx: number } | null = null;
+  for (const wall of walls) {
+    const wA: [number, number] = [wall.a[0] as number, wall.a[1] as number];
+    const wB: [number, number] = [wall.b[0] as number, wall.b[1] as number];
+    // project in scene meters, then measure distance in screen px
+    const len = Math.hypot(wB[0] - wA[0], wB[1] - wA[1]);
+    if (len <= 0) continue;
+    const dx = wB[0] - wA[0];
+    const dy = wB[1] - wA[1];
+    const ux = dx / len;
+    const uy = dy / len;
+    const apx = point[0] - wA[0];
+    const apy = point[1] - wA[1];
+    const proj = apx * ux + apy * uy;
+    const t = Math.max(0, Math.min(1, proj / len));
+    const closest: [number, number] = [wA[0] + ux * (t * len), wA[1] + uy * (t * len)];
+    const screenPt = toDisplay(point[0], point[1]);
+    const screenClosest = toDisplay(closest[0], closest[1]);
+    const dpx = Math.hypot(screenPt.x - screenClosest.x, screenPt.y - screenClosest.y);
+    if (dpx <= maxPx && (best === null || dpx < best.dpx)) {
+      best = { wall, point: closest, t, dpx };
+    }
+  }
+  return best ? { wall: best.wall, point: best.point, t: best.t } : null;
+}
+
+export function nearestWallDistancePx(
+  point: [number, number],
+  walls: Wall[],
+  toDisplay: (x: number, y: number) => { x: number; y: number },
+): number {
+  let best = Infinity;
+  for (const wall of walls) {
+    const wA: [number, number] = [wall.a[0] as number, wall.a[1] as number];
+    const wB: [number, number] = [wall.b[0] as number, wall.b[1] as number];
+    const len = Math.hypot(wB[0] - wA[0], wB[1] - wA[1]);
+    if (len <= 0) continue;
+    const ux = (wB[0] - wA[0]) / len;
+    const uy = (wB[1] - wA[1]) / len;
+    const apx = point[0] - wA[0];
+    const apy = point[1] - wA[1];
+    const proj = apx * ux + apy * uy;
+    const t = Math.max(0, Math.min(1, proj / len));
+    const closest: [number, number] = [wA[0] + ux * (t * len), wA[1] + uy * (t * len)];
+    const dpx = Math.hypot(
+      toDisplay(point[0], point[1]).x - toDisplay(closest[0], closest[1]).x,
+      toDisplay(point[0], point[1]).y - toDisplay(closest[0], closest[1]).y,
+    );
+    best = Math.min(best, dpx);
+  }
+  return best;
+}
+
+/** Opening placement from two already-snapped wall points (no rejection). */
+export function openPlacemenFromSnappedTap(
+  wall: Wall,
+  kind: "door" | "window",
+  p0: [number, number],
+  p1: [number, number],
+): { placement: OpeningPlacement } | { rejected: TapRejected } {
+  const len = Math.hypot(wall.b[0] - wall.a[0], wall.b[1] - wall.a[1]);
+  if (len <= 0) return { rejected: { reason: "degenerate" } };
+  const pr0 = projectOntoSegment(p0, wall.a as [number, number], wall.b as [number, number]);
+  const pr1 = projectOntoSegment(p1, wall.a as [number, number], wall.b as [number, number]);
+  const t0 = Math.max(0, Math.min(1, pr0.t));
+  const t1 = Math.max(0, Math.min(1, pr1.t));
+  if (Math.abs(t0 - t1) < 1e-9) return { rejected: { reason: "degenerate" } };
+  const tMin = Math.min(t0, t1);
+  const tMax = Math.max(t0, t1);
+  return {
+    placement: {
+      wallId: wall.id,
+      kind,
+      offset_m: tMin * len,
+      width_m: (tMax - tMin) * len,
+      height_m: kind === "door" ? 2.05 : 1.4,
+      ...(kind === "window" ? { sill_m: 0.8 } : {}),
+    },
+  };
+}
