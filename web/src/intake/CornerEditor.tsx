@@ -16,6 +16,7 @@ import {
   DOOR_MIN_WIDTH_M,
   validateAgainstWall,
 } from "./opening";
+import { fitPlan, planToCanvas, canvasToPlan } from "./fitPlan";
 import { StepHeader } from "./StepHeader";
 import { CheckList } from "./CheckList";
 import { buildChecks } from "./checks";
@@ -302,8 +303,13 @@ export function CornerEditor({
   /** SVG viewBox units per screen px: keeps pills >= 14 px at any photo zoom. */
   const [unitsPerPx, setUnitsPerPx] = useState(1);
 
-  const canvasW = imageWidth > 0 ? imageWidth : WALL_LEN_M * 2;
-  const canvasH = imageHeight > 0 ? imageHeight : WALL_LEN_M * 2;
+  // No photo: fit the plan to a virtual canvas so it fills the view with a margin.
+  const fit = useMemo(
+    () => (imageWidth <= 0 && walls.length > 0 ? fitPlan(walls) : null),
+    [imageWidth, walls],
+  );
+  const canvasW = fit !== null ? fit.canvasW : imageWidth > 0 ? imageWidth : WALL_LEN_M * 2;
+  const canvasH = fit !== null ? fit.canvasH : imageHeight > 0 ? imageHeight : WALL_LEN_M * 2;
 
   const calibration = useMemo(
     () => calibratePhotoSpace(proposal, scene, imageWidth, imageHeight),
@@ -330,12 +336,13 @@ export function CornerEditor({
     const px = ((clientX - rect.left) / rect.width) * canvasW;
     const py = ((clientY - rect.top) / rect.height) * canvasH;
     if (calibration !== null) return photoToScene(calibration, px, py);
+    if (fit !== null) return canvasToPlan(fit, px, py);
     return { x: px, y: py };
   }
 
   /** Scene meters -> display (photo px) for SVG + handle positions. */
   function toDisplay(x: number, y: number): Point {
-    if (calibration === null) return { x, y };
+    if (calibration === null) return fit !== null ? planToCanvas(fit, x, y) : { x, y };
     return sceneToPhoto(calibration, x, y);
   }
 
@@ -345,10 +352,10 @@ export function CornerEditor({
       walls,
       toDisplay,
       preview,
-      calibration !== null ? HANDLE_CLUSTER_PX : HANDLE_CLUSTER_M,
+      calibration !== null || fit !== null ? HANDLE_CLUSTER_PX : HANDLE_CLUSTER_M,
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [walls, calibration, preview],
+    [walls, calibration, fit, preview],
   );
 
   /** Walls touched by the in-flight drag: highlighted while preview active. */
@@ -522,9 +529,9 @@ export function CornerEditor({
     { tool: "window", label: t["intake.tool.window"] },
   ];
 
-  const proposalWalls = useMemo(() => proposal?.walls ?? [], [proposal]);
-  const proposalDims = useMemo(() => proposal?.dimensions ?? [], [proposal]);
-  const proposalOpenings = useMemo(() => proposal?.openings ?? [], [proposal]);
+  const proposalWalls = useMemo(() => (fit !== null ? [] : proposal?.walls ?? []), [proposal, fit]);
+  const proposalDims = useMemo(() => (fit !== null ? [] : proposal?.dimensions ?? []), [proposal, fit]);
+  const proposalOpenings = useMemo(() => (fit !== null ? [] : proposal?.openings ?? []), [proposal, fit]);
 
   const instruction = placing
     ? (placing.firstTap === null ? t["intake.opening.tapPrompt"] : `${t["intake.opening.tapPrompt"]} (1/2)`)
@@ -555,7 +562,12 @@ export function CornerEditor({
         />
       )}
 
-      <div className="intake-canvas">
+      <div
+        className="intake-canvas"
+        style={fit !== null
+          ? { flex: "none", aspectRatio: `${canvasW} / ${canvasH}`, width: `min(100%, calc(55dvh * ${canvasW / canvasH}))`, margin: "0 auto" }
+          : undefined}
+      >
         {imageUrl !== null && (
           <img src={imageUrl} alt="" className="intake-photo" draggable={false} />
         )}

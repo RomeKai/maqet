@@ -358,9 +358,15 @@ body {
   height: 100%;
 }
 
+.intake-svg line,
+.intake-svg path,
+.intake-svg rect {
+  vector-effect: non-scaling-stroke;
+}
+
 .intake-svg .wall {
   stroke: var(--accent-2);
-  stroke-width: 3;
+  stroke-width: 3px;
   stroke-linecap: round;
   fill: none;
 }
@@ -400,20 +406,21 @@ body {
 /* Endpoint drag handles: fixed 44 px screen hit targets */
 .handle-btn {
   position: absolute;
-  width: 44px;
-  height: 44px;
-  margin: -22px 0 0 -22px;
+  width: 48px;
+  height: 48px;
+  margin: -24px 0 0 -24px;
   border-radius: 50%;
-  border: 2px solid #fff;
-  background: var(--lg-accent);
-  opacity: 0.9;
+  border: 0;
+  /* 28px visible dot inside a 48px hit area */
+  background: radial-gradient(circle, var(--lg-accent) 0 12px, #fff 12px 14px, transparent 14.5px);
+  opacity: 0.95;
   touch-action: none;
   padding: 0;
   cursor: grab;
 }
 
 .handle-btn.handle-active {
-  background: var(--accent-2);
+  background: radial-gradient(circle, var(--accent-2) 0 12px, #fff 12px 14px, transparent 14.5px);
   opacity: 1;
 }
 
