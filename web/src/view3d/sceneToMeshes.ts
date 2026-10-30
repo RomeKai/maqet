@@ -143,28 +143,53 @@ export function wallSegments(wall: Wall, scene: Scene): WallSegment[] {
   const dx = (wall.b[0] - wall.a[0]) / length;
   const dy = (wall.b[1] - wall.a[1]) / length;
   const rotationZ = Math.atan2(dy, dx);
-  return solidIntervalsM(length, openings).map(([t0, t1], i) => {
+  const solids = solidIntervalsM(length, openings);
+  // When lintel/sill are present, use side-only solids (full-height sides stay).
+  // P0 expectation: 2 side segments + lintel + sill remain separate for tests
+  // that assert lintel/sill identity. Existing 2-segment expectation adapts
+  // to 4 when lintel/sill exist (see updated test).
+  const segments: WallSegment[] = solids.map(([t0, t1], i) => {
     const mid = (t0 + t1) / 2;
-    const center: WorldPoint = [
-      wall.a[0] + dx * mid,
-      wall.a[1] + dy * mid,
-      height / 2,
-    ];
-    const size: readonly [number, number, number] = [
-      t1 - t0,
-      wall.thickness_m,
-      height,
-    ];
-    return {
-      kind: "wall-segment",
-      id: `${wall.id}:seg:${i}`,
-      wallId: wall.id,
-      center,
-      size,
-      rotationZ,
-      wallKind: wall.kind,
-    };
+    const center: WorldPoint = [wall.a[0] + dx * mid, wall.a[1] + dy * mid, height / 2];
+    const size: readonly [number, number, number] = [t1 - t0, wall.thickness_m, height];
+    return { kind: "wall-segment", id: `${wall.id}:seg:${i}`, wallId: wall.id, center, size, rotationZ, wallKind: wall.kind };
   });
+  for (const o of openings) {
+    const t0 = Math.max(0, o.offset_m);
+    const t1 = Math.min(length, o.offset_m + o.width_m);
+    if (t1 - t0 <= EPS_M) continue;
+    const mid = (t0 + t1) / 2;
+    const w = t1 - t0;
+    const cx = wall.a[0] + dx * mid, cy = wall.a[1] + dy * mid;
+    if (Number.isFinite(o.height_m) && Number.isFinite(o.sill_m ?? 0)) {
+      const sill = o.sill_m ?? 0;
+      const top = sill + o.height_m;
+      const lintelH = height - top;
+      if (lintelH > EPS_M) {
+        segments.push({
+          kind: "wall-segment",
+          id: `${wall.id}:lintel:${o.id}`,
+          wallId: wall.id,
+          center: [cx, cy, top + lintelH / 2],
+          size: [w, wall.thickness_m, lintelH],
+          rotationZ,
+          wallKind: wall.kind,
+        });
+      }
+      if (sill > EPS_M) {
+        segments.push({
+          kind: "wall-segment",
+          id: `${wall.id}:sill:${o.id}`,
+          wallId: wall.id,
+          center: [cx, cy, sill / 2],
+          size: [w, wall.thickness_m, sill],
+          rotationZ,
+          wallKind: wall.kind,
+        });
+      }
+    }
+  }
+  return segments;
 }
 
 /**

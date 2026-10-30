@@ -61,10 +61,10 @@ describe("sceneToMaquette", () => {
     }
   });
 
-  it("reuses the 3D view geometry: one box per solid wall segment (the door splits its wall) and one floor per room", () => {
+  it("reuses the 3D view geometry: one box per solid wall segment (the door splits its wall, plus its lintel) and one floor per room", () => {
     const names = meshNames(sceneToMaquette(room));
     const expected = sceneToMeshes(room);
-    expect(expected.walls.length).toBe(5);
+    expect(expected.walls.length).toBe(6);
     expect(names.filter((n) => n.startsWith("wall:"))).toHaveLength(expected.walls.length);
     expect(names.filter((n) => n.startsWith("floor:"))).toHaveLength(expected.floors.length);
   });

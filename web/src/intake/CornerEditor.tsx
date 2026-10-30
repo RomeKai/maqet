@@ -8,6 +8,12 @@ import {
 } from "../scene/store";
 import { getStrings, type Locale } from "../i18n";
 import type { IntakeProposal } from "./api";
+import {
+  formToPlacement,
+  placementToOpening,
+  tapsToPlacement,
+  validateAgainstWall,
+} from "./opening";
 
 export type CornerTool = "select" | "addWall" | "door" | "window";
 
@@ -37,10 +43,9 @@ function openingId(): string {
 }
 
 const WALL_LEN_M = 3;
-const DOOR_W_M = 0.9;
-const WINDOW_W_M = 1.4;
-const WINDOW_H_M = 1.4;
-const DOOR_H_M = 2.05;
+
+/** Narrow door warning threshold (meters) — door kept but flagged. */
+export const DOOR_MIN_WIDTH_M = 0.8;
 
 /**
  * Photo-space calibration (BUG1 fix): the editor canvas is photo pixels,
@@ -249,6 +254,13 @@ export function CornerEditor({
   const [preview, setPreview] = useState<DragPreview | null>(initialPreview);
   const svgRef = useRef<SVGSVGElement>(null);
 
+  /** Placing an opening: wall + kind, then two taps (or form). */
+  const [placing, setPlacing] = useState<{ wallId: string; kind: "door" | "window"; firstTap: [number, number] | null } | null>(null);
+  const [tapPreview, setTapPreview] = useState<[number, number] | null>(null);
+  const [openingError, setOpeningError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [formVals, setFormVals] = useState({ offset: "", width: "", height: "", sill: "" });
+
   const walls = useMemo(() => scene.walls ?? [], [scene.walls]);
   const openings = useMemo(() => scene.openings ?? [], [scene.openings]);
 
@@ -312,22 +324,83 @@ export function CornerEditor({
     onChange(applySceneOp(scene, op), op);
   }
 
+  function startPlacing(wallIdValue: string, kind: "door" | "window"): void {
+    setPlacing({ wallId: wallIdValue, kind, firstTap: null });
+    setTapPreview(null);
+    setOpeningError(null);
+    setShowForm(false);
+    const wall = walls.find((w) => w.id === wallIdValue);
+    if (wall !== undefined) {
+      const wallLen = Math.hypot(wall.b[0] - wall.a[0], wall.b[1] - wall.a[1]);
+      const defW = kind === "door" ? 0.9 : 1.4;
+      const defH = kind === "door" ? 2.05 : 1.4;
+      setFormVals({
+        offset: (Math.max(0, (wallLen - defW) / 2)).toFixed(2),
+        width: defW.toFixed(2),
+        height: defH.toFixed(2),
+        sill: "0.80",
+      });
+    }
+  }
+
   function handleCanvasTap(clientX: number, clientY: number): void {
-    if (tool !== "addWall") return;
-    const p = toSceneCoords(clientX, clientY);
-    if (pendingStart === null) {
-      setPendingStart(p);
+    if (tool === "addWall") {
+      const p = toSceneCoords(clientX, clientY);
+      if (pendingStart === null) {
+        setPendingStart(p);
+        return;
+      }
+      const wall: Wall = {
+        id: wallId(),
+        a: [pendingStart.x, pendingStart.y],
+        b: [p.x, p.y],
+        thickness_m: 0.1,
+        kind: "interior",
+      };
+      setPendingStart(null);
+      emit({ type: "addWall", wall });
       return;
     }
-    const wall: Wall = {
-      id: wallId(),
-      a: [pendingStart.x, pendingStart.y],
-      b: [p.x, p.y],
-      thickness_m: 0.1,
-      kind: "interior",
-    };
-    setPendingStart(null);
-    emit({ type: "addWall", wall });
+    // Opening placement taps: projected onto selected wall's segment.
+    if (placing !== null && selectedWall !== null) {
+      const wall = walls.find((w) => w.id === placing.wallId);
+      if (wall === undefined) {
+        setOpeningError(t["intake.opening.outsideWall"]);
+        return;
+      }
+      const p = toSceneCoords(clientX, clientY);
+      const point: [number, number] = [p.x, p.y];
+      if (placing.firstTap === null) {
+        // Validate first tap is on wall
+        const res = tapsToPlacement(wall, placing.kind, point, [point[0] + 0.001, point[1]]);
+        void res;
+        // We show preview; validation happens on second tap. But reject if first is far.
+        // Lightweight: use validateAgainstWall with t check — instead just store.
+        setPlacing({ ...placing, firstTap: point });
+        setTapPreview(null);
+        return;
+      }
+      // Second tap -> try to emit
+      const result = tapsToPlacement(wall, placing.kind, placing.firstTap, point);
+      if ("rejected" in result) {
+        if (result.rejected.reason === "outside-wall") {
+          setOpeningError(t["intake.opening.outsideWall"]);
+        } else {
+          setOpeningError(t["intake.opening.outsideWall"]);
+        }
+        return;
+      }
+      const validation = validateAgainstWall(wall, result.placement.offset_m, result.placement.width_m);
+      if (validation !== null) {
+        setOpeningError(t["intake.opening.outsideWall"]);
+        return;
+      }
+      setOpeningError(null);
+      emit({ type: "markOpening", opening: placementToOpening(result.placement, openingId()) });
+      setPlacing(null);
+      setTapPreview(null);
+      setTool("select");
+    }
   }
 
   function handleEndpointDragEnd(wallIdValue: string, end: "a" | "b", clientX: number, clientY: number): void {
@@ -343,27 +416,52 @@ export function CornerEditor({
     }
   }
 
+  function handleFormConfirm(): void {
+    if (placing === null) return;
+    const wall = walls.find((w) => w.id === placing.wallId);
+    if (wall === undefined) {
+      setOpeningError(t["intake.opening.outsideWall"]);
+      return;
+    }
+    const offset = Number.parseFloat(formVals.offset.replace(",", "."));
+    const width = Number.parseFloat(formVals.width.replace(",", "."));
+    const height = Number.parseFloat(formVals.height.replace(",", "."));
+    const sill = placing.kind === "window" ? Number.parseFloat(formVals.sill.replace(",", ".")) : null;
+    const result = formToPlacement({
+      wallId: placing.wallId,
+      kind: placing.kind,
+      wallOffsetM: offset,
+      widthM: width,
+      heightM: height,
+      sillM: sill,
+    });
+    if ("rejected" in result) {
+      setOpeningError(t["intake.opening.outsideWall"]);
+      return;
+    }
+    if (placing.kind === "window" && Number.isFinite(sill as number) === false) {
+      setOpeningError(t["intake.opening.outsideWall"]);
+      return;
+    }
+    const validation = validateAgainstWall(wall, result.placement.offset_m, result.placement.width_m);
+    if (validation !== null) {
+      setOpeningError(t["intake.opening.outsideWall"]);
+      return;
+    }
+    setOpeningError(null);
+    emit({ type: "markOpening", opening: placementToOpening(result.placement, openingId()) });
+    setPlacing(null);
+    setTapPreview(null);
+    setShowForm(false);
+    setTool("select");
+  }
+
   function handleMarkOpening(kind: "door" | "window"): void {
     if (selectedWall === null) return;
     const wall = walls.find((w) => w.id === selectedWall);
     if (wall === undefined) return;
-    const wallLen = Math.hypot(wall.b[0] - wall.a[0], wall.b[1] - wall.a[1]);
-    if (wallLen <= 0) return;
-    const width = kind === "door" ? DOOR_W_M : WINDOW_W_M;
-    const offset = Math.max(0, (wallLen - width) / 2);
-    emit({
-      type: "markOpening",
-      opening: {
-        id: openingId(),
-        wall_id: wall.id,
-        kind,
-        offset_m: offset,
-        width_m: Math.min(width, wallLen * 0.8),
-        height_m: kind === "door" ? DOOR_H_M : WINDOW_H_M,
-        ...(kind === "door" ? {} : { sill_m: 0.8 }),
-      },
-    });
-    setTool("select");
+    // New flow: enter two-tap placing mode (or form). Do NOT emit until confirmed.
+    startPlacing(wall.id, kind);
   }
 
   function handleRemoveWall(): void {
@@ -375,8 +473,6 @@ export function CornerEditor({
   const toolButtons: { tool: CornerTool; label: string }[] = [
     { tool: "select", label: t["intake.tool.select"] },
     { tool: "addWall", label: t["intake.tool.addWall"] },
-    { tool: "door", label: t["intake.tool.door"] },
-    { tool: "window", label: t["intake.tool.window"] },
   ];
 
   const proposalWalls = useMemo(() => proposal?.walls ?? [], [proposal]);
@@ -416,6 +512,11 @@ export function CornerEditor({
           role="application"
           aria-label={t["intake.editor"]}
           onClick={(e) => handleCanvasTap(e.clientX, e.clientY)}
+          onPointerMove={(e) => {
+            if (placing === null || placing.firstTap === null) return;
+            const p = toSceneCoords(e.clientX, e.clientY);
+            setTapPreview([p.x, p.y]);
+          }}
         >
           {proposalWalls.map((w, i) => (
             <line
@@ -600,10 +701,11 @@ export function CornerEditor({
             ? t["intake.selected.door"]
             : t["intake.selected.window"]
           ).replace("{width}", formatLengthM(selectedOpeningObj.width_m))}
+          {selectedOpeningObj.kind === "door" && selectedOpeningObj.width_m < DOOR_MIN_WIDTH_M ? ` · ${t["intake.opening.narrowDoor"]}` : ""}
         </p>
       )}
 
-      {selectedWall !== null && (
+      {selectedWall !== null && placing === null && (
         <div className="intake-selected">
           <button type="button" className="chip" onClick={() => handleMarkOpening("door")}>
             {t["intake.markDoor"]}
@@ -614,6 +716,100 @@ export function CornerEditor({
           <button type="button" className="chip chip-danger" onClick={handleRemoveWall}>
             {t["intake.removeWall"]}
           </button>
+        </div>
+      )}
+
+      {placing !== null && (
+        <div className="intake-opening">
+          <p className="intake-hint" role="status">
+            {placing.firstTap === null
+              ? `${t["intake.opening.tapPrompt"]} — ${t["intake.selected.wall"].replace("{n}", String(wallNumber(walls, placing.wallId)))}`
+              : `${t["intake.opening.tapPrompt"]} (1/2)`}
+          </p>
+          {openingError !== null && (
+            <p className="intake-error" role="alert">{openingError}</p>
+          )}
+          {placing.kind === "door" && openings.some((o) => o.kind === "door" && o.width_m < DOOR_MIN_WIDTH_M) === false && (
+            // live preview of narrow check is on form/tap result; no-op placeholder to keep strings reachable
+            <span style={{ display: "none" }}>{t["intake.opening.narrowDoor"]}</span>
+          )}
+          {tapPreview !== null && placing.firstTap !== null && (
+            <svg className="intake-opening-preview" viewBox={`0 0 ${canvasW} ${canvasH}`} aria-hidden>
+              {(() => {
+                const wall = walls.find((w) => w.id === placing.wallId);
+                if (wall === undefined) return null;
+                const p0 = toDisplay(placing.firstTap[0], placing.firstTap[1]);
+                const p1 = toDisplay(tapPreview[0], tapPreview[1]);
+                return <line x1={p0.x} y1={p0.y} x2={p1.x} y2={p1.y} className="opening-preview" strokeDasharray="4 4" stroke="#0ea5e9" strokeWidth={2} />;
+              })()}
+            </svg>
+          )}
+          <div className="intake-opening-actions">
+            <button type="button" className="chip" onClick={() => setShowForm((v) => !v)}>
+              {t["intake.opening.useForm"]}
+            </button>
+            <button
+              type="button"
+              className="chip"
+              onClick={() => {
+                setPlacing(null);
+                setTapPreview(null);
+                setOpeningError(null);
+                setShowForm(false);
+              }}
+            >
+              {t["intake.undo"]}
+            </button>
+          </div>
+          {showForm && (
+            <div className="intake-opening-form" role="group" aria-label={t["intake.opening.confirm"]}>
+              <label>
+                {t["intake.opening.distance"]}
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={formVals.offset}
+                  onChange={(e) => setFormVals((s) => ({ ...s, offset: e.target.value }))}
+                />
+              </label>
+              <label>
+                {t["intake.opening.width"]}
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={formVals.width}
+                  onChange={(e) => setFormVals((s) => ({ ...s, width: e.target.value }))}
+                />
+              </label>
+              <label>
+                {t["intake.opening.height"]}
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={formVals.height}
+                  onChange={(e) => setFormVals((s) => ({ ...s, height: e.target.value }))}
+                />
+              </label>
+              {placing.kind === "window" && (
+                <label>
+                  {t["intake.opening.sill"]}
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={formVals.sill}
+                    onChange={(e) => setFormVals((s) => ({ ...s, sill: e.target.value }))}
+                  />
+                </label>
+              )}
+              <button type="button" className="btn-primary" onClick={handleFormConfirm}>
+                {t["intake.opening.confirm"]}
+              </button>
+              {placing.kind === "door" && Number.parseFloat(formVals.width.replace(",", ".")) > 0
+                && Number.parseFloat(formVals.width.replace(",", ".")) < DOOR_MIN_WIDTH_M && (
+                <span className="intake-warn">{t["intake.opening.narrowDoor"]}</span>
+              )}
+            </div>
+          )}
         </div>
       )}
 

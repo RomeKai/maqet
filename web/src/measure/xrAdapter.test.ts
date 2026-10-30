@@ -25,8 +25,8 @@ class FakeAdapter implements XrHitTestAdapter {
     this.callbacks = callbacks;
   }
 
-  tap(corner: Vec3): void {
-    this.callbacks?.onTapCorner(corner);
+  tap(corner: Vec3, horizontal = true): void {
+    this.callbacks?.onTapCorner(corner, horizontal);
   }
 
   end(): void {

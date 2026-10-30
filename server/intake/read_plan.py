@@ -64,17 +64,59 @@ def _sniff_mime(image_bytes: bytes) -> str:
     return "image/jpeg"
 
 
+def oriented_size(image_bytes: bytes) -> tuple[int, int] | None:
+    """EXIF-aware image dimensions (width, height) without decoding the full image.
+
+    Applies the EXIF orientation transpose so callers get the size of the
+    oriented canvas, not the raw sensor. Returns None when the bytes are not
+    a readable image. Uses ImageOps.exif_transpose so all 8 orientations are
+    handled (5-8 transpose width/height, 90/270 deg).
+    """
+    from PIL import Image, ImageOps
+
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            oriented = ImageOps.exif_transpose(img)
+            if oriented is not None:
+                return oriented.size
+    except Exception:
+        pass
+    return None
+
+
 def downscale_image(image_bytes: bytes, max_side: int = MAX_SIDE_PX) -> bytes:
     """Fit the longest side to `max_side` px (same cap as the web client).
 
-    Small images pass through untouched. Large ones are resized with LANCZOS
-    and re-encoded as JPEG; normalized 0..1 coordinates are unaffected.
+    Applies EXIF orientation before sizing so the vision model's normalized
+    0..1 coordinates and the server's image_w/image_h agree on orientation:
+    a landscape photo shot as sensor-portrait + EXIF 6 is 4000x3000, not
+    3000x4000. Small (EXIF-corrected) images pass through untouched; large
+    ones are resized with LANCZOS and re-encoded as JPEG.
     """
-    from PIL import Image
+    from PIL import Image, ImageOps
 
     with Image.open(io.BytesIO(image_bytes)) as img:
+        orig_format = img.format
+        has_exif = bool(getattr(img, "getexif", lambda: None)())
+        try:
+            has_exif = len(img.getexif()) > 0  # type: ignore[union-attr]
+        except Exception:
+            pass
+        transposed = ImageOps.exif_transpose(img)
+        if transposed is not None:
+            # exif_transpose returns a new image when it transposes; otherwise
+            # it may return the same object. Only treat as "transposed" when
+            # the image was actually changed (size or EXIF present).
+            actually_transposed = has_exif and transposed is not img
+            img = transposed
+        else:
+            actually_transposed = False
         img = img.convert("RGB")
         if max(img.size) <= max_side:
+            if actually_transposed:
+                out = io.BytesIO()
+                img.save(out, format="JPEG", quality=88)
+                return out.getvalue()
             return image_bytes
         img.thumbnail((max_side, max_side), Image.LANCZOS)
         out = io.BytesIO()

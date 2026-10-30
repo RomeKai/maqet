@@ -31,7 +31,7 @@ import type { Vec3 } from "./cornerMath";
 
 /** Captures the adapter callbacks so the test taps corners like a device. */
 function makeFakeAdapter() {
-  let onTap: ((corner: Vec3) => void) | null = null;
+  let onTap: ((corner: Vec3, horizontal: boolean) => void) | null = null;
   let startCalls = 0;
   const adapter: XrHitTestAdapter = {
     start: async (callbacks) => {
@@ -43,7 +43,7 @@ function makeFakeAdapter() {
   return {
     adapter,
     startCalls: () => startCalls,
-    tap: (corner: Vec3) => onTap?.(corner),
+    tap: (corner: Vec3, horizontal = true) => onTap?.(corner, horizontal),
   };
 }
 
@@ -94,7 +94,7 @@ describe("ArMeasure", () => {
     const adapter: XrHitTestAdapter = {
       start: (callbacks) => {
         calls += 1;
-        callbacks.onTapCorner([0, 0, 0]);
+        callbacks.onTapCorner([0, 0, 0], true);
         return Promise.resolve();
       },
       end: () => undefined,
