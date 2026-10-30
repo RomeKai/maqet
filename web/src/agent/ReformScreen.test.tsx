@@ -108,3 +108,43 @@ describe("VariantTabs", () => {
     expect(html).toContain("Option B · 25.0 m²");
   });
 });
+
+describe("ReformScreen structure with a long conversation", () => {
+  const messages = Array.from({ length: 30 }, (_, i) => ({
+    id: `m${i}`,
+    role: i % 2 === 0 ? ("user" as const) : ("assistant" as const),
+    text: `message ${i}`,
+  }));
+  const long = renderToString(
+    <ReformScreen
+      scene={null}
+      locale="en"
+      selectedWallId={null}
+      onSelectWall={noop}
+      onSceneChange={noop}
+      messages={messages}
+      onSend={noop}
+      onAudio={noop}
+      pending={false}
+      agentError={null}
+      onNext={noop}
+      onEdit={async () => null}
+      variants={{ data: null, error: null, busy: false, selected: "A", active: "A", reload: async () => {}, fork: async () => {}, choose: async () => {}, undo: async () => {} }}
+    />,
+  );
+  it("main is not the scroll container", () => {
+    expect(long).toMatch(/<main class="[^"]*overflow-hidden[^"]*"[^>]*data-testid="reform-screen"/);
+    expect(long).not.toMatch(/<main class="[^"]*overflow-y-auto/);
+  });
+  it("renders the controls after the message list, inside the same dock", () => {
+    const list = long.indexOf('class="agent-messages"');
+    const dockEnd = long.indexOf("</section>", list);
+    expect(list).toBeGreaterThan(0);
+    for (const marker of ['class="agent-suggestions"', 'class="agent-bar"']) {
+      const at = long.indexOf(marker, list);
+      expect(at, marker).toBeGreaterThan(list);
+      expect(at, marker).toBeLessThan(dockEnd);
+    }
+    expect(long).toContain("message 29");
+  });
+});
