@@ -55,6 +55,7 @@ describe("PresentView", () => {
     );
     expect(html).toContain('data-scale="50" aria-pressed="true"');
     expect(html).toContain('data-scale="100" aria-pressed="false"');
+    expect(html).toContain('data-scale="25" aria-pressed="false"');
     expect(html).toContain('data-scale="20" aria-pressed="false"');
     expect(html).toContain('data-scale="50" aria-pressed="true"');
     expect(html).toContain('data-scale="100" aria-pressed="false"');

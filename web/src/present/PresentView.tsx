@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Box, Share2 } from "lucide-react";
 import { getStrings, type Locale } from "../i18n";
+import { uploadArModel } from "../ar/uploadArModel";
 import type { MaquetteFiles } from "../ar/buildMaquetteFiles";
 import type { Scene } from "../scene/types";
 import { SceneView } from "../view3d/SceneView";
@@ -27,6 +28,7 @@ type ShareState = "idle" | "copied" | "failed";
 export function PresentView({ scene, locale, selectedWallId, onSelectWall, onSceneChange, copyLink }: PresentViewProps): React.JSX.Element {
   const t = getStrings(locale);
   const [files, setFiles] = useState<MaquetteFiles | null>(null);
+  const [hosted, setHosted] = useState<{ glb: string | null; usdz: string | null }>({ glb: null, usdz: null });
   const [building, setBuilding] = useState(false);
   const [arError, setArError] = useState(false);
   const [share, setShare] = useState<ShareState>("idle");
@@ -48,8 +50,19 @@ export function PresentView({ scene, locale, selectedWallId, onSelectWall, onSce
     // Loaded on demand: three's exporters are heavy and only needed here.
     void import("../ar/buildMaquetteFiles")
       .then(({ buildMaquetteFiles }) => buildMaquetteFiles(scene, 1 / scaleDenominator))
-      .then((built) => {
-        if (!cancelled) setFiles(built);
+      .then(async (built) => {
+        if (cancelled) return;
+        setFiles(built);
+        setHosted({ glb: null, usdz: null });
+        // Scene Viewer and Quick Look are separate apps and cannot read blob: URLs: host the files over https.
+        // If the upload fails the blob URLs still drive the in-page 3D view.
+        const [glb, usdz] = await Promise.allSettled([uploadArModel(built.glb, "glb"), uploadArModel(built.usdz, "usdz")]);
+        if (!cancelled) {
+          setHosted({
+            glb: glb.status === "fulfilled" ? glb.value : null,
+            usdz: usdz.status === "fulfilled" ? usdz.value : null,
+          });
+        }
       })
       .catch(() => {
         if (!cancelled) setArError(true);
@@ -83,7 +96,7 @@ export function PresentView({ scene, locale, selectedWallId, onSelectWall, onSce
         {arError && <Banner tone="danger" title={t["present.ar.error"]} />}
         {hasPlan && <ScaleSelector value={scaleDenominator} onChange={setScaleDenominator} locale={locale} />}
         {hasPlan && (
-          <MaquetteViewer src={glbUrl} iosSrc={usdzUrl} locale={locale} elementRef={viewerRef} scaleDenominator={scaleDenominator} />
+          <MaquetteViewer src={hosted.glb ?? glbUrl} iosSrc={hosted.usdz ?? usdzUrl} locale={locale} elementRef={viewerRef} scaleDenominator={scaleDenominator} />
         )}
         {hasPlan ? (
           <div className="h-[40dvh] min-h-48 overflow-hidden rounded-2xl border-2 border-foreground bg-card">

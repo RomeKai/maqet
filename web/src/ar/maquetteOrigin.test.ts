@@ -26,7 +26,32 @@ describe("maquette origin", () => {
   });
 
   it("keeps the footprint size proportional to the scale", () => {
-    const size = new THREE.Box3().setFromObject(sceneToMaquette(scene, 1 / 50)).getSize(new THREE.Vector3());
+    const box = new THREE.Box3();
+    const group = sceneToMaquette(scene, 1 / 50);
+    group.updateMatrixWorld(true);
+    for (const c of group.children) if (c.name !== "floor-plate") box.expandByObject(c);
+    const size = box.getSize(new THREE.Vector3());
     expect(size.x).toBeCloseTo((4 + 0.2) / 50, 3);
+  });
+
+  it("has a light paper-coloured wall material", () => {
+    const group = sceneToMaquette(scene);
+    const wall = group.children.find((c) => c.name.startsWith("wall:")) as THREE.Mesh;
+    const color = (wall.material as THREE.MeshStandardMaterial).color;
+    expect(color.r).toBeGreaterThan(0.85);
+    expect(color.g).toBeGreaterThan(0.8);
+  });
+
+  it("adds a floor plate slightly larger than the footprint, resting on y = 0", () => {
+    const group = sceneToMaquette(scene, 1);
+    const plate = group.children.find((c) => c.name === "floor-plate") as THREE.Mesh;
+    expect(plate).toBeDefined();
+    const plateBox = new THREE.Box3().setFromObject(plate);
+    expect(plateBox.min.y).toBeCloseTo(0, 6);
+    expect(plateBox.max.y).toBeCloseTo(0.1, 3);
+    const walls = new THREE.Box3();
+    for (const c of group.children) if (c.name.startsWith("wall:")) walls.expandByObject(c);
+    expect(plateBox.max.x).toBeGreaterThan(walls.max.x);
+    expect(plateBox.min.z).toBeLessThan(walls.min.z);
   });
 });

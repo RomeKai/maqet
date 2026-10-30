@@ -51,6 +51,7 @@ describe("ViewerBody", () => {
     expect(html).toContain('ios-src="blob:usdz"');
     expect(html).toContain('ar-modes="webxr scene-viewer quick-look"');
     expect(html).toContain('ar-placement="floor"');
+    expect(html).toContain('ar-scale="fixed"');
     expect(html).toContain('shadow-intensity="1"');
     expect(html).toContain("camera-controls");
     expect(html).toContain(`alt="${t["viewer.alt"]}"`);

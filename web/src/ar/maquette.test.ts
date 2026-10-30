@@ -23,9 +23,12 @@ const room: Scene = {
   ],
 };
 
+/** Size of the modelled house, without the base plate (the plate is a presentation aid, not Scene geometry). */
 function bounds(object: THREE.Object3D): THREE.Vector3 {
   object.updateMatrixWorld(true);
-  return new THREE.Box3().setFromObject(object).getSize(new THREE.Vector3());
+  const box = new THREE.Box3();
+  for (const child of object.children) if (child.name !== "floor-plate") box.expandByObject(child);
+  return box.getSize(new THREE.Vector3());
 }
 
 function meshNames(object: THREE.Object3D): string[] {

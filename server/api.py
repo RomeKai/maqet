@@ -11,6 +11,9 @@ from __future__ import annotations
 
 import io
 import logging
+import re
+import secrets
+import tempfile
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -314,6 +317,59 @@ def post_transcribe(
         raise
     logger.info("transcribe chars=%d duration_ms=%d", len(text), duration_ms)
     return TranscribeOut(text=text, duration_ms=duration_ms)
+
+
+# --- AR model hosting -------------------------------------------------------
+# Scene Viewer and Quick Look are separate apps: they cannot read the page's blob: URLs, so the web
+# uploads the built GLB/USDZ here and gives <model-viewer> an https URL. Files live in a temp dir
+# under an unguessable random id; this is a demo-grade store (no auth, no expiry sweep).
+
+_AR_DIR = Path(tempfile.gettempdir()) / "maqet-ar-models"
+_AR_MAX_BYTES = 15 * 1024 * 1024
+# kind -> (declared content-type, magic prefix)
+_AR_KINDS: dict[str, tuple[str, bytes]] = {
+    "glb": ("model/gltf-binary", b"glTF"),
+    "usdz": ("model/vnd.usdz+zip", b"PK"),
+}
+_AR_ID = re.compile(r"^[0-9a-f]{32}$")
+
+
+class ArModelOut(BaseModel):
+    id: str
+    kind: Literal["glb", "usdz"]
+    path: str
+
+
+@app.post("/ar/model", response_model=ArModelOut)
+async def post_ar_model(file: UploadFile | None = File(default=None)) -> ArModelOut:
+    if file is None:
+        raise HTTPException(status_code=422, detail="missing file part: upload a GLB or USDZ")
+    declared = (file.content_type or "").split(";")[0].strip().lower()
+    kind = next((k for k, (mime, _) in _AR_KINDS.items() if mime == declared), None)
+    if kind is None:
+        raise HTTPException(
+            status_code=415, detail="content-type must be model/gltf-binary or model/vnd.usdz+zip"
+        )
+    data = await file.read(_AR_MAX_BYTES + 1)
+    if len(data) > _AR_MAX_BYTES:
+        raise HTTPException(status_code=413, detail="model larger than 15 MB")
+    if not data.startswith(_AR_KINDS[kind][1]):
+        raise HTTPException(status_code=415, detail=f"file content is not a valid {kind.upper()}")
+    model_id = secrets.token_hex(16)
+    _AR_DIR.mkdir(parents=True, exist_ok=True)
+    (_AR_DIR / f"{model_id}.{kind}").write_bytes(data)
+    return ArModelOut(id=model_id, kind=kind, path=f"/ar/model/{model_id}.{kind}")
+
+
+@app.get("/ar/model/{name}")
+def get_ar_model(name: str) -> Response:
+    model_id, _, kind = name.rpartition(".")
+    if kind not in _AR_KINDS or _AR_ID.match(model_id) is None:
+        raise HTTPException(status_code=404, detail="model not found")
+    path = _AR_DIR / f"{model_id}.{kind}"
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="model not found")
+    return Response(content=path.read_bytes(), media_type=_AR_KINDS[kind][0])
 
 
 class OpRecordIn(BaseModel):
