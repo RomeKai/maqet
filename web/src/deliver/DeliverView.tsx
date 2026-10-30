@@ -5,6 +5,7 @@ import type { Scene } from "../scene/types";
 import { isWallEstimated } from "../scene/store";
 import { Banner, Button } from "../ui";
 import { getDeliverStrings } from "./deliver.i18n";
+import { NextSteps } from "./NextSteps";
 import { TakeoffView } from "./TakeoffView";
 import type { Takeoff } from "./takeoffTypes";
 import { downloadCsv } from "./takeoffFormat";
@@ -133,6 +134,8 @@ export function DeliverView({ scene, takeoff, locale }: DeliverViewProps): React
         </div>
 
         {takeoff ? <TakeoffView takeoff={takeoff} locale={locale} /> : null}
+
+        <NextSteps locale={locale} estimatedWalls={estimatedWalls} flagCount={takeoff?.flags.length ?? 0} />
       </div>
 
       <div className="shrink-0 space-y-2 border-t-2 border-foreground bg-card p-3">

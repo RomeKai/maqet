@@ -45,6 +45,10 @@ const en = {
   "unit.bag": "bags",
   "unit.bar": "bars",
   "unit.unit": "units",
+  "steps.title": "Next steps",
+  "step.measure": "Measure the walls marked as guessed to firm up the list.",
+  "step.professional": "Have a licensed engineer or architect check the flagged conditions on site before building.",
+  "step.dxf": "Hand the DXF and the materials list to a professional to review.",
 } as const;
 
 export type DeliverKey = keyof typeof en;
@@ -91,6 +95,10 @@ const esAR: DeliverStrings = {
   "unit.bag": "bolsas",
   "unit.bar": "barras",
   "unit.unit": "u.",
+  "steps.title": "Próximos pasos",
+  "step.measure": "Medí las paredes marcadas como estimadas para afinar la lista.",
+  "step.professional": "Pedí a un ingeniero o arquitecto matriculado que revise en obra las condiciones señaladas antes de construir.",
+  "step.dxf": "Llevá el DXF y la lista de materiales a un profesional para que los revise.",
 };
 
 const dictionaries: Record<Locale, DeliverStrings> = { en, "es-AR": esAR };
