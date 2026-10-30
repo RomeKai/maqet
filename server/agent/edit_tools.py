@@ -47,16 +47,68 @@ def _pick(items: list, ref: str | None, selected, kind: str):
     return hits[0]
 
 
-def _rect(room: Room) -> tuple[float, float, float, float]:
-    xs, ys = [p[0] for p in room.polygon], [p[1] for p in room.polygon]
-    x0, y0, x1, y1 = min(xs), min(ys), max(xs), max(ys)
-    area = 0.0
-    for i, p in enumerate(room.polygon):
-        q = room.polygon[(i + 1) % len(room.polygon)]
-        area += p[0] * q[1] - q[0] * p[1]
-    if abs(abs(area) / 2.0 - (x1 - x0) * (y1 - y0)) > 1e-4:
-        raise EditError("room.not_rectangular", f"room {room.id!r} is not a rectangle; Scene unchanged")
-    return x0, y0, x1, y1
+_MAX_SKEW = math.sin(math.radians(5.0))  # corner angles within 5 degrees of 90
+_EDGE_TOL_M = 0.30  # a wall end sits on a room edge when within this distance
+
+
+class _Frame:
+    """A near-rectangular room in its own (possibly slightly rotated/skewed) frame.
+
+    Intake rooms come from sketch centerlines, so they are never exactly
+    axis-aligned. ``u`` runs east-ish, ``v`` north-ish (unit vectors); a point
+    is ``origin + s*u + t*v`` with 0 <= s <= width, 0 <= t <= depth.
+    """
+
+    def __init__(self, origin: Point, u: Point, v: Point, width: float, depth: float) -> None:
+        self.origin, self.u, self.v, self.width, self.depth = origin, u, v, width, depth
+
+    def coords(self, p: Point) -> Point:
+        dx, dy = p[0] - self.origin[0], p[1] - self.origin[1]
+        det = self.u[0] * self.v[1] - self.u[1] * self.v[0]
+        return ((dx * self.v[1] - dy * self.v[0]) / det, (self.u[0] * dy - self.u[1] * dx) / det)
+
+    def at(self, s: float, t: float) -> Point:
+        return (
+            self.origin[0] + s * self.u[0] + t * self.v[0],
+            self.origin[1] + s * self.u[1] + t * self.v[1],
+        )
+
+
+def _unit(vx: float, vy: float) -> Point:
+    n = math.hypot(vx, vy)
+    return (vx / n, vy / n)
+
+
+def _frame(room: Room) -> _Frame:
+    pts = list(room.polygon)
+    if len(pts) == 5 and pts[0] == pts[-1]:  # closed ring
+        pts = pts[:-1]
+    fail = EditError("room.not_rectangular", f"room {room.id!r} is not a rectangle; Scene unchanged")
+    if len(pts) != 4:
+        raise fail
+    horiz: list[Point] = []
+    vert: list[Point] = []
+    for i, p in enumerate(pts):
+        q = pts[(i + 1) % 4]
+        dx, dy = q[0] - p[0], q[1] - p[1]
+        if math.hypot(dx, dy) < _EPS:
+            raise fail
+        if abs(dx) >= abs(dy):
+            horiz.append((dx, dy) if dx > 0 else (-dx, -dy))
+        else:
+            vert.append((dx, dy) if dy > 0 else (-dx, -dy))
+    if len(horiz) != 2 or len(vert) != 2:
+        raise fail
+    u = _unit(sum(h[0] for h in horiz), sum(h[1] for h in horiz))
+    v = _unit(sum(w[0] for w in vert), sum(w[1] for w in vert))
+    if abs(u[0] * v[0] + u[1] * v[1]) > _MAX_SKEW:
+        raise fail
+    probe = _Frame(pts[0], u, v, 0.0, 0.0)
+    st = [probe.coords(p) for p in pts]
+    s0, s1 = min(c[0] for c in st), max(c[0] for c in st)
+    t0, t1 = min(c[1] for c in st), max(c[1] for c in st)
+    origin = probe.at(s0, t0)
+    return _Frame(origin, u, v, s1 - s0, t1 - t0)
 
 
 def _remap(scene: Scene, mapping: Callable[[Point], Point]) -> tuple[list[Wall], list[Room]]:
@@ -71,13 +123,19 @@ def _same(p: Point, q: Point) -> bool:
 
 def _resize_room(scene: Scene, a: tool_contracts.ResizeRoomInput):
     room = _pick(scene.rooms, a.room, a.selected, "room")
-    x0, y0, x1, y1 = _rect(room)
-    nx1, ny1 = x0 + a.width_m, y0 + a.depth_m
+    f = _frame(room)
+    d_w, d_d = a.width_m - f.width, a.depth_m - f.depth
 
     def mapping(p: Point) -> Point:
-        on_x = abs(p[0] - x1) < _EPS and y0 - _EPS <= p[1] <= y1 + _EPS
-        on_y = abs(p[1] - y1) < _EPS and x0 - _EPS <= p[0] <= x1 + _EPS
-        return (nx1 if on_x else p[0], ny1 if on_y else p[1])
+        s, t = f.coords(p)
+        inside = -_EDGE_TOL_M <= s <= f.width + _EDGE_TOL_M and -_EDGE_TOL_M <= t <= f.depth + _EDGE_TOL_M
+        if not inside:
+            return p
+        ds = d_w if s > f.width - _EDGE_TOL_M else 0.0
+        dt = d_d if t > f.depth - _EDGE_TOL_M else 0.0
+        if ds == 0.0 and dt == 0.0:
+            return p
+        return (p[0] + ds * f.u[0] + dt * f.v[0], p[1] + ds * f.u[1] + dt * f.v[1])
 
     walls, rooms = _remap(scene, mapping)
     return walls, list(scene.openings), rooms
@@ -125,13 +183,13 @@ def _set_opening_size(scene: Scene, a: tool_contracts.SetOpeningSizeInput):
 
 def _split_room(scene: Scene, a: tool_contracts.SplitRoomInput):
     room = _pick(scene.rooms, a.room, a.selected, "room")
-    x0, y0, x1, y1 = _rect(room)
+    f = _frame(room)
     if a.axis == "x":  # wall runs east-west
-        y = y0 + a.at_ratio * (y1 - y0)
-        pa, pb = (x0, y), (x1, y)
+        t = a.at_ratio * f.depth
+        pa, pb = f.at(0.0, t), f.at(f.width, t)
     else:
-        x = x0 + a.at_ratio * (x1 - x0)
-        pa, pb = (x, y0), (x, y1)
+        sc = a.at_ratio * f.width
+        pa, pb = f.at(sc, 0.0), f.at(sc, f.depth)
     taken = {w.id for w in scene.walls}
     n = len(taken) + 1
     while f"w{n}" in taken:

@@ -207,3 +207,37 @@ def test_set_opening_size_gives_a_window_without_sill_the_default() -> None:
     new, res = execute(scene, history, "reform", "set_opening_size", {"opening": "vv", "width_m": 1.4})
     assert res.ok, res.errors
     assert next(o for o in new.openings if o.id == "vv").sill_m == 0.90
+
+
+def test_resize_room_on_a_real_skewed_intake_room() -> None:
+    """E2E-002: intake rooms are near-rectangles (3.0 x 8.0 here), never exact."""
+    from fastapi.testclient import TestClient
+    from shapely.geometry import Polygon
+
+    from server.api import app
+    from server.agent.executor import execute
+    from server.scene.models import Scene
+
+    res = TestClient(app).post("/intake", data={"kind": "plan", "sample": "croquis_3x8_door_window"})
+    assert res.status_code == 200, res.text
+    scene = Scene.model_validate(res.json()["scene"])
+    room = scene.rooms[0]
+    before = Polygon(room.polygon).area
+    new, out = execute(scene, [], "reform", "resize_room", {"room": room.id, "width_m": 4.0, "depth_m": 8.0})
+    assert out.ok, out.errors
+    after = Polygon(next(r for r in new.rooms if r.id == room.id).polygon).area
+    assert before == pytest.approx(24.0, abs=1.5)
+    assert after == pytest.approx(32.0, abs=1.5)
+    assert after > before + 5
+
+
+def test_a_truly_non_rectangular_room_is_still_rejected() -> None:
+    from server.agent.edit_tools import EditError, _frame
+    from server.scene.models import Room
+
+    l_shape = Room(id="r", name="L", polygon=[(0, 0), (4, 0), (4, 2), (2, 2), (2, 4), (0, 4)], level=1)
+    with pytest.raises(EditError):
+        _frame(l_shape)
+    skewed = Room(id="r", name="S", polygon=[(0, 0), (4, 0), (6, 3), (2, 3)], level=1)  # ~37 degree lean
+    with pytest.raises(EditError):
+        _frame(skewed)
