@@ -101,8 +101,10 @@ body {
   border-top: 1px solid var(--hairline);
   border-radius: var(--lg-radius) var(--lg-radius) 0 0;
   box-shadow: 0 -4px 16px rgba(30, 33, 36, 0.08);
-  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
-  min-height: 0;
+  padding: 6px 12px calc(6px + env(safe-area-inset-bottom));
+  /* In normal flow, never shrunk or overlaid: content above scrolls instead. */
+  flex: none;
+  position: static;
 }
 
 .chip {
