@@ -13,7 +13,7 @@ import json
 import math
 from pathlib import Path
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from server.scene.models import Scene, Wall
 from server.scene.rules import PRO_FLAG_SOIL
@@ -63,6 +63,8 @@ def _load_recipes() -> dict[str, dict[str, object]]:
             "qty": float(material["recipe"]["qty"]),
             "waste_factor": float(material["waste_factor"]),
             "recipe_source": str(material["recipe_source"]),
+            "name": str(material["name"]),
+            "name_es_AR": str(material["name_es_AR"]),
         }
     return recipes
 
@@ -77,6 +79,24 @@ class TakeoffItem(BaseModel):
     waste_factor: float
     recipe_source: str = Field(min_length=1)
     estimated: bool = False
+    # Display names from assets/catalog.json (en and es-AR); the id stays the key.
+    name: str = ""
+    name_es_AR: str = ""
+
+    @model_validator(mode="after")
+    def _fill_names(self) -> "TakeoffItem":
+        recipe = RECIPES.get(self.material_id)
+        if recipe is None and self.material_id == UNITS_MATERIAL:
+            recipe = {
+                "name": "Surface without a chosen material (area only)",
+                "name_es_AR": "Superficie sin material elegido (solo área)",
+            }
+        if recipe is not None:
+            if not self.name:
+                self.name = str(recipe["name"])
+            if not self.name_es_AR:
+                self.name_es_AR = str(recipe["name_es_AR"])
+        return self
 
 
 class TakeoffStage(BaseModel):
@@ -172,6 +192,8 @@ def _recipe_line(
         waste_factor=waste,
         recipe_source=str(recipe["recipe_source"]),
         estimated=estimated,
+        name=str(recipe["name"]),
+        name_es_AR=str(recipe["name_es_AR"]),
     )
 
 

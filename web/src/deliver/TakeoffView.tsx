@@ -3,7 +3,7 @@ import { ChevronDown, TriangleAlert } from "lucide-react";
 import type { Locale } from "../i18n";
 import { Banner, Button, Chip, cn } from "../ui";
 import { getDeliverStrings, unitLabel, type DeliverStrings } from "./deliver.i18n";
-import { buildTakeoffCsv, downloadCsv, flagLabel, formatQuantity, orderedStages } from "./takeoffFormat";
+import { buildTakeoffCsv, downloadCsv, flagLabel, formatQuantity, lineName, orderedStages, uniqueFlagCodes } from "./takeoffFormat";
 import type { Takeoff, TakeoffLine, TakeoffStage } from "./takeoffTypes";
 
 const CSV_FILENAME = "maqet-takeoff.csv";
@@ -27,7 +27,7 @@ function LineItem({ line, locale, t }: LineItemProps): React.JSX.Element {
     >
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-base font-semibold leading-snug">{line.name}</p>
+          <p className="text-base font-semibold leading-snug">{lineName(line, locale)}</p>
           {line.estimated && (
             <Chip tone="warning" className="mt-1 border-2 border-dashed border-warning-foreground/70">
               <TriangleAlert className="size-3.5" aria-hidden />
@@ -71,8 +71,8 @@ export function TakeoffView({ takeoff, locale }: TakeoffViewProps): React.JSX.El
       {takeoff.flags.length > 0 && (
         <Banner tone="danger" title={t["flags.title"]}>
           <ul className="list-disc pl-5">
-            {takeoff.flags.map((flag, index) => (
-              <li key={`${flag.code}-${index}`}>{flagLabel(flag.code, locale)}</li>
+            {uniqueFlagCodes(takeoff.flags).map((code) => (
+              <li key={code}>{flagLabel(code, locale)}</li>
             ))}
           </ul>
         </Banner>

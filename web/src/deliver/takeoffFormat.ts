@@ -1,4 +1,5 @@
 import type { Locale } from "../i18n";
+import { normalizeProfessionalFlags, professionalFlagCode, professionalFlagLabel } from "../agent/agent.i18n";
 import { getDeliverStrings } from "./deliver.i18n";
 import type { DeliverKey } from "./deliver.i18n";
 import {
@@ -43,7 +44,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function parseLine(stage: string, raw: unknown): TakeoffLine {
   if (!isRecord(raw)) fail(`line in stage ${stage} is not an object`);
-  const { material_id, name, quantity, unit, waste_factor, recipe_source, estimated } = raw;
+  const { material_id, name, name_es_AR, quantity, unit, waste_factor, recipe_source, estimated } = raw;
   if (typeof material_id !== "string") fail(`material_id in stage ${stage}`);
   // Server takeoff omits name; web fixture carries it. Fall back to material_id for display.
   const resolvedName = typeof name === "string" && name.length > 0 ? name : String(material_id);
@@ -52,18 +53,30 @@ function parseLine(stage: string, raw: unknown): TakeoffLine {
   if (typeof waste_factor !== "number" || !Number.isFinite(waste_factor)) fail(`waste_factor of ${material_id}`);
   if (typeof recipe_source !== "string") fail(`recipe_source of ${material_id}`);
   if (typeof estimated !== "boolean") fail(`estimated of ${material_id}`);
-  return { material_id, name: resolvedName, quantity, unit, waste_factor, recipe_source, estimated };
+  const nameEs = typeof name_es_AR === "string" && name_es_AR.length > 0 ? name_es_AR : undefined;
+  return { material_id, name: resolvedName, ...(nameEs ? { name_es_AR: nameEs } : {}), quantity, unit, waste_factor, recipe_source, estimated };
 }
 
 function isStage(key: string): key is TakeoffStage {
   return (TAKEOFF_STAGES as readonly string[]).includes(key);
 }
 
-/** Localised flag text; unknown codes get the generic label. */
+/** Localised material name: the catalog es-AR name in es-AR, else the English one. */
+export function lineName(line: TakeoffLine, locale: Locale): string {
+  return locale === "es-AR" && line.name_es_AR ? line.name_es_AR : line.name;
+}
+
+/** Localised flag text. Server codes (needs_professional:*) share ProBanner's labels; unknown codes get the generic label. */
 export function flagLabel(code: string, locale: Locale): string {
   const strings = getDeliverStrings(locale);
-  const known = (PROFESSIONAL_FLAG_CODES as readonly string[]).includes(code);
-  return known ? strings[`flag.${code}` as DeliverKey] : strings["flag.generic"];
+  if ((PROFESSIONAL_FLAG_CODES as readonly string[]).includes(code)) return strings[`flag.${code}` as DeliverKey];
+  const stable = professionalFlagCode(code);
+  return stable.startsWith("needs_professional:") ? professionalFlagLabel(locale, stable) : strings["flag.generic"];
+}
+
+/** Stable flag codes, each once, in first-seen order. */
+export function uniqueFlagCodes(flags: readonly { code: string }[]): string[] {
+  return normalizeProfessionalFlags(flags.map((f) => f.code));
 }
 
 /** Validate a takeoff payload at the network boundary. Throws on anything unexpected. */
@@ -127,7 +140,7 @@ export function buildTakeoffCsv(takeoff: Takeoff): string {
       ].join(","),
     ),
   );
-  const flagRows = takeoff.flags.map((flag) => `flag,${csvText(flag.code)},${csvText(flagLabel(flag.code, "en"))}`);
+  const flagRows = uniqueFlagCodes(takeoff.flags).map((code) => `flag,${csvText(code)},${csvText(flagLabel(code, "en"))}`);
   return [CSV_HEADER, ...rows, PRELIMINARY_NOTE, ...flagRows].join(CSV_EOL) + CSV_EOL;
 }
 

@@ -47,6 +47,8 @@ def test_contract_shape() -> None:
                 "waste_factor",
                 "recipe_source",
                 "estimated",
+                "name",
+                "name_es_AR",
             }
     assert takeoff.preliminary is True
     assert isinstance(takeoff.professional_flags, list)

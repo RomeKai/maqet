@@ -3,7 +3,7 @@ import { ArrowRight, Keyboard } from "lucide-react";
 import type { FormEvent } from "react";
 import type { Locale } from "../i18n";
 import "./agent.css";
-import { getAgentStrings, normalizeProfessionalFlags, professionalFlagLabel } from "./agent.i18n";
+import { getAgentStrings, normalizeProfessionalFlags, professionalFlagLabel, toolLabel } from "./agent.i18n";
 import type { AgentStrings } from "./agent.i18n";
 import type { ChatMessage, ToolEvent } from "./agentTypes";
 import { PushToTalk, type PushToTalkState } from "./PushToTalk";
@@ -21,12 +21,12 @@ function ToolChips({ event, locale, t }: ToolChipsProps): React.JSX.Element {
     <>
       {event.ok ? (
         <li className="agent-chip agent-chip-ok" data-chip="applied">
-          {t["chip.applied"]}: {event.name}
+          {t["chip.applied"]}: {toolLabel(locale, event.name)}
         </li>
       ) : null}
       {!event.ok && event.errors.length === 0 ? (
         <li className="agent-chip agent-chip-warn" data-chip="rejected">
-          {t["chip.rejected"]}: {event.name}
+          {t["chip.rejected"]}: {toolLabel(locale, event.name)}
         </li>
       ) : null}
       {event.errors.map((error, index) => (

@@ -44,7 +44,7 @@ describe("ChatSheet", () => {
   it("renders an applied op as a compact chip", () => {
     const html = render([{ id: "1", role: "assistant", text: "ok", toolEvents: [event({ name: "add_room" })] }]);
     expect(html).toContain('data-chip="applied"');
-    expect(html).toContain("add_room");
+    expect(html).toContain("Add room");
   });
 
   it("renders each rule violation as a warning-styled chip with its code", () => {

@@ -21,6 +21,8 @@ export interface TakeoffLine {
   /** Catalog material id (assets/catalog.json). */
   material_id: string;
   name: string;
+  /** es-AR catalog name when the server sent one. */
+  name_es_AR?: string;
   /** Net quantity as computed from the Scene geometry and the catalog recipe. */
   quantity: number;
   /** Catalog unit: piece, m3, m2, bag, bar, unit... Unknown units render as-is. */

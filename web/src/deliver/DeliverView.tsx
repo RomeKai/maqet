@@ -15,8 +15,19 @@ function apiBase(): string {
   return typeof configured === "string" && configured.length > 0 ? configured : "/api";
 }
 
-function snapshotSrc(locale: Locale): string {
-  return `${apiBase()}/scene/snapshot.svg?locale=${encodeURIComponent(locale)}`;
+/** Render the CURRENT scene (POST), not whatever the server stored: GET could be stale or missing. */
+async function fetchSnapshotUrl(scene: Scene, locale: Locale): Promise<string | null> {
+  try {
+    const res = await fetch(`${apiBase()}/scene/snapshot.svg?locale=${encodeURIComponent(locale === "es-AR" ? "es-AR" : "en")}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(scene),
+    });
+    if (!res.ok) return null;
+    return URL.createObjectURL(await res.blob());
+  } catch {
+    return null;
+  }
 }
 
 interface DeliverViewProps {
@@ -33,11 +44,25 @@ export function DeliverView({ scene, takeoff, locale }: DeliverViewProps): React
   const [csvError, setCsvError] = useState<string | null>(null);
   const estimatedWalls = (scene?.walls ?? []).filter(isWallEstimated).length;
 
-  // Bust snapshot cache when scene version changes
-  const [snapKey, setSnapKey] = useState(0);
+  // Snapshot of the current scene; stays null (card hidden) when it cannot be rendered.
+  const [snapshot, setSnapshot] = useState<string | null>(null);
   useEffect(() => {
-    setSnapKey((k) => k + 1);
-  }, [scene?.version, locale]);
+    if (!scene || (scene.walls?.length ?? 0) === 0) {
+      setSnapshot(null);
+      return;
+    }
+    let live = true;
+    let created: string | null = null;
+    void fetchSnapshotUrl(scene, locale).then((url) => {
+      created = url;
+      if (live) setSnapshot(url);
+      else if (url) URL.revokeObjectURL(url);
+    });
+    return () => {
+      live = false;
+      if (created) URL.revokeObjectURL(created);
+    };
+  }, [scene, locale]);
 
   async function downloadCsvFile(): Promise<void> {
     if (!scene) return;
@@ -123,15 +148,11 @@ export function DeliverView({ scene, takeoff, locale }: DeliverViewProps): React
           </Banner>
         ) : null}
 
-        <div className="overflow-hidden rounded-xl border-2 border-border bg-card">
-          <img
-            key={snapKey}
-            src={snapshotSrc(locale)}
-            alt={t["snapshot.alt"]}
-            className="block w-full"
-            loading="lazy"
-          />
-        </div>
+        {snapshot ? (
+          <div className="overflow-hidden rounded-xl border-2 border-border bg-card">
+            <img src={snapshot} alt={t["snapshot.alt"]} className="block w-full" onError={() => setSnapshot(null)} />
+          </div>
+        ) : null}
 
         {takeoff ? <TakeoffView takeoff={takeoff} locale={locale} /> : null}
 
