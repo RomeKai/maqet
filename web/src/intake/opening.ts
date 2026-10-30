@@ -3,6 +3,9 @@ import type { Opening, Wall } from "../scene/types";
 /** Small tolerance so clicks slightly off the line still count as "on wall". */
 /** Narrowest acceptable door (m). */
 export const DOOR_MIN_WIDTH_M = 0.8;
+export const WINDOW_MIN_WIDTH_M = 0.5;
+export const DEFAULT_DOOR_WIDTH_M = 0.9;
+export const DEFAULT_WINDOW_WIDTH_M = 1.0;
 export const ON_WALL_TOL_M = 0.12;
 
 /** Derive Opening offset/width from two taps projected onto the wall's axis. */
@@ -207,9 +210,26 @@ export function openPlacemenFromSnappedTap(
   const pr1 = projectOntoSegment(p1, wall.a as [number, number], wall.b as [number, number]);
   const t0 = Math.max(0, Math.min(1, pr0.t));
   const t1 = Math.max(0, Math.min(1, pr1.t));
-  if (Math.abs(t0 - t1) < 1e-9) return { rejected: { reason: "degenerate" } };
   const tMin = Math.min(t0, t1);
   const tMax = Math.max(t0, t1);
+  const span = (tMax - tMin) * len;
+  const minSpan = kind === "door" ? DOOR_MIN_WIDTH_M : WINDOW_MIN_WIDTH_M;
+  if (span < minSpan) {
+    // Taps too close together: use the default size centred between them.
+    const width = kind === "door" ? DEFAULT_DOOR_WIDTH_M : DEFAULT_WINDOW_WIDTH_M;
+    if (width > len) return { rejected: { reason: "degenerate" } };
+    const centre = ((tMin + tMax) / 2) * len;
+    return {
+      placement: {
+        wallId: wall.id,
+        kind,
+        offset_m: Math.max(0, Math.min(len - width, centre - width / 2)),
+        width_m: width,
+        height_m: kind === "door" ? 2.05 : 1.4,
+        ...(kind === "window" ? { sill_m: 0.8 } : {}),
+      },
+    };
+  }
   return {
     placement: {
       wallId: wall.id,

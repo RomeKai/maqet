@@ -22,6 +22,7 @@ import { CheckList } from "./CheckList";
 import { buildChecks } from "./checks";
 import { Button, cn } from "../ui";
 import { WallLengthSheet } from "./WallLengthSheet";
+import { OpeningSheet } from "./OpeningSheet";
 import { STEP_ORDER, type CaptureStepKey } from "./captureSteps";
 import { pillMetrics, provenanceKind, type ProvenanceKind } from "./wallPill";
 
@@ -302,6 +303,7 @@ export function CornerEditor({
   const stepIndex = STEP_ORDER.indexOf(step);
   const [highlightWallId, setHighlightWallId] = useState<string | null>(null);
   const [wallSheetId, setWallSheetId] = useState<string | null>(null);
+  const [openingSheetId, setOpeningSheetId] = useState<string | null>(null);
 
   /** SVG viewBox units per screen px: keeps pills >= 14 px at any photo zoom. */
   const [unitsPerPx, setUnitsPerPx] = useState(1);
@@ -705,7 +707,7 @@ export function CornerEditor({
               return (
                 <g key={o.id}>
                   <line x1={s0.x} y1={s0.y} x2={s1.x} y2={s1.y} className="opening-door-gap" />
-                  <line x1={s0.x} y1={s0.y} x2={s1.x} y2={s1.y} className={doorCls} onClick={(e) => { e.stopPropagation(); setSelectedOpening(o.id); setSelectedWall(wall.id); }} />
+                  <line x1={s0.x} y1={s0.y} x2={s1.x} y2={s1.y} className={doorCls} onClick={(e) => { e.stopPropagation(); setSelectedOpening(o.id); setSelectedWall(wall.id); if (placing === null) setOpeningSheetId(o.id); }} />
                   <path d={arcD} className="opening-door-arc" />
                   {selectedOpening === o.id && (<text x={(s0.x + s1.x) / 2} y={(s0.y + s1.y) / 2} className="wall-label">{`${t["intake.selected.door"]} · ${formatLengthM(o.width_m)}`}</text>)}
                 </g>
@@ -726,8 +728,8 @@ export function CornerEditor({
             const wB1 = { x: s1.x - nx * off, y: s1.y - ny * off };
             return (
               <g key={o.id}>
-                <line x1={wA0.x} y1={wA0.y} x2={wA1.x} y2={wA1.y} className={winCls} onClick={(e) => { e.stopPropagation(); setSelectedOpening(o.id); setSelectedWall(wall.id); }} />
-                <line x1={wB0.x} y1={wB0.y} x2={wB1.x} y2={wB1.y} className={winCls} onClick={(e) => { e.stopPropagation(); setSelectedOpening(o.id); setSelectedWall(wall.id); }} />
+                <line x1={wA0.x} y1={wA0.y} x2={wA1.x} y2={wA1.y} className={winCls} onClick={(e) => { e.stopPropagation(); setSelectedOpening(o.id); setSelectedWall(wall.id); if (placing === null) setOpeningSheetId(o.id); }} />
+                <line x1={wB0.x} y1={wB0.y} x2={wB1.x} y2={wB1.y} className={winCls} onClick={(e) => { e.stopPropagation(); setSelectedOpening(o.id); setSelectedWall(wall.id); if (placing === null) setOpeningSheetId(o.id); }} />
                 {selectedOpening === o.id && (<text x={(s0.x + s1.x) / 2} y={(s0.y + s1.y) / 2} className="wall-label">{`${t["intake.selected.window"]} · ${formatLengthM(o.width_m)}`}</text>)}
               </g>
             );
@@ -915,6 +917,22 @@ export function CornerEditor({
             wallNumber={wallNumber(walls, w.id)}
             onSave={(op) => onChange(applySceneOp(scene, op), op)}
             onClose={() => setWallSheetId(null)}
+          />
+        );
+      })()}
+
+      {openingSheetId !== null && (() => {
+        const o = openings.find((x) => x.id === openingSheetId);
+        const w = o !== undefined ? walls.find((x) => x.id === o.wall_id) : undefined;
+        if (o === undefined || w === undefined) return null;
+        return (
+          <OpeningSheet
+            locale={locale}
+            opening={o}
+            wall={w}
+            onSave={(ops) => { let next = scene; for (const op of ops) { next = applySceneOp(next, op); onChange(next, op); } }}
+            onRemove={() => { emit({ type: "removeOpening", openingId: o.id }); setSelectedOpening(null); }}
+            onClose={() => setOpeningSheetId(null)}
           />
         );
       })()}
