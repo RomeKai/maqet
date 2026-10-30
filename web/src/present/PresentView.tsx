@@ -8,7 +8,7 @@ import { DEFAULT_SCALE_DENOMINATOR, ScaleSelector, type MaquetteScale } from "..
 import { MaquetteViewer } from "../ar/MaquetteViewer";
 import type { ModelViewerElement } from "../ar/model-viewer.d";
 import { USDZ_MIME, useMaquetteUrl } from "../ar/useMaquetteUrl";
-import { VariantTabs } from "../agent/VariantTabs";
+import { ConnectedVariantTabs } from "../agent/VariantTabs";
 import { Banner, Button } from "../ui";
 
 interface PresentViewProps {
@@ -93,7 +93,7 @@ export function PresentView({ scene, locale, selectedWallId, onSelectWall, onSce
           <Banner tone="info" title={t["present.empty"]} />
         )}
 
-        <VariantTabs onSceneChange={onSceneChange} locale={locale} />
+        <ConnectedVariantTabs onSceneChange={onSceneChange} locale={locale} />
 
         {share === "copied" && <Banner tone="success" title={t["present.shared"]} />}
         {share === "failed" && <Banner tone="warning" title={t["present.shareFailed"]} />}

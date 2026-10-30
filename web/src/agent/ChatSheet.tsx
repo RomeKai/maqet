@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowRight, Keyboard } from "lucide-react";
 import type { FormEvent } from "react";
 import type { Locale } from "../i18n";
 import "./agent.css";
 import { getAgentStrings, professionalFlagLabel } from "./agent.i18n";
 import type { AgentStrings } from "./agent.i18n";
 import type { ChatMessage, ToolEvent } from "./agentTypes";
-import { PushToTalk } from "./PushToTalk";
+import { PushToTalk, type PushToTalkState } from "./PushToTalk";
 import { sendDraft } from "./sendDraft";
 
 interface ToolChipsProps {
@@ -56,16 +57,38 @@ interface ChatSheetProps {
   messages: ChatMessage[];
   locale: Locale;
   onSend: (text: string) => void | Promise<void>;
-  /** When given, a press-and-hold microphone button is shown and the recorded clip is passed here. */
+  /** When given, the round microphone (hold = talk, tap = toggle) replaces the text row; a keyboard button opens it. */
   onAudio?: (audio: Blob) => void;
   /** A turn is in flight: sending is disabled. */
   pending?: boolean;
+  /** Show the quick-request chips above the bottom bar. */
+  suggestions?: boolean;
+  /** "Next ->" in the bottom bar. */
+  onNext?: () => void;
 }
 
-/** Bottom-sheet chat with the reform agent (phone-first). */
-export function ChatSheet({ messages, locale, onSend, onAudio, pending = false }: ChatSheetProps): React.JSX.Element {
+const SUGGESTIONS = ["suggest.bedroom", "suggest.brighter", "suggest.floor", "suggest.door"] as const;
+
+/** Chat with the agent: bubbles, quick requests and a talk bar (phone-first). */
+export function ChatSheet({
+  messages,
+  locale,
+  onSend,
+  onAudio,
+  pending = false,
+  suggestions = false,
+  onNext,
+}: ChatSheetProps): React.JSX.Element {
   const t = getAgentStrings(locale);
   const [draft, setDraft] = useState("");
+  const [typing, setTyping] = useState(false);
+  const [pttState, setPttState] = useState<PushToTalkState>("idle");
+  const listRef = useRef<HTMLOListElement>(null);
+
+  useEffect(() => {
+    const list = listRef.current;
+    if (list !== null) list.scrollTop = list.scrollHeight;
+  }, [messages, pending]);
 
   function submit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
@@ -74,9 +97,11 @@ export function ChatSheet({ messages, locale, onSend, onAudio, pending = false }
     void sendDraft(text, onSend, setDraft);
   }
 
+  const showInput = onAudio === undefined || typing;
+
   return (
     <section className="agent-sheet" aria-label={t["chat.title"]} aria-busy={pending}>
-      <ol className="agent-messages">
+      <ol className="agent-messages" ref={listRef} aria-live="polite">
         {messages.length === 0 ? <li className="agent-empty">{t["chat.empty"]}</li> : null}
         {messages.map((message) => (
           <li key={message.id} className="agent-message" data-role={message.role}>
@@ -90,28 +115,68 @@ export function ChatSheet({ messages, locale, onSend, onAudio, pending = false }
             ) : null}
           </li>
         ))}
+        {pending ? (
+          <li className="agent-message agent-pending" data-role="assistant" role="status">
+            {t["chat.sending"]}
+          </li>
+        ) : null}
       </ol>
-      {pending ? (
-        <p className="agent-pending" role="status">
-          {t["chat.sending"]}
-        </p>
+      {suggestions ? (
+        <div className="agent-suggestions" role="group" aria-label={t["suggest.label"]}>
+          {SUGGESTIONS.map((key) => (
+            <button
+              key={key}
+              type="button"
+              className="agent-suggestion"
+              disabled={pending}
+              onClick={() => void onSend(t[key])}
+            >
+              {t[key]}
+            </button>
+          ))}
+        </div>
       ) : null}
-      <form className="agent-composer" onSubmit={submit}>
-        <input
-          className="agent-input"
-          type="text"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          aria-label={t["chat.input"]}
-          placeholder={t["chat.placeholder"]}
-          enterKeyHint="send"
-        />
-        <button type="submit" className="agent-send" disabled={pending}>
-          {t["chat.send"]}
-        </button>
-      </form>
-      {onAudio ? <PushToTalk locale={locale} onAudio={onAudio} /> : null}
-      <p className="agent-caption">{t["caption.preliminary"]}</p>
+      {showInput ? (
+        <form className="agent-composer" onSubmit={submit}>
+          <input
+            className="agent-input"
+            type="text"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            aria-label={t["chat.input"]}
+            placeholder={t["chat.placeholder"]}
+            enterKeyHint="send"
+            autoFocus={typing}
+          />
+          <button type="submit" className="agent-send" disabled={pending}>
+            {t["chat.send"]}
+          </button>
+        </form>
+      ) : null}
+      {onAudio ? (
+        <div className="agent-bar">
+          <div className="agent-bar-left">
+            <p className="agent-bar-hint">{pttState === "recording" ? t["bar.hintRecording"] : t["bar.hint"]}</p>
+            <button
+              type="button"
+              className="agent-keyboard"
+              aria-label={t["bar.keyboard"]}
+              aria-pressed={typing}
+              onClick={() => setTyping((v) => !v)}
+            >
+              <Keyboard className="size-5" aria-hidden />
+            </button>
+          </div>
+          <PushToTalk locale={locale} onAudio={onAudio} appearance="round" onStateChange={setPttState} />
+          <div className="agent-bar-right">
+            {onNext ? (
+              <button type="button" className="agent-next" onClick={onNext}>
+                {t["bar.next"]} <ArrowRight className="size-4" aria-hidden />
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

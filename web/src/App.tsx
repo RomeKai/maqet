@@ -14,7 +14,7 @@ import { MaquetteSheet } from "./view3d/MaquetteSheet";
 import { ChatSheet } from "./agent/ChatSheet";
 import { transcribeClip } from "./agent/transcribe";
 import { ProBanner } from "./agent/ProBanner";
-import { VariantTabs } from "./agent/VariantTabs";
+import { ReformScreen } from "./agent/ReformScreen";
 import { DeliverView } from "./deliver/DeliverView";
 import { parseTakeoff } from "./deliver/takeoffFormat";
 import type { Takeoff } from "./deliver/takeoffTypes";
@@ -258,6 +258,20 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
           onSelectWall={setSelectedWallId}
           onSceneChange={handleIntakeScene}
         />
+      ) : isReform ? (
+        <ReformScreen
+          scene={intakeScene}
+          locale={locale}
+          selectedWallId={selectedWallId}
+          onSelectWall={setSelectedWallId}
+          onSceneChange={handleIntakeScene}
+          messages={messages}
+          onSend={handleSend}
+          onAudio={handleAudio}
+          pending={pending}
+          agentError={agentError}
+          onNext={() => setStage(STAGES[stageIndex + 1] ?? "stage.deliver")}
+        />
       ) : isDeliver ? (
         <main className="flex min-h-0 flex-1 flex-col" aria-label={t["app.name"]}>
           {takeoffLoading ? (
@@ -280,8 +294,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
       )}
 
       <section className="sheet" aria-label={t["app.name"]}>
-        {(showWork || isAgentStage) && (<>
-        {isReform && <VariantTabs onSceneChange={handleIntakeScene} locale={locale} />}
+        {(showWork || (isAgentStage && !isReform)) && (<>
 
         {isAgentStage ? (
           <div className="agent-stage">

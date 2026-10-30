@@ -148,8 +148,23 @@ describe("ChatSheet", () => {
     expect(html).toMatch(/<button[^>]*class="agent-send"[^>]*disabled/);
   });
 
-  it("always carries the preliminary label", () => {
-    expect(render([])).toContain(getAgentStrings("en")["caption.preliminary"]);
+  it("leaves the preliminary label to the single app footer", () => {
+    expect(render([])).not.toContain(getAgentStrings("en")["caption.preliminary"]);
+  });
+
+  it("shows quick-request chips that are buttons", () => {
+    const html = render([], { suggestions: true });
+    expect(html).toContain("agent-suggestion");
+    expect(html).toContain(getAgentStrings("en")["suggest.bedroom"]);
+  });
+
+  it("with a microphone: talk bar with hint, round mic, Next, and the text row behind a keyboard button", () => {
+    const html = render([], { onAudio: () => undefined, onNext: () => undefined });
+    expect(html).toContain(getAgentStrings("en")["bar.hint"]);
+    expect(html).toContain('data-appearance="round"');
+    expect(html).toContain(getAgentStrings("en")["bar.next"]);
+    expect(html).toContain('aria-label="' + getAgentStrings("en")["bar.keyboard"] + '"');
+    expect(html).not.toContain("agent-input");
   });
 
   it("shows the unsupported voice state when the microphone APIs are missing", () => {

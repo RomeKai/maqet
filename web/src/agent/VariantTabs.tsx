@@ -1,24 +1,36 @@
 import { useCallback, useEffect, useState } from "react";
+import { Plus } from "lucide-react";
 import type { Scene, VariantsOut } from "../scene/types";
 import { getStrings, type Locale } from "../i18n";
 import { Segmented } from "../ui";
 import { chooseVariant, fetchVariants, forkVariant, undoVariant } from "./agentApi";
+import { getAgentStrings } from "./agent.i18n";
+import { floorAreaM2 } from "./floorArea";
 
-interface VariantTabsProps {
-  onSceneChange: (scene: Scene) => void;
-  locale: Locale;
+/** "now" = the current scene, no option picked. */
+export const NOW = "now";
+
+export interface VariantsState {
+  data: VariantsOut | null;
+  error: string | null;
+  busy: boolean;
+  /** Selected tab: NOW or a variant label. */
+  selected: string;
+  fork: () => Promise<void>;
+  choose: (label: string) => Promise<void>;
+  undo: () => Promise<void>;
 }
 
-export function VariantTabs({ onSceneChange, locale }: VariantTabsProps): React.JSX.Element {
-  const t = getStrings(locale);
+/** Variants API state shared by the tabs and the 3D card's Undo button. */
+export function useVariants(onSceneChange: (scene: Scene) => void): VariantsState {
   const [data, setData] = useState<VariantsOut | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [selected, setSelected] = useState<string>(NOW);
 
   const load = useCallback(async () => {
     try {
-      const raw = (await fetchVariants()) as VariantsOut;
-      setData(raw);
+      setData((await fetchVariants()) as VariantsOut);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -29,15 +41,10 @@ export function VariantTabs({ onSceneChange, locale }: VariantTabsProps): React.
     void load();
   }, [load]);
 
-  async function handleFork(): Promise<void> {
-    if (!data) return;
-    const existing = new Set(data.variants.map((v) => v.label));
-    // Next label: B, C, D… (A already exists as base)
-    const next = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").find((l) => !existing.has(l)) ?? `V${data.variants.length + 1}`;
+  async function run(work: () => Promise<void>): Promise<void> {
     setBusy(true);
     try {
-      const raw = (await forkVariant(next, data.chosen)) as VariantsOut;
-      setData(raw);
+      await work();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -45,35 +52,56 @@ export function VariantTabs({ onSceneChange, locale }: VariantTabsProps): React.
     }
   }
 
-  async function handleChoose(label: string): Promise<void> {
-    setBusy(true);
-    try {
-      const raw = (await chooseVariant(label)) as VariantsOut;
-      setData(raw);
-      const chosen = raw.variants.find((v) => v.label === raw.chosen);
-      if (chosen) onSceneChange(chosen.scene);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
+  function applyChosen(raw: VariantsOut): void {
+    setData(raw);
+    const chosen = raw.variants.find((v) => v.label === raw.chosen);
+    if (chosen) onSceneChange(chosen.scene);
   }
 
-  async function handleUndo(): Promise<void> {
-    if (!data) return;
-    setBusy(true);
-    try {
-      await undoVariant(data.chosen);
-      const raw = (await fetchVariants()) as VariantsOut;
-      setData(raw);
-      const chosen = raw.variants.find((v) => v.label === raw.chosen);
-      if (chosen) onSceneChange(chosen.scene);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
-  }
+  return {
+    data,
+    error,
+    busy,
+    selected,
+    fork: () =>
+      run(async () => {
+        if (!data) return;
+        const existing = new Set(data.variants.map((v) => v.label));
+        // Next label: B, C, D… (A already exists as base)
+        const next = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").find((l) => !existing.has(l)) ?? `V${data.variants.length + 1}`;
+        setData((await forkVariant(next, data.chosen)) as VariantsOut);
+      }),
+    choose: (label: string) =>
+      run(async () => {
+        setSelected(label);
+        if (label === NOW) return; // keep the current scene as is
+        applyChosen((await chooseVariant(label)) as VariantsOut);
+      }),
+    undo: () =>
+      run(async () => {
+        if (!data) return;
+        await undoVariant(data.chosen);
+        applyChosen((await fetchVariants()) as VariantsOut);
+      }),
+  };
+}
+
+function formatArea(m2: number | null, locale: Locale): string {
+  if (m2 === null) return "";
+  const fixed = m2.toFixed(1);
+  return `${locale === "es-AR" ? fixed.replace(".", ",") : fixed} m²`;
+}
+
+interface VariantTabsProps {
+  state: VariantsState;
+  locale: Locale;
+}
+
+/** Segmented Now / A / B / C with "+ Fork" inside the control and a one-line caption. */
+export function VariantTabs({ state, locale }: VariantTabsProps): React.JSX.Element {
+  const t = getStrings(locale);
+  const a = getAgentStrings(locale);
+  const { data, error, busy, selected } = state;
 
   if (!data) {
     return (
@@ -87,34 +115,65 @@ export function VariantTabs({ onSceneChange, locale }: VariantTabsProps): React.
     );
   }
 
+  const variant = data.variants.find((v) => v.label === selected);
+  const caption = variant
+    ? a["variants.optionCaption"].replace("{label}", variant.label).replace("{area}", formatArea(floorAreaM2(variant.scene), locale))
+    : a["variants.nowCaption"];
+
   return (
-    <div className="space-y-2 px-3 py-2 font-sans" data-testid="variant-tabs">
-      <Segmented<string>
-        label={t["variants.label"]}
-        value={data.chosen}
-        onChange={(label) => void handleChoose(label)}
-        options={data.variants.map((v) => ({ value: v.label, label: v.label }))}
-      />
-      <div className="flex gap-2">
+    <div className="space-y-1 px-3 py-2 font-sans" data-testid="variant-tabs">
+      <div className="flex items-center gap-1">
+        <Segmented<string>
+          className="flex-1"
+          label={t["variants.label"]}
+          value={selected}
+          onChange={(label) => void state.choose(label)}
+          options={[
+            { value: NOW, label: a["variants.now"] },
+            ...data.variants.map((v) => ({ value: v.label, label: v.label })),
+          ]}
+        />
         <button
           type="button"
-          className="min-h-12 flex-1 rounded-xl border-2 border-foreground bg-card px-3 text-[15px] font-bold disabled:opacity-50"
-          onClick={() => void handleFork()}
+          className="flex min-h-12 shrink-0 items-center gap-1 rounded-xl border-2 border-foreground bg-card px-2 text-[14px] font-bold disabled:opacity-50"
+          onClick={() => void state.fork()}
           disabled={busy}
           aria-label={t["variants.fork"]}
         >
-          {t["variants.forkShort"]}
-        </button>
-        <button
-          type="button"
-          className="min-h-12 flex-1 rounded-xl border-2 border-border bg-card px-3 text-[15px] font-bold disabled:opacity-50"
-          onClick={() => void handleUndo()}
-          disabled={busy}
-        >
-          {t["variants.undo"]}
+          <Plus className="size-4" aria-hidden />
+          {t["variants.forkShort"].replace(/^\+\s*/, "")}
         </button>
       </div>
+      <p className="min-h-5 truncate text-center text-[15px] font-semibold" aria-live="polite">
+        {caption}
+      </p>
       {error ? <p className="text-[15px] font-semibold text-danger">{error}</p> : null}
     </div>
   );
 }
+
+export { formatArea };
+
+/** Self-contained tabs (Present stage): own variants state plus an Undo button. */
+export function ConnectedVariantTabs({ onSceneChange, locale }: { onSceneChange: (scene: Scene) => void; locale: Locale }): React.JSX.Element {
+  const state = useVariants(onSceneChange);
+  const t = getStrings(locale);
+  return (
+    <div>
+      <VariantTabs state={state} locale={locale} />
+      {state.data ? (
+        <div className="px-3">
+          <button
+            type="button"
+            className="min-h-12 w-full rounded-xl border-2 border-border bg-card px-3 text-[15px] font-bold disabled:opacity-50"
+            onClick={() => void state.undo()}
+            disabled={state.busy}
+          >
+            {t["variants.undo"]}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
