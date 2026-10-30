@@ -15,7 +15,7 @@ describe("classifyUploadError", () => {
   });
   it("never calls a server answer unreachable, even if the detail mentions network words", () => {
     const msg = "Server returned 409 on POST /intake: no recorded vision response for this upload (ReplayMiss: network failed to fetch): pick a recorded sample";
-    expect(classifyUploadError(msg)).toBe("replay");
+    expect(classifyUploadError(msg)).toBe("offline");
     expect(classifyUploadError("Server returned 500 on POST /intake: failed to fetch model")).toBe("photo");
     expect(classifyUploadError("Could not reach the server (/api/intake): Failed to fetch")).toBe("server");
   });

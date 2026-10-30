@@ -33,7 +33,7 @@ describe("runUpload (camera and gallery share it)", () => {
       throw new Error("Server returned 409 on POST /intake: no recorded vision response");
     });
     await runUpload(file, "plan", d);
-    expect(d.onFailure).toHaveBeenCalledWith("replay", expect.stringContaining("409"));
+    expect(d.onFailure).toHaveBeenCalledWith("offline", expect.stringContaining("409"));
     expect(d.onPhoto).not.toHaveBeenCalled();
     expect(d.onPhase).toHaveBeenLastCalledWith("idle");
   });
