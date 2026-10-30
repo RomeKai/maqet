@@ -44,6 +44,10 @@ function openingId(): string {
 
 const WALL_LEN_M = 3;
 
+/** Screen-px minimum for wall length labels (AA, readable at a glance). */
+export const WALL_LABEL_MIN_PX = 14;
+export const wallLabelClass = "wall-label";
+
 /** Narrow door warning threshold (meters) — door kept but flagged. */
 export const DOOR_MIN_WIDTH_M = 0.8;
 
