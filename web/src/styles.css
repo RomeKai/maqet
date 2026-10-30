@@ -366,7 +366,7 @@ body {
 
 .intake-svg .wall {
   stroke: var(--accent-2);
-  stroke-width: 3px;
+  stroke-width: 5px;
   stroke-linecap: round;
   fill: none;
 }
@@ -381,6 +381,8 @@ body {
 
 .intake-svg .wall-selected {
   stroke: var(--lg-accent);
+  stroke-width: 7px;
+  filter: drop-shadow(0 0 5px rgba(196, 98, 45, 0.55));
 }
 
 /* Estimated walls: amber dashed until the human confirms the measure. */
@@ -392,7 +394,7 @@ body {
 /* In-flight shared-corner drag: walls moving together glow terracotta. */
 .intake-svg .wall-dragging {
   stroke: var(--lg-accent);
-  stroke-width: 4;
+  stroke-width: 7px;
 }
 
 .intake-svg .handle {
@@ -433,13 +435,13 @@ body {
 
 .intake-svg .opening-door {
   stroke: var(--lg-accent);
-  stroke-width: 4;
+  stroke-width: 7px;
   stroke-linecap: butt;
 }
 
 .intake-svg .opening-door-gap {
   stroke: var(--surface);
-  stroke-width: 5;
+  stroke-width: 9px;
   stroke-linecap: butt;
   opacity: 0.95;
 }
@@ -455,7 +457,7 @@ body {
 
 .intake-svg .opening-window {
   stroke: var(--accent-2);
-  stroke-width: 2;
+  stroke-width: 7px;
   stroke-linecap: butt;
 }
 
@@ -597,4 +599,4 @@ body {
 .viewport-capture .intake { flex: 1; min-height: 0; }
 .wall-label { font-size: 14px; font-family: "JetBrains Mono", ui-monospace, monospace; fill: var(--ink); text-anchor: middle; }
 .intake-svg .wall-label { font-size: 14px; }
-.wall-highlight { stroke: #b3261e !important; stroke-width: 5 !important; }
+.wall-highlight { stroke: #b3261e !important; stroke-width: 7px !important; filter: drop-shadow(0 0 5px rgba(179, 38, 30, 0.6)); }
