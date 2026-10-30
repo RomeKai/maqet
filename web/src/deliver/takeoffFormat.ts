@@ -45,13 +45,14 @@ function parseLine(stage: string, raw: unknown): TakeoffLine {
   if (!isRecord(raw)) fail(`line in stage ${stage} is not an object`);
   const { material_id, name, quantity, unit, waste_factor, recipe_source, estimated } = raw;
   if (typeof material_id !== "string") fail(`material_id in stage ${stage}`);
-  if (typeof name !== "string") fail(`name of ${material_id}`);
+  // Server takeoff omits name; web fixture carries it. Fall back to material_id for display.
+  const resolvedName = typeof name === "string" && name.length > 0 ? name : String(material_id);
   if (typeof quantity !== "number" || !Number.isFinite(quantity)) fail(`quantity of ${material_id}`);
   if (typeof unit !== "string") fail(`unit of ${material_id}`);
   if (typeof waste_factor !== "number" || !Number.isFinite(waste_factor)) fail(`waste_factor of ${material_id}`);
   if (typeof recipe_source !== "string") fail(`recipe_source of ${material_id}`);
   if (typeof estimated !== "boolean") fail(`estimated of ${material_id}`);
-  return { material_id, name, quantity, unit, waste_factor, recipe_source, estimated };
+  return { material_id, name: resolvedName, quantity, unit, waste_factor, recipe_source, estimated };
 }
 
 function isStage(key: string): key is TakeoffStage {
@@ -69,19 +70,34 @@ export function flagLabel(code: string, locale: Locale): string {
 export function parseTakeoff(raw: unknown): Takeoff {
   if (!isRecord(raw)) fail("takeoff is not an object");
   if (raw.preliminary !== true) fail("takeoff must be marked preliminary");
-  if (!Array.isArray(raw.flags)) fail("flags must be a list");
-  if (!isRecord(raw.stages)) fail("stages must be an object");
-
-  const flags: ProfessionalFlag[] = raw.flags.map((flag: unknown) => {
+  // Flags: web shape is flags:[{code}], server shape is professional_flags:[str]
+  const flagSource: unknown = (raw as Record<string, unknown>).flags ?? (raw as Record<string, unknown>).professional_flags;
+  if (!Array.isArray(flagSource)) fail("flags must be a list");
+  const flags: ProfessionalFlag[] = flagSource.map((flag: unknown) => {
+    if (typeof flag === "string") return { code: flag };
     if (!isRecord(flag) || typeof flag.code !== "string") fail("professional flag without a code");
     return { code: flag.code };
   });
-
+  // Stages: web is Record<stage, lines[]>, server is [{name, items:[]}]
   const stages: Takeoff["stages"] = {};
-  for (const [key, lines] of Object.entries(raw.stages)) {
-    if (!isStage(key)) fail(`unknown stage "${key}"`);
-    if (!Array.isArray(lines)) fail(`stage ${key} must be a list`);
-    stages[key] = lines.map((line: unknown) => parseLine(key, line));
+  const rawStages: unknown = (raw as Record<string, unknown>).stages;
+  if (Array.isArray(rawStages)) {
+    for (const entry of rawStages as unknown[]) {
+      if (!isRecord(entry) || typeof entry.name !== "string") fail("stage entry must have a name");
+      const key = entry.name as string;
+      if (!isStage(key)) fail(`unknown stage "${key}"`);
+      const lines: unknown = (entry as Record<string, unknown>).items ?? (entry as Record<string, unknown>).lines;
+      if (!Array.isArray(lines)) fail(`stage ${key} must be a list`);
+      stages[key as TakeoffStage] = lines.map((line: unknown) => parseLine(key, line));
+    }
+  } else if (isRecord(rawStages)) {
+    for (const [key, lines] of Object.entries(rawStages)) {
+      if (!isStage(key)) fail(`unknown stage "${key}"`);
+      if (!Array.isArray(lines)) fail(`stage ${key} must be a list`);
+      stages[key] = lines.map((line: unknown) => parseLine(key, line));
+    }
+  } else {
+    fail("stages must be an object or list");
   }
   return { preliminary: true, flags, stages };
 }

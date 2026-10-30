@@ -4,6 +4,7 @@ import type { Scene } from "../scene/types";
 import { getDeliverStrings } from "./deliver.i18n";
 import { TakeoffView } from "./TakeoffView";
 import type { Takeoff } from "./takeoffTypes";
+import { downloadCsv } from "./takeoffFormat";
 
 function apiBase(): string {
   const configured: unknown = import.meta.env.VITE_API_URL;
@@ -23,6 +24,8 @@ interface DeliverViewProps {
 export function DeliverView({ scene, takeoff, locale }: DeliverViewProps): React.JSX.Element {
   const t = getDeliverStrings(locale);
   const [dxfBusy, setDxfBusy] = useState(false);
+  const [csvBusy, setCsvBusy] = useState(false);
+  const [csvError, setCsvError] = useState<string | null>(null);
   const [dxfError, setDxfError] = useState<string | null>(null);
 
   // Bust snapshot cache when scene version changes
@@ -30,6 +33,24 @@ export function DeliverView({ scene, takeoff, locale }: DeliverViewProps): React
   useEffect(() => {
     setSnapKey((k) => k + 1);
   }, [scene?.version, locale]);
+
+  async function downloadCsvFile(): Promise<void> {
+    if (!scene) return;
+    setCsvBusy(true);
+    setCsvError(null);
+    try {
+      const res = await fetch(`${apiBase()}/export/takeoff.csv`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scene }),
+      });
+      if (!res.ok) throw new Error((await res.text().catch(() => "")) || `CSV export failed (${res.status})`);
+      const csv = await res.text();
+      downloadCsv(csv, "takeoff.csv");
+    } catch (err) {
+      setCsvError(err instanceof Error ? err.message : String(err));
+    } finally { setCsvBusy(false); }
+  }
 
   async function downloadDxf(): Promise<void> {
     if (!scene) return;
@@ -76,6 +97,10 @@ export function DeliverView({ scene, takeoff, locale }: DeliverViewProps): React
             {dxfBusy ? "…" : "DXF"}
           </button>
           {dxfError ? <p className="deliver-error">{dxfError}</p> : null}
+          <button type="button" className="deliver-export" onClick={() => void downloadCsvFile()} disabled={csvBusy || !scene}>
+            {csvBusy ? "…" : t["action.exportCsv"]}
+          </button>
+          {csvError ? <p className="deliver-error">{csvError}</p> : null}
         </div>
       </div>
       <p className="preliminary" data-testid="preliminary-label">
