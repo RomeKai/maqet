@@ -3,28 +3,6 @@ import type { Locale } from "../i18n";
 import "./ar.css";
 import { getArStrings } from "./ar.i18n";
 
-/**
- * Typing for the <model-viewer> custom element. The element itself comes from @google/model-viewer,
- * which is NOT a dependency yet: it has to be added to web/package.json and imported once at app start
- * for AR to work. Until it is registered, MaquetteViewer shows its fallback.
- */
-declare module "react" {
-  namespace JSX {
-    interface IntrinsicElements {
-      "model-viewer": DetailedHTMLProps<HTMLAttributes<HTMLElement>, HTMLElement> & {
-        src?: string;
-        "ios-src"?: string;
-        alt?: string;
-        ar?: string;
-        "ar-modes"?: string;
-        "ar-scale"?: string;
-        "camera-controls"?: string;
-        "shadow-intensity"?: string;
-      };
-    }
-  }
-}
-
 const AR_MODES = "webxr scene-viewer quick-look";
 
 /** True when the <model-viewer> custom element has been registered in this page. */
@@ -64,10 +42,9 @@ export function MaquetteViewer({ src, iosSrc, locale }: MaquetteViewerProps): Re
           src={src}
           ios-src={iosSrc}
           alt={t["viewer.alt"]}
-          ar=""
+          ar
           ar-modes={AR_MODES}
-          ar-scale="auto"
-          camera-controls=""
+          camera-controls
           shadow-intensity="1"
         />
       ) : (
