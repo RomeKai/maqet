@@ -29,5 +29,7 @@ export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   text: string;
+  /** The model reply alone (no appended tool notes); what the conversation memory uses. */
+  spoken?: string;
   toolEvents?: ToolEvent[];
 }

@@ -177,6 +177,8 @@ export interface SendTurnParams {
   /** Variant the result is persisted into, with the Now baseline. */
   variant?: string | null;
   baseScene?: Scene | null;
+  /** Recent chat of the active variant (the agent's only memory). */
+  conversation?: { role: "user" | "assistant"; text: string }[];
 }
 
 export async function sendTurn(
@@ -192,6 +194,7 @@ export async function sendTurn(
     stage: params.stage,
     history: params.history ?? [],
     selected: params.selected ?? null,
+    ...(params.conversation && params.conversation.length > 0 ? { conversation: params.conversation } : {}),
     ...(params.variant ? { variant: params.variant, base_scene: params.baseScene ?? null } : {}),
   };
 

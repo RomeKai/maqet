@@ -1,8 +1,17 @@
 /**
  * GENERATED — do not edit.
- * Source: snapshot C:\Users\lenovo\Desktop\kit\maqet-hardening\web\openapi.snapshot.json
+ * Source: snapshot C:\Users\lenovo\Desktop\kit\maqet\web\openapi.snapshot.json
  * Regenerate: npm run gen:types (from web/)
  */
+
+export interface AgentEditIn {
+scene: Scene;
+tool: string;
+args?: unknown;
+history?: OpRecordIn[];
+variant?: string | null;
+base_scene?: Scene | null;
+}
 
 export interface AgentTurnIn {
 scene: Scene;
@@ -10,6 +19,9 @@ message: string;
 stage: "reform" | "design" | "present";
 history?: OpRecordIn[];
 selected?: SelectedRef | null;
+variant?: string | null;
+base_scene?: Scene | null;
+conversation?: ChatTurnIn[];
 }
 
 export interface AgentTurnOut {
@@ -18,12 +30,24 @@ reply: string;
 ops_applied: AppliedOpOut[];
 professional_flags: string[];
 history: OpRecordIn[];
+tool_errors?: string[];
+tool_warnings?: string[];
 }
 
 export interface AppliedOpOut {
 name: string;
 arguments: unknown;
 flags?: string[];
+}
+
+export interface ArModelOut {
+id: string;
+kind: "glb" | "usdz";
+path: string;
+}
+
+export interface Body_post_ar_model_ar_model_post {
+file?: string | null;
 }
 
 export interface Body_post_intake_intake_post {
@@ -37,6 +61,11 @@ export interface Body_post_transcribe_transcribe_post {
 audio?: string | null;
 language?: string | null;
 keywords?: string | null;
+}
+
+export interface ChatTurnIn {
+role: "user" | "assistant";
+text: string;
 }
 
 export interface ForkIn {
@@ -174,6 +203,33 @@ target: (RoomSurfaceTarget | WallSurfaceTarget);
 material_id: string;
 }
 
+export interface Takeoff {
+stages?: TakeoffStage[];
+built_m?: number;
+demolished_m?: number;
+built_m2?: number;
+demolished_m2?: number;
+professional_flags?: string[];
+has_estimated?: boolean;
+preliminary?: boolean;
+}
+
+export interface TakeoffItem {
+material_id: string;
+unit: string;
+quantity: number;
+waste_factor: number;
+recipe_source: string;
+estimated?: boolean;
+name?: string;
+name_es_AR?: string;
+}
+
+export interface TakeoffStage {
+name: string;
+items?: TakeoffItem[];
+}
+
 export interface TranscribeOut {
 text: string;
 duration_ms: number;
@@ -203,6 +259,7 @@ label: string;
 parent: string | null;
 fork_at_version: number;
 op_count: number;
+ops?: OpRecordIn[];
 scene: Scene;
 }
 

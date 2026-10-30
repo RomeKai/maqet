@@ -33,7 +33,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Scene-Output"
+                  "$ref": "#/components/schemas/Scene"
                 }
               }
             }
@@ -47,7 +47,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Scene-Input"
+                "$ref": "#/components/schemas/Scene"
               }
             }
           },
@@ -59,7 +59,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Scene-Output"
+                  "$ref": "#/components/schemas/Scene"
                 }
               }
             }
@@ -85,7 +85,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Scene-Input"
+                "$ref": "#/components/schemas/Scene"
               }
             }
           },
@@ -178,7 +178,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Scene-Input"
+                "$ref": "#/components/schemas/Scene"
               }
             }
           }
@@ -278,6 +278,80 @@
         }
       }
     },
+    "/ar/model": {
+      "post": {
+        "summary": "Post Ar Model",
+        "operationId": "post_ar_model_ar_model_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_post_ar_model_ar_model_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArModelOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ar/model/{name}": {
+      "get": {
+        "summary": "Get Ar Model",
+        "operationId": "get_ar_model_ar_model__name__get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/agent/turn": {
       "post": {
         "summary": "Post Agent Turn",
@@ -287,6 +361,45 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/AgentTurnIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentTurnOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/edit": {
+      "post": {
+        "summary": "Post Agent Edit",
+        "description": "One deterministic edit from the UI (tap a wall or room, type meters).\n\nSame executor, rules and history as an agent turn, minus the model:\n$0 and undoable like any agent change.",
+        "operationId": "post_agent_edit_agent_edit_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentEditIn"
               }
             }
           },
@@ -449,6 +562,84 @@
         }
       }
     },
+    "/export/takeoff": {
+      "post": {
+        "summary": "Post Export Takeoff",
+        "operationId": "post_export_takeoff_export_takeoff_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Payload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Takeoff"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/export/takeoff.csv": {
+      "post": {
+        "summary": "Post Export Takeoff Csv",
+        "operationId": "post_export_takeoff_csv_export_takeoff_csv_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Payload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/export/dxf": {
       "post": {
         "summary": "Export Scene Dxf",
@@ -470,7 +661,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Scene-Input"
+                "$ref": "#/components/schemas/Scene"
               }
             }
           }
@@ -500,10 +691,62 @@
   },
   "components": {
     "schemas": {
+      "AgentEditIn": {
+        "properties": {
+          "scene": {
+            "$ref": "#/components/schemas/Scene"
+          },
+          "tool": {
+            "type": "string",
+            "title": "Tool"
+          },
+          "args": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Args",
+            "default": {}
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/OpRecordIn"
+            },
+            "type": "array",
+            "title": "History",
+            "default": []
+          },
+          "variant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Variant"
+          },
+          "base_scene": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Scene"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "scene",
+          "tool"
+        ],
+        "title": "AgentEditIn"
+      },
       "AgentTurnIn": {
         "properties": {
           "scene": {
-            "$ref": "#/components/schemas/Scene-Input"
+            "$ref": "#/components/schemas/Scene"
           },
           "message": {
             "type": "string",
@@ -536,6 +779,35 @@
                 "type": "null"
               }
             ]
+          },
+          "variant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Variant"
+          },
+          "base_scene": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Scene"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "conversation": {
+            "items": {
+              "$ref": "#/components/schemas/ChatTurnIn"
+            },
+            "type": "array",
+            "maxItems": 40,
+            "title": "Conversation"
           }
         },
         "type": "object",
@@ -549,7 +821,7 @@
       "AgentTurnOut": {
         "properties": {
           "scene": {
-            "$ref": "#/components/schemas/Scene-Output"
+            "$ref": "#/components/schemas/Scene"
           },
           "reply": {
             "type": "string",
@@ -575,6 +847,22 @@
             },
             "type": "array",
             "title": "History"
+          },
+          "tool_errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tool Errors",
+            "default": []
+          },
+          "tool_warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tool Warnings",
+            "default": []
           }
         },
         "type": "object",
@@ -613,6 +901,51 @@
           "arguments"
         ],
         "title": "AppliedOpOut"
+      },
+      "ArModelOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "glb",
+              "usdz"
+            ],
+            "title": "Kind"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "path"
+        ],
+        "title": "ArModelOut"
+      },
+      "Body_post_ar_model_ar_model_post": {
+        "properties": {
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "title": "Body_post_ar_model_ar_model_post"
       },
       "Body_post_intake_intake_post": {
         "properties": {
@@ -700,6 +1033,31 @@
         },
         "type": "object",
         "title": "Body_post_transcribe_transcribe_post"
+      },
+      "ChatTurnIn": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role",
+          "text"
+        ],
+        "title": "ChatTurnIn",
+        "description": "One prior chat message (spoken text only, no tool notes), oldest first."
       },
       "ForkIn": {
         "properties": {
@@ -979,7 +1337,7 @@
             "$ref": "#/components/schemas/IntakeProposal"
           },
           "scene": {
-            "$ref": "#/components/schemas/Scene-Output"
+            "$ref": "#/components/schemas/Scene"
           },
           "warnings": {
             "items": {
@@ -1383,93 +1741,7 @@
         ],
         "title": "RoomSurfaceTarget"
       },
-      "Scene-Input": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Id"
-          },
-          "version": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Version",
-            "default": 0
-          },
-          "units": {
-            "type": "string",
-            "const": "m",
-            "title": "Units",
-            "default": "m"
-          },
-          "scale_confirmed": {
-            "type": "boolean",
-            "title": "Scale Confirmed",
-            "default": false
-          },
-          "ceiling_height_m": {
-            "type": "number",
-            "exclusiveMinimum": 0.0,
-            "title": "Ceiling Height M",
-            "default": 2.6
-          },
-          "walls": {
-            "items": {
-              "$ref": "#/components/schemas/Wall"
-            },
-            "type": "array",
-            "title": "Walls"
-          },
-          "openings": {
-            "items": {
-              "$ref": "#/components/schemas/Opening"
-            },
-            "type": "array",
-            "title": "Openings"
-          },
-          "rooms": {
-            "items": {
-              "$ref": "#/components/schemas/Room"
-            },
-            "type": "array",
-            "title": "Rooms"
-          },
-          "surfaces": {
-            "items": {
-              "$ref": "#/components/schemas/Surface"
-            },
-            "type": "array",
-            "title": "Surfaces"
-          },
-          "furniture": {
-            "items": {
-              "$ref": "#/components/schemas/Furniture"
-            },
-            "type": "array",
-            "title": "Furniture"
-          },
-          "materials": {
-            "items": {
-              "$ref": "#/components/schemas/Material"
-            },
-            "type": "array",
-            "title": "Materials"
-          },
-          "professional_flags": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Professional Flags"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id"
-        ],
-        "title": "Scene"
-      },
-      "Scene-Output": {
+      "Scene": {
         "properties": {
           "id": {
             "type": "string",
@@ -1615,6 +1887,128 @@
         ],
         "title": "Surface"
       },
+      "Takeoff": {
+        "properties": {
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/TakeoffStage"
+            },
+            "type": "array",
+            "title": "Stages"
+          },
+          "built_m": {
+            "type": "number",
+            "title": "Built M",
+            "default": 0.0
+          },
+          "demolished_m": {
+            "type": "number",
+            "title": "Demolished M",
+            "default": 0.0
+          },
+          "built_m2": {
+            "type": "number",
+            "title": "Built M2",
+            "default": 0.0
+          },
+          "demolished_m2": {
+            "type": "number",
+            "title": "Demolished M2",
+            "default": 0.0
+          },
+          "professional_flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Professional Flags"
+          },
+          "has_estimated": {
+            "type": "boolean",
+            "title": "Has Estimated",
+            "default": false
+          },
+          "preliminary": {
+            "type": "boolean",
+            "title": "Preliminary",
+            "default": true
+          }
+        },
+        "type": "object",
+        "title": "Takeoff"
+      },
+      "TakeoffItem": {
+        "properties": {
+          "material_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Material Id"
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Unit"
+          },
+          "quantity": {
+            "type": "number",
+            "title": "Quantity"
+          },
+          "waste_factor": {
+            "type": "number",
+            "title": "Waste Factor"
+          },
+          "recipe_source": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Recipe Source"
+          },
+          "estimated": {
+            "type": "boolean",
+            "title": "Estimated",
+            "default": false
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "default": ""
+          },
+          "name_es_AR": {
+            "type": "string",
+            "title": "Name Es Ar",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "material_id",
+          "unit",
+          "quantity",
+          "waste_factor",
+          "recipe_source"
+        ],
+        "title": "TakeoffItem"
+      },
+      "TakeoffStage": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TakeoffItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "TakeoffStage"
+      },
       "TranscribeOut": {
         "properties": {
           "text": {
@@ -1752,8 +2146,16 @@
             "type": "integer",
             "title": "Op Count"
           },
+          "ops": {
+            "items": {
+              "$ref": "#/components/schemas/OpRecordIn"
+            },
+            "type": "array",
+            "title": "Ops",
+            "default": []
+          },
           "scene": {
-            "$ref": "#/components/schemas/Scene-Output"
+            "$ref": "#/components/schemas/Scene"
           }
         },
         "type": "object",

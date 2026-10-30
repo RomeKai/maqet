@@ -49,3 +49,37 @@ for (const height of [915, 780, 640, 500]) {
     expect((input2?.y ?? 0) + (input2?.height ?? 0)).toBeLessThanOrEqual((footer?.y ?? 0) + 1);
   });
 }
+
+test("the second turn sends the first exchange as conversation, per variant", async ({ page }) => {
+  await page.setViewportSize({ width: 412, height: 915 });
+  const bodies: { message: string; conversation?: { role: string; text: string }[] }[] = [];
+  await page.route("**/api/agent/turn", async (route) => {
+    const body = route.request().postDataJSON() as { scene: unknown; message: string; conversation?: { role: string; text: string }[] };
+    bodies.push(body);
+    await route.fulfill({
+      json: { reply: QUESTION, scene: body.scene, ops_applied: [], history: [], professional_flags: [], tool_errors: [], tool_warnings: [] },
+    });
+  });
+  await page.goto("/");
+  await page.getByText("Start capture").click();
+  await page.getByText("Photograph a sketch").click();
+  await page.getByText("Try a sample").click();
+  await page.locator("button", { hasText: "Reform" }).click();
+  await page.locator(".agent-keyboard").click();
+  await ask(page, "add a 3x4 bedroom");
+  await expect(page.locator(".agent-message")).toHaveCount(2);
+  await ask(page, "wall 3");
+  await expect(page.locator(".agent-message")).toHaveCount(4);
+  expect(bodies[0].conversation ?? []).toEqual([]);
+  expect(bodies[1].conversation).toEqual([
+    { role: "user", text: "add a 3x4 bedroom" },
+    { role: "assistant", text: QUESTION },
+  ]);
+  // Another conversation (the Now baseline) starts empty; going back restores this one.
+  const group = page.getByRole("radiogroup", { name: "Variants" });
+  const label = (await group.getByRole("radio", { checked: true }).innerText()).trim();
+  await group.getByRole("radio", { name: "Now", exact: true }).click();
+  await expect(page.locator(".agent-message")).toHaveCount(0);
+  await group.getByRole("radio", { name: label, exact: true }).click();
+  await expect(page.locator(".agent-message")).toHaveCount(4);
+});

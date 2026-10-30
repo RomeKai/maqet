@@ -15,6 +15,7 @@ import { ChatSheet } from "./agent/ChatSheet";
 import { transcribeClip } from "./agent/transcribe";
 import { ProBanner } from "./agent/ProBanner";
 import { ReformScreen } from "./agent/ReformScreen";
+import { chatKey, toConversation } from "./agent/conversation";
 import { DeliverView } from "./deliver/DeliverView";
 import { parseTakeoff } from "./deliver/takeoffFormat";
 import type { Takeoff } from "./deliver/takeoffTypes";
@@ -122,7 +123,8 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
   }, [stage, intakeScene]);
 
   // Agent wiring
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // One conversation per variant (and one for Design): switching variants switches the chat.
+  const [chats, setChats] = useState<Record<string, ChatMessage[]>>({});
   const [pending, setPending] = useState(false);
   const [professionalFlags, setProfessionalFlags] = useState<string[]>([]);
   const [history, setHistory] = useState<OpRecordIn[]>([]);
@@ -153,6 +155,11 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
     () => baseSceneRef.current,
   );
   const readOnlyMessage = getAgentStrings(locale)["variants.nowReadOnly"];
+  const activeKey = chatKey(stage, variants.active);
+  const messages = chats[activeKey] ?? [];
+  const addMessage = useCallback((key: string, message: ChatMessage) => {
+    setChats((c) => ({ ...c, [key]: [...(c[key] ?? []), message] }));
+  }, []);
 
   const handleSend = useCallback(
     async (text: string) => {
@@ -161,8 +168,10 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
         setAgentError(readOnlyMessage);
         return;
       }
+      const key = activeKey; // a late reply lands in the chat it was asked in
+      const conversation = toConversation(messages);
       const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: "user", text };
-      setMessages((m) => [...m, userMsg]);
+      addMessage(key, userMsg);
       setPending(true);
       setAgentError(null);
       try {
@@ -175,6 +184,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
           selected,
           variant: stage === "stage.reform" ? variants.active : null,
           baseScene: baseSceneRef.current,
+          conversation,
         });
         setIntakeScene(res.scene);
         setHistory(res.history);
@@ -189,17 +199,20 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
           warnings: [] as string[],
           flags: op.flags ?? [],
         }));
-        setMessages((m) => [
-          ...m,
-          { id: `a-${Date.now()}`, role: "assistant", text: withToolNotes(res.reply, res.tool_errors, res.tool_warnings), toolEvents },
-        ]);
+        addMessage(key, {
+          id: `a-${Date.now()}`,
+          role: "assistant",
+          text: withToolNotes(res.reply, res.tool_errors, res.tool_warnings),
+          spoken: res.reply,
+          toolEvents,
+        });
       } catch (err) {
         setAgentError(err instanceof Error ? err.message : String(err));
       } finally {
         setPending(false);
       }
     },
-    [intakeScene, agentStage, history, selectedWallId, stage, variants, readOnlyMessage],
+    [intakeScene, agentStage, history, selectedWallId, stage, variants, readOnlyMessage, activeKey, messages, addMessage],
   );
 
   const handleEdit = useCallback(
