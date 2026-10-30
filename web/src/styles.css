@@ -24,7 +24,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-family: "Archivo Variable", system-ui, -apple-system, sans-serif;
   overscroll-behavior: none;
 }
 
@@ -36,39 +36,9 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-.topbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--hairline);
-}
 
-.topbar-btn {
-  min-width: 44px;
-  min-height: 44px;
-  border: 1px solid var(--hairline);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--ink);
-  font-size: 16px;
-}
 
-.topbar-title {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
 
-.topbar-project {
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 .badge {
   font-size: 12px;
@@ -139,12 +109,8 @@ body {
   min-height: 120px;
 }
 
-.chips {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 8px;
-}
+
+
 
 .chip {
   flex: 0 0 auto;
@@ -345,7 +311,8 @@ body {
    so opaque backgrounds never cover the camera. visibility (not display)
    keeps the HUD subtree mounted — it lives inside the sheet, and unmounting
    it would kill the domOverlay.root mid-session. */
-.app.ar-session .topbar,
+.app.ar-session > header,
+.app.ar-session > nav,
 .app.ar-session .viewport,
 .app.ar-session .sheet {
   visibility: hidden;
@@ -363,16 +330,6 @@ body {
 .preliminary {
   font-size: 12px;
   color: var(--lg-muted);
-}
-
-.locale-switch {
-  min-height: 44px;
-  border: 1px solid var(--hairline);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--ink);
-  padding: 0 12px;
-  font-size: 14px;
 }
 
 /* Intake (P0 phone-first) */

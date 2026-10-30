@@ -2,7 +2,8 @@ import { useCallback, useState } from "react";
 import { DEFAULT_LOCALE, getStrings, type Locale, type StringKey } from "./i18n";
 import { IntakeScreen } from "./intake/IntakeScreen";
 import { shouldAutoExpandMaquette, captureStepFromScene } from "./intake/captureSteps";
-import { ScaleBadge } from "./intake/ScaleBadge";
+import { Header } from "./shell/Header";
+import { STAGES, Stepper } from "./shell/Stepper";
 import { SceneView } from "./view3d/SceneView";
 import { MaquetteSheet } from "./view3d/MaquetteSheet";
 import { ChatSheet } from "./agent/ChatSheet";
@@ -13,16 +14,6 @@ import { sendTurn } from "./agent/agentApi";
 import type { AgentStage } from "./agent/agentApi";
 import type { ChatMessage } from "./agent/agentTypes";
 import type { OpRecordIn, Scene } from "./scene/types";
-
-const STAGES: StringKey[] = [
-  "stage.capture",
-  "stage.reform",
-  "stage.design",
-  "stage.present",
-  "stage.deliver",
-];
-
-const SKIPPABLE: ReadonlySet<StringKey> = new Set(["stage.reform", "stage.design"]);
 
 const STAGE_TO_AGENT: Partial<Record<StringKey, AgentStage>> = {
   "stage.reform": "reform",
@@ -119,7 +110,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: App
     [handleSend],
   );
 
-  const otherLocale: Locale = locale === "es-AR" ? "en" : "es-AR";
+  const stageIndex = STAGES.indexOf(stage);
   const wallsCount = intakeScene?.walls?.length ?? 0;
   const captureStep = captureStepFromScene(intakeScene ?? undefined);
   const maquetteExpanded = shouldAutoExpandMaquette(captureStep);
@@ -129,18 +120,13 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: App
 
   return (
     <div className={arSession ? "app ar-session" : "app"}>
-      <header className="topbar">
-        <button type="button" className="topbar-btn" aria-label={t["nav.back"]}>
-          ←
-        </button>
-        <div className="topbar-title">
-          <span className="topbar-project">{t["project.defaultName"]}</span>
-          <ScaleBadge locale={locale} scaleConfirmed={scaleConfirmed} />
-        </div>
-        <button type="button" className="topbar-btn topbar-ar" aria-label={t["action.ar"]}>
-          {t["action.ar"]}
-        </button>
-      </header>
+      <Header
+        locale={locale}
+        onLocaleChange={setLocale}
+        scaleConfirmed={scaleConfirmed}
+        onBack={stageIndex > 0 ? () => setStage(STAGES[stageIndex - 1] ?? "stage.capture") : null}
+      />
+      <Stepper locale={locale} stage={stage} onSelect={setStage} />
 
       <ProBanner flags={professionalFlags} locale={locale} />
 
@@ -181,22 +167,6 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: App
       )}
 
       <section className="sheet" aria-label={t["app.name"]}>
-        <div className="chips" role="tablist">
-          {STAGES.map((key) => (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={stage === key}
-              className={stage === key ? "chip chip-active" : "chip"}
-              onClick={() => setStage(key)}
-            >
-              {t[key]}
-              {SKIPPABLE.has(key) ? ` · ${t["stage.skip"]}` : ""}
-            </button>
-          ))}
-        </div>
-
         {isReform && <VariantTabs onSceneChange={handleIntakeScene} locale={locale} />}
 
         {isAgentStage ? (
@@ -218,9 +188,6 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: App
 
         <div className="sheet-foot">
           <span className="preliminary">{t["notice.preliminary"]}</span>
-          <button type="button" className="locale-switch" onClick={() => setLocale(otherLocale)}>
-            {t[otherLocale === "es-AR" ? "locale.es" : "locale.en"]}
-          </button>
         </div>
       </section>
     </div>

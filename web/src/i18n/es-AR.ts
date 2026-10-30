@@ -111,4 +111,9 @@ export const esAR = {
   "measure.ar.opening.noFit": "Esos toques no tocan la pared — tocá dos bordes sobre la pared.",
   "measure.ar.opening.doorNarrow": "Las puertas necesitan al menos 0,80 m — tocá bordes más separados.",
   "measure.ar.closeHint": "Tocá cerca de la primera esquina para cerrar el cuarto",
+  "project.place": "Casa de Rosa · Lomas",
+  "lang.label": "Idioma",
+  "stage.optional": "opcional",
+  "stage.nav": "Etapas",
+  "ui.close": "Cerrar",
 } as const;

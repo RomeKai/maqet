@@ -112,4 +112,9 @@ export const en: Record<keyof typeof esAR, string> = {
   "measure.ar.opening.noFit": "Those taps miss the wall — tap two edges on the wall.",
   "measure.ar.opening.doorNarrow": "Doors need at least 0.80 m — tap wider edges.",
   "measure.ar.closeHint": "Tap near the first corner to close the room",
+  "project.place": "Rosa's house · Lomas",
+  "lang.label": "Language",
+  "stage.optional": "optional",
+  "stage.nav": "Stages",
+  "ui.close": "Close",
 };
