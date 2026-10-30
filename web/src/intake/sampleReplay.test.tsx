@@ -87,11 +87,11 @@ describe("I16 try-a-sample replay", () => {
     }
   });
 
-  it("the preliminary notice stays on the capture step", () => {
+  it("the preliminary notice is only in the app footer, not inline", () => {
     const html = renderToString(
       <UploadStep locale="en" onPhoto={() => {}} onError={() => {}} />,
     );
-    expect(html).toContain(getStrings("en")["notice.preliminary"]);
+    expect(html).not.toContain(getStrings("en")["notice.preliminary"]);
   });
 });
 

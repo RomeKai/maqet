@@ -3,7 +3,7 @@ import type { Scene } from "../scene/types";
 import { SceneHistory, createEmptyScene, type SceneOp } from "../scene/store";
 import { getStrings, type Locale } from "../i18n";
 import { UploadStep } from "./UploadStep";
-import { Button, cn } from "../ui";
+import { cn } from "../ui";
 import { ScaleBadge } from "./ScaleBadge";
 import { CornerEditor } from "./CornerEditor";
 import { captureStepFromScene, type CaptureStepKey } from "./captureSteps";
@@ -152,15 +152,27 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
             onStepChange={onStepChange}
             onLooksRight={onLooksRight}
             initialStep={initialScene ? captureStepFromScene(initialScene) : "walls"}
+            wallsExtras={
+              !scaleConfirmed ? (
+                <div className="flex flex-wrap justify-center gap-x-5 gap-y-1">
+                  <button
+                    type="button"
+                    className="min-h-11 text-sm font-semibold text-muted-foreground underline"
+                    onClick={() => setScaling(true)}
+                  >
+                    {t["intake.scale.cta"]}
+                  </button>
+                  <button
+                    type="button"
+                    className="min-h-11 text-sm font-semibold text-muted-foreground underline"
+                    onClick={() => setMeasuringAR(true)}
+                  >
+                    {t["measure.ar.title"]}
+                  </button>
+                </div>
+              ) : null
+            }
           />
-          {!scaleConfirmed && (
-            <>
-              <Button onClick={() => setScaling(true)}>{t["intake.scale.cta"]}</Button>
-              <Button variant="secondary" onClick={() => setMeasuringAR(true)}>
-                {t["measure.ar.title"]}
-              </Button>
-            </>
-          )}
         </>
       )}
 

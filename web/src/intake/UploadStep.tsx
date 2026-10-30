@@ -221,7 +221,6 @@ export function UploadStep({
         {t["intake.sample.try"]}
       </Button>
       {busy && <UploadStatus locale={locale} phase={phase === "reading" ? "reading" : "preparing"} />}
-      <p className="text-sm text-muted-foreground">{t["notice.preliminary"]}</p>
     </div>
   );
 }

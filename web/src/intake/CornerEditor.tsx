@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Scene, Wall } from "../scene/types";
 import {
   applySceneOp,
@@ -50,6 +50,8 @@ interface CornerEditorProps {
   onLooksRight?: () => void;
   /** Step to open on when the scene is seeded (default: Walls). */
   initialStep?: CaptureStepKey;
+  /** Secondary text links shown under the toolbar on the Walls step. */
+  wallsExtras?: ReactNode;
 }
 
 function wallId(): string {
@@ -267,6 +269,7 @@ export function CornerEditor({
   onStepChange,
   onLooksRight,
   initialStep = "walls",
+  wallsExtras,
 }: CornerEditorProps & {
   initialSelectedWallId?: string | null;
   initialPreview?: DragPreview | null;
@@ -950,6 +953,8 @@ export function CornerEditor({
         </div>
       )}
 
+      {step === "walls" && wallsExtras}
+
       {step !== "photo" && (
         <div className="flex gap-2">
           {stepIndex > 1 && (
@@ -969,7 +974,6 @@ export function CornerEditor({
         </div>
       )}
 
-      <p className="text-sm text-muted-foreground">{t["notice.preliminary"]}</p>
     </div>
   );
 }
