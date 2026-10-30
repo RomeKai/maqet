@@ -75,7 +75,7 @@
         {
           "name": "add_opening",
           "arguments": {
-            "wall": "w4",
+            "wall_id": "w5",
             "kind": "window",
             "width_m": 0.9,
             "height_m": 1.1,
