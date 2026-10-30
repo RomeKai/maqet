@@ -134,6 +134,36 @@ export function solidIntervalsM(
  * Wall run split into solid box segments. Returns [] for degenerate walls
  * (zero length, non-positive thickness) — skipped, never crashed on.
  */
+/** Endpoints closer than this (m) are the same corner. */
+const JOIN_EPS_M = 1e-3;
+
+/**
+ * How far to extend a wall past one endpoint so corners close: half the
+ * thickness of the thickest non-collinear wall that shares that endpoint.
+ */
+export function cornerExtensionM(wall: Wall, end: "a" | "b", scene: Scene): number {
+  const p = end === "a" ? wall.a : wall.b;
+  const len = wallRunLengthM(wall);
+  if (!(len > EPS_M)) return 0;
+  const ux = (wall.b[0] - wall.a[0]) / len;
+  const uy = (wall.b[1] - wall.a[1]) / len;
+  let ext = 0;
+  for (const other of scene.walls ?? []) {
+    if (other.id === wall.id) continue;
+    const oLen = wallRunLengthM(other);
+    if (!(oLen > EPS_M) || !(other.thickness_m > 0)) continue;
+    const touches = [other.a, other.b].some(
+      (q) => Math.hypot(q[0] - p[0], q[1] - p[1]) <= JOIN_EPS_M,
+    );
+    if (!touches) continue;
+    const ox = (other.b[0] - other.a[0]) / oLen;
+    const oy = (other.b[1] - other.a[1]) / oLen;
+    if (Math.abs(ux * ox + uy * oy) > 0.999) continue; // collinear: no overlap needed
+    ext = Math.max(ext, other.thickness_m / 2);
+  }
+  return ext;
+}
+
 export function wallSegments(wall: Wall, scene: Scene): WallSegment[] {
   const length = wallRunLengthM(wall);
   if (!(length > EPS_M)) return [];
@@ -143,7 +173,14 @@ export function wallSegments(wall: Wall, scene: Scene): WallSegment[] {
   const dx = (wall.b[0] - wall.a[0]) / length;
   const dy = (wall.b[1] - wall.a[1]) / length;
   const rotationZ = Math.atan2(dy, dx);
-  const solids = solidIntervalsM(length, openings);
+  const extA = cornerExtensionM(wall, "a", scene);
+  const extB = cornerExtensionM(wall, "b", scene);
+  const solids = solidIntervalsM(length, openings).map(
+    ([t0, t1]): readonly [number, number] => [
+      t0 <= EPS_M ? t0 - extA : t0,
+      length - t1 <= EPS_M ? t1 + extB : t1,
+    ],
+  );
   // When lintel/sill are present, use side-only solids (full-height sides stay).
   // P0 expectation: 2 side segments + lintel + sill remain separate for tests
   // that assert lintel/sill identity. Existing 2-segment expectation adapts
