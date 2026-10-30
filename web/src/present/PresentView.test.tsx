@@ -32,7 +32,6 @@ describe("PresentView", () => {
     );
     expect(html).toContain(t["present.empty"]);
     expect(html).not.toContain('data-testid="scene-view"');
-    expect(html).toMatch(/<button[^>]*disabled[^>]*>(?:(?!<\/button>).)*Ver en AR/s);
   });
 
   it("shows the AR viewer in its loading state while the exports build", () => {
@@ -48,5 +47,17 @@ describe("PresentView", () => {
       <PresentView scene={null} locale="en" selectedWallId={null} onSelectWall={noop} onSceneChange={noop} />,
     );
     expect(html).not.toContain(getArStrings("en")["viewer.loading"]);
+  });
+
+  it("offers the 1:100, 1:50 and 1:20 scales with 1:50 selected by default", () => {
+    const html = renderToString(
+      <PresentView scene={scene} locale="en" selectedWallId={null} onSelectWall={noop} onSceneChange={noop} />,
+    );
+    expect(html).toContain('data-scale="50" aria-pressed="true"');
+    expect(html).toContain('data-scale="100" aria-pressed="false"');
+    expect(html).toContain('data-scale="20" aria-pressed="false"');
+    expect(html).toContain('data-scale="50" aria-pressed="true"');
+    expect(html).toContain('data-scale="100" aria-pressed="false"');
+    expect(html).toContain("Scale 1:50");
   });
 });

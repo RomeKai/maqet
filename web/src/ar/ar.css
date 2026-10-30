@@ -51,3 +51,25 @@
 .ar-viewer model-viewer {
   position: relative;
 }
+
+.ar-scales {
+  display: flex;
+  gap: 8px;
+}
+
+.ar-scale {
+  flex: 1;
+  min-height: 48px;
+  border: 1px solid var(--lg-muted);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--ink);
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 600;
+}
+
+.ar-scale[aria-pressed="true"] {
+  border-color: #2f5d62;
+  background: #2f5d62;
+  color: #fff;
+}

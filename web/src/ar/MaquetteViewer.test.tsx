@@ -31,6 +31,19 @@ describe("MaquetteViewer", () => {
   });
 });
 
+describe("scale caption", () => {
+  it("writes the scale next to the preliminary label", () => {
+    const html = renderToString(<MaquetteViewer src={null} iosSrc={null} locale="en" scaleDenominator={50} />);
+    expect(html).toContain("Scale 1:50");
+    expect(html).toContain(t["caption.preliminary"]);
+  });
+
+  it("uses the es-AR word for scale", () => {
+    const html = renderToString(<MaquetteViewer src={null} iosSrc={null} locale="es-AR" scaleDenominator={20} />);
+    expect(html).toContain("Escala 1:20");
+  });
+});
+
 describe("ViewerBody", () => {
   it("gives model-viewer src, ios-src, AR modes, floor placement and a 48px AR button", () => {
     const html = renderToString(<ViewerBody phase="ready" src="blob:glb" iosSrc="blob:usdz" canActivateAR locale="en" />);

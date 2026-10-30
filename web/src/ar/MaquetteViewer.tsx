@@ -17,10 +17,11 @@ interface ViewerBodyProps {
   canActivateAR: boolean;
   locale: Locale;
   modelRef?: React.RefObject<ModelViewerElement | null>;
+  scaleDenominator?: number;
 }
 
 /** Presentational part of the viewer: everything it shows is decided by its props. */
-export function ViewerBody({ phase, src, iosSrc, canActivateAR, locale, modelRef }: ViewerBodyProps): React.JSX.Element {
+export function ViewerBody({ phase, src, iosSrc, canActivateAR, locale, modelRef, scaleDenominator }: ViewerBodyProps): React.JSX.Element {
   const t = getArStrings(locale);
   const showModel = phase === "ready" && src !== null;
   const showFallback = phase === "failed" || (phase === "ready" && !canActivateAR);
@@ -54,7 +55,10 @@ export function ViewerBody({ phase, src, iosSrc, canActivateAR, locale, modelRef
           {t["viewer.arNotAvailable"]}
         </p>
       ) : null}
-      <figcaption className="ar-caption">{t["caption.preliminary"]}</figcaption>
+      <figcaption className="ar-caption">
+        {scaleDenominator === undefined ? null : `${t["viewer.scale"]} 1:${scaleDenominator} · `}
+        {t["caption.preliminary"]}
+      </figcaption>
     </figure>
   );
 }
@@ -67,10 +71,11 @@ interface MaquetteViewerProps {
   locale: Locale;
   /** Lets the parent call `activateAR()` from its own button. */
   elementRef?: React.RefObject<ModelViewerElement | null>;
+  scaleDenominator?: number;
 }
 
 /** Table-top AR viewer: registers <model-viewer> lazily and degrades to a 3D-only fallback. */
-export function MaquetteViewer({ src, iosSrc, locale, elementRef }: MaquetteViewerProps): React.JSX.Element {
+export function MaquetteViewer({ src, iosSrc, locale, elementRef, scaleDenominator }: MaquetteViewerProps): React.JSX.Element {
   const [phase, setPhase] = useState<ViewerPhase>("loading");
   const [canActivateAR, setCanActivateAR] = useState(true);
   const ownRef = useRef<ModelViewerElement | null>(null);
@@ -95,5 +100,5 @@ export function MaquetteViewer({ src, iosSrc, locale, elementRef }: MaquetteView
     return () => element.removeEventListener("load", onLoad);
   }, [phase, src]);
 
-  return <ViewerBody phase={phase} src={src} iosSrc={iosSrc} canActivateAR={canActivateAR} locale={locale} modelRef={modelRef} />;
+  return <ViewerBody phase={phase} src={src} iosSrc={iosSrc} canActivateAR={canActivateAR} locale={locale} modelRef={modelRef} scaleDenominator={scaleDenominator} />;
 }

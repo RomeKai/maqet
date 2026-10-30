@@ -4,6 +4,7 @@ import { getStrings, type Locale } from "../i18n";
 import type { MaquetteFiles } from "../ar/buildMaquetteFiles";
 import type { Scene } from "../scene/types";
 import { SceneView } from "../view3d/SceneView";
+import { DEFAULT_SCALE_DENOMINATOR, ScaleSelector, type MaquetteScale } from "../ar/ScaleSelector";
 import { MaquetteViewer } from "../ar/MaquetteViewer";
 import type { ModelViewerElement } from "../ar/model-viewer.d";
 import { USDZ_MIME, useMaquetteUrl } from "../ar/useMaquetteUrl";
@@ -29,6 +30,7 @@ export function PresentView({ scene, locale, selectedWallId, onSelectWall, onSce
   const [building, setBuilding] = useState(false);
   const [arError, setArError] = useState(false);
   const [share, setShare] = useState<ShareState>("idle");
+  const [scaleDenominator, setScaleDenominator] = useState<MaquetteScale>(DEFAULT_SCALE_DENOMINATOR);
   const viewerRef = useRef<ModelViewerElement | null>(null);
   const glbUrl = useMaquetteUrl(files?.glb ?? null);
   const usdzUrl = useMaquetteUrl(files?.usdz ?? null, USDZ_MIME);
@@ -45,7 +47,7 @@ export function PresentView({ scene, locale, selectedWallId, onSelectWall, onSce
     setArError(false);
     // Loaded on demand: three's exporters are heavy and only needed here.
     void import("../ar/buildMaquetteFiles")
-      .then(({ buildMaquetteFiles }) => buildMaquetteFiles(scene))
+      .then(({ buildMaquetteFiles }) => buildMaquetteFiles(scene, 1 / scaleDenominator))
       .then((built) => {
         if (!cancelled) setFiles(built);
       })
@@ -58,7 +60,7 @@ export function PresentView({ scene, locale, selectedWallId, onSelectWall, onSce
     return () => {
       cancelled = true;
     };
-  }, [scene, hasPlan]);
+  }, [scene, hasPlan, scaleDenominator]);
 
   function openAr(): void {
     void viewerRef.current?.activateAR();
@@ -89,7 +91,10 @@ export function PresentView({ scene, locale, selectedWallId, onSelectWall, onSce
         <VariantTabs onSceneChange={onSceneChange} locale={locale} />
 
         {arError && <Banner tone="danger" title={t["present.ar.error"]} />}
-        {hasPlan && <MaquetteViewer src={glbUrl} iosSrc={usdzUrl} locale={locale} elementRef={viewerRef} />}
+        {hasPlan && <ScaleSelector value={scaleDenominator} onChange={setScaleDenominator} locale={locale} />}
+        {hasPlan && (
+          <MaquetteViewer src={glbUrl} iosSrc={usdzUrl} locale={locale} elementRef={viewerRef} scaleDenominator={scaleDenominator} />
+        )}
         {share === "copied" && <Banner tone="success" title={t["present.shared"]} />}
         {share === "failed" && <Banner tone="warning" title={t["present.shareFailed"]} />}
       </div>

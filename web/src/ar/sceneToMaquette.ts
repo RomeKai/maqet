@@ -27,6 +27,18 @@ function furnitureMesh(item: Furniture, material: THREE.Material): THREE.Mesh {
   return mesh;
 }
 
+/** Moves the content so the origin is the floor centre: min y = 0 and the footprint centred on x and z. */
+function centreOnFloor(group: THREE.Group): void {
+  const box = new THREE.Box3().setFromObject(group);
+  if (box.isEmpty()) return;
+  const center = box.getCenter(new THREE.Vector3());
+  for (const child of group.children) {
+    child.position.x -= center.x;
+    child.position.y -= box.min.y;
+    child.position.z -= center.z;
+  }
+}
+
 /**
  * Table-top AR maquette of the Scene as a three.js Y-up Group, in metres times `scale`.
  * Geometry comes from `sceneToMeshes` (the same descriptors as the 3D view): wall boxes with openings
@@ -69,6 +81,7 @@ export function sceneToMaquette(scene: Scene, scale: number = DEFAULT_MAQUETTE_S
     group.add(furnitureMesh(item, item.concept === true ? conceptMaterial : furnitureMaterial));
   }
 
+  centreOnFloor(group);
   group.scale.setScalar(scale);
   return group;
 }
