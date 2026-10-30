@@ -7,6 +7,7 @@ import type { Scene } from "../scene/types";
 import { SceneView } from "../view3d/SceneView";
 import { DEFAULT_SCALE_DENOMINATOR, ScaleSelector, type MaquetteScale } from "../ar/ScaleSelector";
 import { MaquetteViewer } from "../ar/MaquetteViewer";
+import { getArStrings } from "../ar/ar.i18n";
 import type { ModelViewerElement } from "../ar/model-viewer.d";
 import { USDZ_MIME, useMaquetteUrl } from "../ar/useMaquetteUrl";
 import { ConnectedVariantTabs } from "../agent/VariantTabs";
@@ -30,6 +31,8 @@ export function PresentView({ scene, locale, selectedWallId, onSelectWall, onSce
   const [files, setFiles] = useState<MaquetteFiles | null>(null);
   const [hosted, setHosted] = useState<{ glb: string | null; usdz: string | null }>({ glb: null, usdz: null });
   const [building, setBuilding] = useState(false);
+  /** The GLB/USDZ upload for external AR apps is in flight (or not started). */
+  const [hosting, setHosting] = useState(false);
   const [arError, setArError] = useState(false);
   const [share, setShare] = useState<ShareState>("idle");
   const [scaleDenominator, setScaleDenominator] = useState<MaquetteScale>(DEFAULT_SCALE_DENOMINATOR);
@@ -46,6 +49,7 @@ export function PresentView({ scene, locale, selectedWallId, onSelectWall, onSce
     }
     let cancelled = false;
     setBuilding(true);
+    setHosting(true);
     setArError(false);
     // Loaded on demand: three's exporters are heavy and only needed here.
     void import("../ar/buildMaquetteFiles")
@@ -62,13 +66,18 @@ export function PresentView({ scene, locale, selectedWallId, onSelectWall, onSce
             glb: glb.status === "fulfilled" ? glb.value : null,
             usdz: usdz.status === "fulfilled" ? usdz.value : null,
           });
+          if (glb.status === "rejected") console.info("[ar-host] GLB upload failed", glb.reason);
+          else console.info("[ar-host] GLB hosted at", glb.value);
         }
       })
       .catch(() => {
         if (!cancelled) setArError(true);
       })
       .finally(() => {
-        if (!cancelled) setBuilding(false);
+        if (!cancelled) {
+          setBuilding(false);
+          setHosting(false);
+        }
       });
     return () => {
       cancelled = true;
@@ -96,7 +105,7 @@ export function PresentView({ scene, locale, selectedWallId, onSelectWall, onSce
         {arError && <Banner tone="danger" title={t["present.ar.error"]} />}
         {hasPlan && <ScaleSelector value={scaleDenominator} onChange={setScaleDenominator} locale={locale} />}
         {hasPlan && (
-          <MaquetteViewer src={hosted.glb ?? glbUrl} iosSrc={hosted.usdz ?? usdzUrl} locale={locale} elementRef={viewerRef} scaleDenominator={scaleDenominator} />
+          <MaquetteViewer src={hosted.glb ?? glbUrl} iosSrc={hosted.usdz ?? usdzUrl} locale={locale} elementRef={viewerRef} scaleDenominator={scaleDenominator} hostedReady={hosted.glb !== null} />
         )}
         {hasPlan ? (
           <div className="h-[40dvh] min-h-48 overflow-hidden rounded-2xl border-2 border-foreground bg-card">
@@ -113,9 +122,12 @@ export function PresentView({ scene, locale, selectedWallId, onSelectWall, onSce
       </div>
 
       <div className="sticky bottom-0 mt-auto space-y-2 border-t-2 border-foreground bg-card p-3">
-        <Button className="w-full" disabled={!hasPlan || building || glbUrl === null} onClick={openAr}>
+        {hasPlan && !building && !hosting && hosted.glb === null && glbUrl !== null && (
+          <p className="text-center text-sm text-muted-foreground" role="status">{getArStrings(locale)["viewer.hostedFailed"]}</p>
+        )}
+        <Button className="w-full" disabled={!hasPlan || building || hosting || glbUrl === null} onClick={openAr}>
           <Box className="size-6" aria-hidden />
-          {building ? t["present.ar.building"] : t["present.ar"]}
+          {building ? t["present.ar.building"] : hosting ? getArStrings(locale)["viewer.hostedPending"] : t["present.ar"]}
         </Button>
         <Button variant="secondary" className="w-full" onClick={() => void shareLink()}>
           <Share2 className="size-6" aria-hidden />

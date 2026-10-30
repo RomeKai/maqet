@@ -50,3 +50,22 @@ Found and fixed:
 - Tap targets in the AR HUD, start card, confirm and review are at least 48 px (CSS).
 - Not ported: night/20261028-ar-capture-v2 (an unused i18n file only).
 - Known simplification: AR walls are created as `interior`, 0.10 m (cornerMath default); the review/editor can change it.
+
+## Item 3 - Present AR on the table: DONE (unit level)
+
+Diagnosis of Scene Viewer "not-presenting" (from the code; only a phone confirms):
+1. **Race with the upload.** The AR button was enabled as soon as the blob GLB existed, but the hosted https copy
+   arrives later. Until then `src` was a `blob:` URL, which Scene Viewer (a separate app) cannot read. Fixed: the button
+   is disabled until the upload settles ("Preparing the model for AR apps..."), and `ar-modes` is `webxr` only when no
+   hosted copy exists (`arModesFor`). A visible note explains when hosting failed.
+2. **Untrusted certificate.** The hosted URL is absolute (`absoluteModelUrl`: page origin + `/api/ar/model/<id>.glb`), but
+   on the dev server the origin is a self-signed HTTPS cert (HARDENING I14). The page works because the human accepted
+   it; Scene Viewer does its own fetch and rejects it. Code cannot fix that. Mitigation: the failure notice names this cause when
+   the origin looks untrusted (`likelyUntrustedHost`: IP, localhost, .local, http), and offers WebXR. Real fix for Scene
+   Viewer: serve from a trusted https host (tunnel such as cloudflared/ngrok, or a real cert).
+3. **No signal on failure.** `ar-status` is now logged (`[ar-status]`) and tracked (`nextAttempt`): a `not-presenting`
+   with no preceding `session-started` or `failed` shows a clear message and a "Try again with WebXR" button
+   (re-activates with `ar-modes="webxr"`).
+- Openings: tests prove doors/windows use OPENING_THEME colors (window translucent) in the maquette and in the exported GLB,
+  and that the window sill is honored (bottom at sill_m, top at sill_m + height_m, door from the floor).
+- Phone only: whether Scene Viewer opens over a trusted tunnel; WebXR retry actually presenting.
