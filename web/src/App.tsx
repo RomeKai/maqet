@@ -12,6 +12,7 @@ import { STAGES, Stepper } from "./shell/Stepper";
 import { SceneView } from "./view3d/SceneView";
 import { MaquetteSheet } from "./view3d/MaquetteSheet";
 import { ChatSheet } from "./agent/ChatSheet";
+import { transcribeClip } from "./agent/transcribe";
 import { ProBanner } from "./agent/ProBanner";
 import { VariantTabs } from "./agent/VariantTabs";
 import { DeliverView } from "./deliver/DeliverView";
@@ -178,17 +179,13 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
     async (audio: Blob) => {
       // Transcribe then send as text
       try {
-        const form = new FormData();
-        form.append("audio", audio, "clip.webm");
-        const res = await fetch("/api/transcribe", { method: "POST", body: form });
-        if (!res.ok) throw new Error(`transcribe ${res.status}`);
-        const body = (await res.json()) as { text?: string };
-        if (body.text) await handleSend(body.text);
+        const text = await transcribeClip(audio, locale);
+        if (text) await handleSend(text);
       } catch (err) {
         setAgentError(err instanceof Error ? err.message : String(err));
       }
     },
-    [handleSend],
+    [handleSend, locale],
   );
 
   const stageIndex = STAGES.indexOf(stage);
