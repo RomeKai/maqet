@@ -32,6 +32,8 @@ export const esAR = {
   "intake.tool.window": "Ventana",
   "intake.markDoor": "Marcar puerta",
   "intake.markWindow": "Marcar ventana",
+  "intake.opening.tapHintDoor": "Tocá una pared para poner la puerta.",
+  "intake.opening.tapHintWindow": "Tocá una pared para poner la ventana.",
   "intake.removeOpening": "Quitar",
   "intake.openingSheet.door": "Puerta",
   "intake.openingSheet.window": "Ventana",

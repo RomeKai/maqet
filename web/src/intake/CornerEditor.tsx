@@ -13,6 +13,10 @@ import {
   openPlacemenFromSnappedTap,
   placementToOpening,
   snapPointToWallPx,
+  placeOpeningAtTap,
+  placementToOpening as placementToOpeningFn,
+  WALL_HIT_TOL_PX,
+  TAP_SLOP_PX,
   DOOR_MIN_WIDTH_M,
   validateAgainstWall,
 } from "./opening";
@@ -302,6 +306,9 @@ export function CornerEditor({
   const checks = useMemo(() => buildChecks(scene, warnings, t), [scene, warnings, t]);
   const stepIndex = STEP_ORDER.indexOf(step);
   const [highlightWallId, setHighlightWallId] = useState<string | null>(null);
+  /** Wall under the finger while an opening tool is active. */
+  const [hoverWallId, setHoverWallId] = useState<string | null>(null);
+  const openingGesture = useRef<{ x: number; y: number } | null>(null);
   const [wallSheetId, setWallSheetId] = useState<string | null>(null);
   const [openingSheetId, setOpeningSheetId] = useState<string | null>(null);
 
@@ -406,7 +413,34 @@ export function CornerEditor({
     }
   }
 
+  const openingToolKind: "door" | "window" | null = tool === "door" || tool === "window" ? tool : null;
+
+  /** Wall the finger would hit (tolerance in screen px, converted to canvas units). */
+  function wallUnderFinger(clientX: number, clientY: number): { wall: Wall } | null {
+    const p = toSceneCoords(clientX, clientY);
+    const snap = snapPointToWallPx([p.x, p.y], walls, toDisplay, WALL_HIT_TOL_PX * unitsPerPx);
+    return snap === null ? null : { wall: snap.wall };
+  }
+
+  /** One tap: default-size opening centred at the tap, then open its edit sheet. */
+  function placeOpeningOneTap(clientX: number, clientY: number, kind: "door" | "window"): void {
+    const p = toSceneCoords(clientX, clientY);
+    const hit = placeOpeningAtTap(walls, toDisplay, kind, [p.x, p.y], WALL_HIT_TOL_PX * unitsPerPx);
+    if (hit === null) {
+      setOpeningError(t["intake.opening.outsideWall"]);
+      return;
+    }
+    const id = openingId();
+    setOpeningError(null);
+    emit({ type: "markOpening", opening: placementToOpeningFn(hit.placement, id) });
+    setSelectedWall(hit.wall.id);
+    setSelectedOpening(id);
+    setOpeningSheetId(id);
+    setTool("select");
+  }
+
   function handleCanvasTap(clientX: number, clientY: number): void {
+    if (openingToolKind !== null) return; // handled by pointer events
     if (tool === "addWall") {
       const p = toSceneCoords(clientX, clientY);
       if (pendingStart === null) {
@@ -583,7 +617,25 @@ export function CornerEditor({
           role="application"
           aria-label={t["intake.editor"]}
           onClick={(e) => handleCanvasTap(e.clientX, e.clientY)}
+          onPointerDown={(e) => {
+            if (openingToolKind === null) return;
+            openingGesture.current = { x: e.clientX, y: e.clientY };
+            setHoverWallId(wallUnderFinger(e.clientX, e.clientY)?.wall.id ?? null);
+          }}
+          onPointerUp={(e) => {
+            const start = openingGesture.current;
+            openingGesture.current = null;
+            setHoverWallId(null);
+            if (openingToolKind === null || start === null) return;
+            if (Math.hypot(e.clientX - start.x, e.clientY - start.y) < TAP_SLOP_PX) {
+              placeOpeningOneTap(e.clientX, e.clientY, openingToolKind);
+            }
+          }}
+          onPointerCancel={() => { openingGesture.current = null; setHoverWallId(null); }}
           onPointerMove={(e) => {
+            if (openingGesture.current !== null) {
+              setHoverWallId(wallUnderFinger(e.clientX, e.clientY)?.wall.id ?? null);
+            }
             if (placing === null || placing.firstTap === null) return;
             const p = toSceneCoords(e.clientX, e.clientY);
             setTapPreview([p.x, p.y]);
@@ -644,7 +696,7 @@ export function CornerEditor({
             const a = toDisplay(...previewEndpoint(w, "a", preview));
             const b = toDisplay(...previewEndpoint(w, "b", preview));
             const dragging = preview !== null && draggingWallIds.has(w.id);
-            const isHighlight = highlightWallId === w.id;
+            const isHighlight = highlightWallId === w.id || hoverWallId === w.id;
             const cls = [
               "wall",
               w.kind === "interior" ? "wall-interior" : "wall-exterior",
@@ -779,6 +831,11 @@ export function CornerEditor({
           {t["intake.selected.wall"]
             .replace("{n}", String(wallNumber(walls, selectedWallObj.id)))
             .replace("{length}", formatLengthM(wallDisplayLengthM(selectedWallObj)))}
+        </p>
+      )}
+      {openingToolKind !== null && (
+        <p className="intake-selected-label" role="status">
+          {openingToolKind === "door" ? t["intake.opening.tapHintDoor"] : t["intake.opening.tapHintWindow"]}
         </p>
       )}
       {selectedOpeningObj !== null && (
@@ -954,7 +1011,6 @@ export function CornerEditor({
               aria-pressed={tool === b.tool}
               onClick={() => {
                 setTool(b.tool);
-                if (b.tool === "door" || b.tool === "window") handleMarkOpening(b.tool);
               }}
             >
               {b.label}

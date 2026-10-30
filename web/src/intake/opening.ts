@@ -241,3 +241,25 @@ export function openPlacemenFromSnappedTap(
     },
   };
 }
+
+/** Screen-px tolerance for hitting a wall with a finger. */
+export const WALL_HIT_TOL_PX = 28;
+/** Movement below this (screen px) still counts as a tap. */
+export const TAP_SLOP_PX = 8;
+
+/**
+ * One-tap placement: the wall within `tolDisplayUnits` of the tap gets a
+ * default-size opening centred at the tap, clamped inside the wall.
+ */
+export function placeOpeningAtTap(
+  walls: Wall[],
+  toDisplay: (x: number, y: number) => { x: number; y: number },
+  kind: "door" | "window",
+  point: [number, number],
+  tolDisplayUnits: number,
+): { wall: Wall; placement: OpeningPlacement } | null {
+  const snap = snapPointToWallPx(point, walls, toDisplay, tolDisplayUnits);
+  if (snap === null) return null;
+  const r = openPlacemenFromSnappedTap(snap.wall, kind, snap.point, snap.point);
+  return "placement" in r ? { wall: snap.wall, placement: r.placement } : null;
+}

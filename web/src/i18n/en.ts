@@ -33,6 +33,8 @@ export const en: Record<keyof typeof esAR, string> = {
   "intake.tool.window": "Window",
   "intake.markDoor": "Mark door",
   "intake.markWindow": "Mark window",
+  "intake.opening.tapHintDoor": "Tap a wall to place the door.",
+  "intake.opening.tapHintWindow": "Tap a wall to place the window.",
   "intake.removeOpening": "Remove",
   "intake.openingSheet.door": "Door",
   "intake.openingSheet.window": "Window",
