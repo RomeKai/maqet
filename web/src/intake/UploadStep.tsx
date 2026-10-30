@@ -12,8 +12,9 @@ import {
 import type { Scene } from "../scene/types";
 import { Banner, Button, cn } from "../ui";
 import { classifyUploadError, type UploadErrorKind } from "./uploadError";
+import { runUpload, type UploadPhase } from "./uploadFlow";
 
-export type UploadPhase = "idle" | "preparing" | "reading";
+export type { UploadPhase } from "./uploadFlow";
 
 /** Staged busy label: downscale ("preparing") vs Spark POST ("reading"). */
 export function uploadBusyText(locale: Locale, phase: Exclude<UploadPhase, "idle">): string {
@@ -127,27 +128,27 @@ export function UploadStep({
     if (!file || busy) return;
     lastAttempt.current = { file };
     setFailure(null);
-    setUploadPhase("preparing");
-    try {
-      const image = await downscaleImage(file);
-      setUploadPhase("reading");
-      let result: IntakeResult;
-      try {
-        result = await postIntake(image.blob, fixedKind ?? kind);
-      } catch (err) {
-        fail(err instanceof Error ? err.message : t["intake.upload.error"]);
-        return;
-      }
-      // Advance only after POST succeeds: a failed upload keeps UploadStep
-      // mounted with its busy/error state visible.
-      onPhoto(URL.createObjectURL(image.blob), image.width, image.height);
-      onProposal?.(result.proposal);
-      onScene?.(result.scene, result);
-    } catch (err) {
-      fail(err instanceof Error ? err.message : t["intake.upload.error"]);
-    } finally {
-      setUploadPhase("idle");
-    }
+    await runUpload(file, fixedKind ?? kind, {
+      downscale: downscaleImage,
+      post: postIntake,
+      onPhase: setUploadPhase,
+      onPhoto: (width, height, blob) => onPhoto(URL.createObjectURL(blob), width, height),
+      onScene: (result) => {
+        onProposal?.(result.proposal);
+        onScene?.(result.scene, result);
+      },
+      onFailure: (errKind, message) => {
+        setFailure(errKind);
+        onError(message);
+      },
+    });
+  }
+
+  /** Take the file and clear the input so choosing the same photo again still fires change. */
+  function onPicked(input: HTMLInputElement): void {
+    const file = input.files?.[0];
+    input.value = "";
+    void handleFile(file);
   }
 
   return (
@@ -194,7 +195,7 @@ export function UploadStep({
         className="sr-only"
         aria-label={t["intake.upload.cta"]}
         disabled={busy}
-        onChange={(e) => void handleFile(e.target.files?.[0])}
+        onChange={(e) => onPicked(e.currentTarget)}
       />
       <input
         ref={galleryRef}
@@ -203,7 +204,7 @@ export function UploadStep({
         className="sr-only"
         aria-label={t["intake.upload.gallery"]}
         disabled={busy}
-        onChange={(e) => void handleFile(e.target.files?.[0])}
+        onChange={(e) => onPicked(e.currentTarget)}
       />
       <Button className="min-h-14 text-[17px]" disabled={busy} onClick={() => inputRef.current?.click()}>
         <Camera className="size-6" aria-hidden /> {t["intake.upload.cta"]}
