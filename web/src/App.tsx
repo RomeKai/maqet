@@ -199,6 +199,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
               onPhotoChange={setHasPhoto}
               onArSessionChange={setArSession}
               startInAr={startInAr}
+              hideScaleBadge
             />
           </div>
           {intakeScene !== null && wallsCount > 0 && (

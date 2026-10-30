@@ -3,6 +3,7 @@ import type { Scene } from "../scene/types";
 import { SceneHistory, createEmptyScene, type SceneOp } from "../scene/store";
 import { getStrings, type Locale } from "../i18n";
 import { UploadStep } from "./UploadStep";
+import { Button, cn } from "../ui";
 import { ScaleBadge } from "./ScaleBadge";
 import { CornerEditor } from "./CornerEditor";
 import { ScaleTool } from "./ScaleTool";
@@ -17,6 +18,8 @@ interface IntakeScreenProps {
   arSupported?: boolean;
   /** Open straight into AR measure (chosen from the method screen). */
   startInAr?: boolean;
+  /** The app header already shows the scale badge; hide the in-screen copy. */
+  hideScaleBadge?: boolean;
   onSceneChange?: (scene: Scene) => void;
   onPhotoChange?: (hasPhoto: boolean) => void;
   /** Fired when the AR session starts/ends (app hides/restores chrome). */
@@ -30,7 +33,7 @@ interface IntakeScreenProps {
  * (ADR-025 mode C); the ScaleTool confirms each wall's measure.
  * Localized strings (demo default English), no prices, preliminary label.
  */
-export function IntakeScreen({ locale, initialScene, arSupported, startInAr = false, onSceneChange, onPhotoChange, onArSessionChange }: IntakeScreenProps) {
+export function IntakeScreen({ locale, initialScene, arSupported, startInAr = false, hideScaleBadge = false, onSceneChange, onPhotoChange, onArSessionChange }: IntakeScreenProps) {
   const t = getStrings(locale);
   const [history] = useState(() => new SceneHistory(initialScene ?? createEmptyScene()));
   const [scene, setScene] = useState<Scene>(history.scene);
@@ -89,12 +92,8 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
   }
 
   return (
-    <div className="intake">
-      <div className="intake-head">
-        <ScaleBadge locale={locale} scaleConfirmed={scaleConfirmed} />
-        <span className="intake-step">{t["intake.step.capture"]}</span>
-      </div>
-
+    <div className="flex min-h-0 flex-1 flex-col gap-3 p-3 font-sans">
+      {!hideScaleBadge && <ScaleBadge locale={locale} scaleConfirmed={scaleConfirmed} />}
       {warnings.length > 0 && (
         <ul className="intake-warnings" aria-label={t["intake.warnings.title"]}>
           {warnings.map((warning, i) => (
@@ -105,14 +104,17 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
 
       {photo === null && !measuringAR && (
         <>
-          <div className="intake-kind" role="radiogroup" aria-label={t["intake.step.capture"]}>
+          <div className="flex gap-2" role="radiogroup" aria-label={t["intake.step.capture"]}>
             {(["plan", "sketch"] as const).map((value) => (
               <button
                 key={value}
                 type="button"
                 role="radio"
                 aria-checked={kindChips === value}
-                className={kindChips === value ? "chip chip-active" : "chip"}
+                className={cn(
+                  "min-h-12 flex-1 rounded-xl px-3 text-base font-bold",
+                  kindChips === value ? "bg-foreground text-background" : "border-2 border-border bg-card",
+                )}
                 onClick={() => setKindChips(value)}
               >
                 {value === "plan" ? t["intake.kind.plan"] : t["intake.kind.sketch"]}
@@ -121,7 +123,7 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
             {arAvailable && (
               <button
                 type="button"
-                className="chip"
+                className="min-h-12 flex-1 rounded-xl border-2 border-foreground bg-card px-3 text-base font-bold"
                 onClick={() => setMeasuringAR(true)}
               >
                 {t["intake.capture.ar"]}
@@ -153,12 +155,10 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
           />
           {!scaleConfirmed && (
             <>
-              <button type="button" className="btn-primary" onClick={() => setScaling(true)}>
-                {t["intake.scale.cta"]}
-              </button>
-              <button type="button" className="chip" onClick={() => setMeasuringAR(true)}>
+              <Button onClick={() => setScaling(true)}>{t["intake.scale.cta"]}</Button>
+              <Button variant="secondary" onClick={() => setMeasuringAR(true)}>
                 {t["measure.ar.title"]}
-              </button>
+              </Button>
             </>
           )}
         </>
@@ -202,7 +202,7 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
         />
       )}
 
-      {error !== null && (
+      {error !== null && photo !== null && (
         <p className="intake-error" role="alert">
           {error}
         </p>
