@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
@@ -11,7 +11,17 @@ export interface BottomSheetProps {
   footer?: ReactNode;
 }
 
+/**
+ * The backdrop closes the sheet only for a tap that STARTED on it. A sheet
+ * opened on pointerup (one-tap opening placement) otherwise receives that
+ * same tap's trailing click on its fresh backdrop and closes instantly.
+ */
+export function backdropShouldClose(pointerDownOnBackdrop: boolean): boolean {
+  return pointerDownOnBackdrop;
+}
+
 export function BottomSheet({ open, onClose, title, closeLabel, children, footer }: BottomSheetProps) {
+  const downOnBackdrop = useRef(false);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent): void => {
@@ -23,7 +33,16 @@ export function BottomSheet({ open, onClose, title, closeLabel, children, footer
   if (!open) return null;
   const node = (
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
-      <div className="animate-fade-in absolute inset-0 bg-foreground/55" onClick={onClose} aria-hidden />
+      <div
+        className="animate-fade-in absolute inset-0 bg-foreground/55"
+        onPointerDown={() => { downOnBackdrop.current = true; }}
+        onClick={() => {
+          const close = backdropShouldClose(downOnBackdrop.current);
+          downOnBackdrop.current = false;
+          if (close) onClose();
+        }}
+        aria-hidden
+      />
       <div
         role="dialog"
         aria-modal="true"

@@ -600,3 +600,6 @@ body {
 .wall-label { font-size: 14px; font-family: "JetBrains Mono", ui-monospace, monospace; fill: var(--ink); text-anchor: middle; }
 .intake-svg .wall-label { font-size: 14px; }
 .wall-highlight { stroke: #b3261e !important; stroke-width: 7px !important; filter: drop-shadow(0 0 5px rgba(179, 38, 30, 0.6)); }
+
+/* Invisible 32px finger target over each opening (Select mode). */
+.intake-svg .opening-hit { stroke: transparent; stroke-width: 32px; stroke-linecap: round; pointer-events: stroke; cursor: pointer; }
