@@ -24,11 +24,11 @@ export function Header({ locale, onLocaleChange, scaleConfirmed, onBack }: Heade
         <ArrowLeft className="size-6" aria-hidden />
       </button>
       <div className="min-w-0 flex-1 leading-tight">
-        <p className="truncate text-lg font-extrabold">{t["project.defaultName"]}</p>
-        <p className="flex items-center gap-2 truncate text-sm font-medium text-muted-foreground">
-          <span className="truncate">{t["project.place"]}</span>
+        <p className="flex items-center gap-2 text-lg font-extrabold">
+          <span className="truncate">{t["project.defaultName"]}</span>
           <ScaleBadge locale={locale} scaleConfirmed={scaleConfirmed} />
         </p>
+        <p className="truncate text-sm font-medium text-muted-foreground">{t["project.place"]}</p>
       </div>
       <Segmented<Locale>
         label={t["lang.label"]}

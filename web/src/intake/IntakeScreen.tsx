@@ -6,6 +6,7 @@ import { UploadStep } from "./UploadStep";
 import { Button, cn } from "../ui";
 import { ScaleBadge } from "./ScaleBadge";
 import { CornerEditor } from "./CornerEditor";
+import { captureStepFromScene, type CaptureStepKey } from "./captureSteps";
 import { ScaleTool } from "./ScaleTool";
 import { ArMeasure } from "../measure/ArMeasure";
 import { isARSupported } from "../measure/xrAdapter";
@@ -20,6 +21,8 @@ interface IntakeScreenProps {
   startInAr?: boolean;
   /** The app header already shows the scale badge; hide the in-screen copy. */
   hideScaleBadge?: boolean;
+  onStepChange?: (step: CaptureStepKey) => void;
+  onLooksRight?: () => void;
   onSceneChange?: (scene: Scene) => void;
   onPhotoChange?: (hasPhoto: boolean) => void;
   /** Fired when the AR session starts/ends (app hides/restores chrome). */
@@ -33,7 +36,7 @@ interface IntakeScreenProps {
  * (ADR-025 mode C); the ScaleTool confirms each wall's measure.
  * Localized strings (demo default English), no prices, preliminary label.
  */
-export function IntakeScreen({ locale, initialScene, arSupported, startInAr = false, hideScaleBadge = false, onSceneChange, onPhotoChange, onArSessionChange }: IntakeScreenProps) {
+export function IntakeScreen({ locale, initialScene, arSupported, startInAr = false, hideScaleBadge = false, onStepChange, onLooksRight, onSceneChange, onPhotoChange, onArSessionChange }: IntakeScreenProps) {
   const t = getStrings(locale);
   const [history] = useState(() => new SceneHistory(initialScene ?? createEmptyScene()));
   const [scene, setScene] = useState<Scene>(history.scene);
@@ -94,13 +97,6 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 p-3 font-sans">
       {!hideScaleBadge && <ScaleBadge locale={locale} scaleConfirmed={scaleConfirmed} />}
-      {warnings.length > 0 && (
-        <ul className="intake-warnings" aria-label={t["intake.warnings.title"]}>
-          {warnings.map((warning, i) => (
-            <li key={i}>{warning}</li>
-          ))}
-        </ul>
-      )}
 
       {photo === null && !measuringAR && (
         <>
@@ -152,6 +148,10 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
             onChange={handleChange}
             onUndo={handleUndo}
             canUndo={history.canUndo}
+            warnings={warnings}
+            onStepChange={onStepChange}
+            onLooksRight={onLooksRight}
+            initialStep={initialScene ? captureStepFromScene(initialScene) : "walls"}
           />
           {!scaleConfirmed && (
             <>

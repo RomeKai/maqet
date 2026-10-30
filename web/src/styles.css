@@ -105,8 +105,8 @@ body {
   border-top: 1px solid var(--hairline);
   border-radius: var(--lg-radius) var(--lg-radius) 0 0;
   box-shadow: 0 -4px 16px rgba(30, 33, 36, 0.08);
-  padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
-  min-height: 120px;
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  min-height: 0;
 }
 
 
@@ -680,38 +680,6 @@ body {
   margin: 0;
   font-size: 14px;
   color: #b3261e;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #15171a;
-    --surface: #1e2124;
-    --ink: #f6f4f0;
-    --lg-muted: #a8adb2;
-    --hairline: #3a3e42;
-  }
-
-  .viewport {
-    background: linear-gradient(180deg, #e8eaec 0%, #dfe2e5 100%);
-  }
-
-  .viewport-placeholder {
-    background: rgba(255, 255, 255, 0.85);
-  }
-
-  .viewport-hint {
-    color: #4a4e52;
-  }
-
-  .prompt {
-    background: var(--bg);
-  }
-
-  .chip-active {
-    background: var(--surface);
-    color: var(--ink);
-    border-color: var(--lg-accent);
-  }
 }
 
 /* Mode C redesign: step header, instruction, warnings chip, wall labels, 3D sheet */

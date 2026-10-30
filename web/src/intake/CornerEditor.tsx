@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Scene, Wall } from "../scene/types";
 import {
   applySceneOp,
@@ -13,12 +13,16 @@ import {
   openPlacemenFromSnappedTap,
   placementToOpening,
   snapPointToWallPx,
+  DOOR_MIN_WIDTH_M,
   validateAgainstWall,
 } from "./opening";
 import { StepHeader } from "./StepHeader";
-import { WarningsChip } from "./WarningsChip";
+import { CheckList } from "./CheckList";
+import { buildChecks } from "./checks";
+import { Button, cn } from "../ui";
 import { WallLengthSheet } from "./WallLengthSheet";
-import { captureStepFromScene } from "./captureSteps";
+import { STEP_ORDER, type CaptureStepKey } from "./captureSteps";
+import { pillMetrics, provenanceKind, type ProvenanceKind } from "./wallPill";
 
 export type CornerTool = "select" | "addWall" | "door" | "window";
 
@@ -37,6 +41,14 @@ interface CornerEditorProps {
   onChange: (scene: Scene, op: SceneOp) => void;
   onUndo: () => void;
   canUndo: boolean;
+  /** Reading notices from the server (Check step list). */
+  warnings?: string[];
+  /** Fired whenever the Photo > Walls > Openings > Check step changes. */
+  onStepChange?: (step: CaptureStepKey) => void;
+  /** "Looks right" on the Check step: move on to the next stage. */
+  onLooksRight?: () => void;
+  /** Step to open on when the scene is seeded (default: Walls). */
+  initialStep?: CaptureStepKey;
 }
 
 function wallId(): string {
@@ -54,7 +66,7 @@ export const WALL_LABEL_MIN_PX = 14;
 export const wallLabelClass = "wall-label";
 
 /** Narrow door warning threshold (meters) — door kept but flagged. */
-export const DOOR_MIN_WIDTH_M = 0.8;
+export { DOOR_MIN_WIDTH_M };
 
 /**
  * Photo-space calibration (BUG1 fix): the editor canvas is photo pixels,
@@ -250,6 +262,10 @@ export function CornerEditor({
   canUndo,
   initialSelectedWallId = null,
   initialPreview = null,
+  warnings = [],
+  onStepChange,
+  onLooksRight,
+  initialStep = "walls",
 }: CornerEditorProps & {
   initialSelectedWallId?: string | null;
   initialPreview?: DragPreview | null;
@@ -272,9 +288,19 @@ export function CornerEditor({
 
   const walls = useMemo(() => scene.walls ?? [], [scene.walls]);
   const openings = useMemo(() => scene.openings ?? [], [scene.openings]);
-  const step = useMemo(() => captureStepFromScene(scene), [scene]);
+  // Step is user-driven (Next / Back); an empty scene always means Photo.
+  const [userStep, setUserStep] = useState<CaptureStepKey>(initialStep);
+  const step: CaptureStepKey = walls.length === 0 ? "photo" : userStep;
+  useEffect(() => {
+    onStepChange?.(step);
+  }, [step, onStepChange]);
+  const checks = useMemo(() => buildChecks(scene, warnings, t), [scene, warnings, t]);
+  const stepIndex = STEP_ORDER.indexOf(step);
   const [highlightWallId, setHighlightWallId] = useState<string | null>(null);
   const [wallSheetId, setWallSheetId] = useState<string | null>(null);
+
+  /** SVG viewBox units per screen px: keeps pills >= 14 px at any photo zoom. */
+  const [unitsPerPx, setUnitsPerPx] = useState(1);
 
   const canvasW = imageWidth > 0 ? imageWidth : WALL_LEN_M * 2;
   const canvasH = imageHeight > 0 ? imageHeight : WALL_LEN_M * 2;
@@ -283,6 +309,19 @@ export function CornerEditor({
     () => calibratePhotoSpace(proposal, scene, imageWidth, imageHeight),
     [proposal, scene, imageWidth, imageHeight],
   );
+
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (svg === null || typeof ResizeObserver === "undefined") return;
+    const measure = (): void => {
+      const w = svg.getBoundingClientRect().width;
+      if (w > 0) setUnitsPerPx(canvasW / w);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(svg);
+    return () => ro.disconnect();
+  }, [canvasW]);
 
   function toSceneCoords(clientX: number, clientY: number): Point {
     const svg = svgRef.current;
@@ -497,15 +536,24 @@ export function CornerEditor({
           ? t["intake.scale.hint"]
           : step === "openings"
             ? t["intake.opening.tapPrompt"]
-            : t["intake.scale.hint"];
+            : checks.length === 0
+              ? t["intake.checks.none"]
+              : t["intake.checks.tapHint"];
 
   return (
-    <div className="intake-editor">
+    <div className="flex min-h-0 flex-1 flex-col gap-3 font-sans">
       <StepHeader locale={locale} step={step} error={openingError} instruction={instruction} />
-      <WarningsChip locale={locale} warnings={(scene as unknown as { warnings?: string[] }).warnings ?? []} onSelectWarning={(i) => {
-        const w = walls[i];
-        if (w) { setSelectedWall(w.id); setHighlightWallId(w.id); }
-      }} />
+      {step === "check" && (
+        <CheckList
+          locale={locale}
+          items={checks}
+          highlightedWallId={highlightWallId}
+          onSelect={(item) => {
+            setHighlightWallId(item.wallId);
+            setSelectedWall(item.wallId);
+          }}
+        />
+      )}
 
       <div className="intake-canvas">
         {imageUrl !== null && (
@@ -603,14 +651,15 @@ export function CornerEditor({
                     setWallSheetId(w.id);
                   }}
                 />
-                <text
-                  x={(a.x + b.x) / 2}
-                  y={(a.y + b.y) / 2}
-                  className={wallLabelClass}
-                  onClick={(e) => { e.stopPropagation(); setSelectedWall(w.id); setWallSheetId(w.id); }}
-                >
-                  {`W${wallNumber(walls, w.id)} · ${formatLengthM(wallDisplayLengthM(w))}`}
-                </text>
+                <WallPill
+                  cx={(a.x + b.x) / 2}
+                  cy={(a.y + b.y) / 2}
+                  label={`W${wallNumber(walls, w.id)} · ${formatLengthM(wallDisplayLengthM(w))}`}
+                  kind={provenanceKind(w)}
+                  badge={t[`intake.prov.${provenanceKind(w)}` as const]}
+                  unitsPerPx={unitsPerPx}
+                  onSelect={() => { setSelectedWall(w.id); setWallSheetId(w.id); }}
+                />
               </g>
             );
           })}
@@ -726,16 +775,22 @@ export function CornerEditor({
       )}
 
       {selectedWall !== null && placing === null && (
-        <div className="intake-selected">
-          <button type="button" className="chip" onClick={() => handleMarkOpening("door")}>
-            {t["intake.markDoor"]}
-          </button>
-          <button type="button" className="chip" onClick={() => handleMarkOpening("window")}>
-            {t["intake.markWindow"]}
-          </button>
-          <button type="button" className="chip chip-danger" onClick={handleRemoveWall}>
-            {t["intake.removeWall"]}
-          </button>
+        <div className="flex flex-wrap gap-2">
+          {step === "openings" && (
+            <>
+              <Button variant="secondary" onClick={() => handleMarkOpening("door")}>
+                {t["intake.markDoor"]}
+              </Button>
+              <Button variant="secondary" onClick={() => handleMarkOpening("window")}>
+                {t["intake.markWindow"]}
+              </Button>
+            </>
+          )}
+          {step === "walls" && (
+            <Button variant="danger" onClick={handleRemoveWall}>
+              {t["intake.removeWall"]}
+            </Button>
+          )}
         </div>
       )}
 
@@ -764,13 +819,13 @@ export function CornerEditor({
               })()}
             </svg>
           )}
-          <div className="intake-opening-actions">
-            <button type="button" className="chip" onClick={() => setShowForm((v) => !v)}>
+          <div className="flex gap-2">
+            <Button variant="secondary" className="flex-1" onClick={() => setShowForm((v) => !v)}>
               {t["intake.opening.useForm"]}
-            </button>
-            <button
-              type="button"
-              className="chip"
+            </Button>
+            <Button
+              variant="ghost"
+              className="flex-1"
               onClick={() => {
                 setPlacing(null);
                 setTapPreview(null);
@@ -779,31 +834,34 @@ export function CornerEditor({
               }}
             >
               {t["intake.undo"]}
-            </button>
+            </Button>
           </div>
           {showForm && (
-            <div className="intake-opening-form" role="group" aria-label={t["intake.opening.confirm"]}>
-              <label>
+            <div className="flex flex-col gap-3 rounded-xl border-2 border-border bg-card p-3" role="group" aria-label={t["intake.opening.confirm"]}>
+              <label className="flex flex-col gap-1 text-[15px] font-bold">
                 {t["intake.opening.distance"]}
                 <input
+                  className="min-h-12 rounded-xl border-2 border-input bg-background px-3 font-mono text-lg"
                   type="text"
                   inputMode="decimal"
                   value={formVals.offset}
                   onChange={(e) => setFormVals((s) => ({ ...s, offset: e.target.value }))}
                 />
               </label>
-              <label>
+              <label className="flex flex-col gap-1 text-[15px] font-bold">
                 {t["intake.opening.width"]}
                 <input
+                  className="min-h-12 rounded-xl border-2 border-input bg-background px-3 font-mono text-lg"
                   type="text"
                   inputMode="decimal"
                   value={formVals.width}
                   onChange={(e) => setFormVals((s) => ({ ...s, width: e.target.value }))}
                 />
               </label>
-              <label>
+              <label className="flex flex-col gap-1 text-[15px] font-bold">
                 {t["intake.opening.height"]}
                 <input
+                  className="min-h-12 rounded-xl border-2 border-input bg-background px-3 font-mono text-lg"
                   type="text"
                   inputMode="decimal"
                   value={formVals.height}
@@ -811,9 +869,10 @@ export function CornerEditor({
                 />
               </label>
               {placing.kind === "window" && (
-                <label>
+                <label className="flex flex-col gap-1 text-[15px] font-bold">
                   {t["intake.opening.sill"]}
                   <input
+                    className="min-h-12 rounded-xl border-2 border-input bg-background px-3 font-mono text-lg"
                     type="text"
                     inputMode="decimal"
                     value={formVals.sill}
@@ -821,12 +880,10 @@ export function CornerEditor({
                   />
                 </label>
               )}
-              <button type="button" className="btn-primary" onClick={handleFormConfirm}>
-                {t["intake.opening.confirm"]}
-              </button>
+              <Button onClick={handleFormConfirm}>{t["intake.opening.confirm"]}</Button>
               {placing.kind === "door" && Number.parseFloat(formVals.width.replace(",", ".")) > 0
                 && Number.parseFloat(formVals.width.replace(",", ".")) < DOOR_MIN_WIDTH_M && (
-                <span className="intake-warn">{t["intake.opening.narrowDoor"]}</span>
+                <span className="text-[15px] font-bold text-danger">{t["intake.opening.narrowDoor"]}</span>
               )}
             </div>
           )}
@@ -840,33 +897,134 @@ export function CornerEditor({
           <WallLengthSheet
             locale={locale}
             wall={w}
+            wallNumber={wallNumber(walls, w.id)}
             onSave={(op) => onChange(applySceneOp(scene, op), op)}
             onClose={() => setWallSheetId(null)}
           />
         );
       })()}
 
-      <div className="intake-segmented" role="toolbar" aria-label={t["intake.editor"]}>
-        {toolButtons.map((b) => (
+      {step !== "check" && step !== "photo" && (
+        <div
+          className="sticky bottom-0 flex gap-1 rounded-2xl bg-secondary p-1"
+          role="toolbar"
+          aria-label={t["intake.editor"]}
+        >
+          {toolButtons.map((b) => (
+            <button
+              key={b.tool}
+              type="button"
+              className={cn(
+                "min-h-12 flex-1 rounded-xl px-1 text-[15px] font-bold",
+                tool === b.tool ? "bg-foreground text-background" : "text-foreground",
+              )}
+              aria-pressed={tool === b.tool}
+              onClick={() => {
+                setTool(b.tool);
+                if (b.tool === "door" || b.tool === "window") handleMarkOpening(b.tool);
+              }}
+            >
+              {b.label}
+            </button>
+          ))}
           <button
-            key={b.tool}
             type="button"
-            className={tool === b.tool ? "chip chip-active" : "chip"}
-            aria-pressed={tool === b.tool}
-            onClick={() => {
-              setTool(b.tool);
-              if (b.tool === "door" || b.tool === "window") handleMarkOpening(b.tool);
-            }}
+            className="min-h-12 flex-1 rounded-xl px-1 text-[15px] font-bold text-foreground disabled:opacity-40"
+            onClick={onUndo}
+            disabled={!canUndo}
           >
-            {b.label}
+            {t["intake.undo"]}
           </button>
-        ))}
-        <button type="button" className="chip" onClick={onUndo} disabled={!canUndo}>
-          {t["intake.undo"]}
-        </button>
-      </div>
+        </div>
+      )}
 
-<p className="preliminary">{t["notice.preliminary"]}</p>
+      {step !== "photo" && (
+        <div className="flex gap-2">
+          {stepIndex > 1 && (
+            <Button variant="secondary" onClick={() => setUserStep(STEP_ORDER[stepIndex - 1] ?? "walls")}>
+              {t["intake.prevStep"]}
+            </Button>
+          )}
+          {step === "check" ? (
+            <Button className="flex-1" onClick={onLooksRight}>
+              {t["intake.looksRight"]}
+            </Button>
+          ) : (
+            <Button className="flex-1" onClick={() => setUserStep(STEP_ORDER[stepIndex + 1] ?? "check")}>
+              {t["intake.next"]}
+            </Button>
+          )}
+        </div>
+      )}
+
+      <p className="text-sm text-muted-foreground">{t["notice.preliminary"]}</p>
     </div>
+  );
+}
+
+const PILL_TONE: Record<ProvenanceKind, { fill: string; text: string; stroke: string }> = {
+  written: { fill: "var(--foreground)", text: "var(--background)", stroke: "var(--foreground)" },
+  measured: { fill: "var(--measured)", text: "#fff", stroke: "var(--measured)" },
+  estimated: { fill: "var(--warning)", text: "var(--warning-foreground)", stroke: "var(--warning-foreground)" },
+};
+
+function WallPill({
+  cx,
+  cy,
+  label,
+  kind,
+  badge,
+  unitsPerPx,
+  onSelect,
+}: {
+  cx: number;
+  cy: number;
+  label: string;
+  kind: ProvenanceKind;
+  badge: string;
+  unitsPerPx: number;
+  onSelect: () => void;
+}) {
+  const main = pillMetrics(label, unitsPerPx);
+  const sub = pillMetrics(badge, unitsPerPx);
+  const w = Math.max(main.widthUnits, sub.widthUnits);
+  const h = main.heightUnits + sub.heightUnits * 0.8;
+  const tone = PILL_TONE[kind];
+  return (
+    <g
+      className="wall-pill"
+      data-provenance={kind}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect();
+      }}
+    >
+      <rect
+        x={cx - w / 2}
+        y={cy - h / 2}
+        width={w}
+        height={h}
+        rx={main.fontUnits * 0.6}
+        style={{ fill: tone.fill, stroke: tone.stroke }}
+        strokeWidth={main.fontUnits * 0.1}
+        strokeDasharray={kind === "estimated" ? `${main.fontUnits * 0.35} ${main.fontUnits * 0.25}` : undefined}
+      />
+      <text
+        x={cx}
+        y={cy - h / 2 + main.heightUnits / 2 + main.fontUnits * 0.35}
+        className={wallLabelClass}
+        style={{ fill: tone.text, fontSize: main.fontUnits, fontWeight: 700 }}
+      >
+        {label}
+      </text>
+      <text
+        x={cx}
+        y={cy + h / 2 - sub.fontUnits * 0.45}
+        className="wall-badge"
+        style={{ fill: tone.text, fontSize: sub.fontUnits, fontWeight: 600, textAnchor: "middle" }}
+      >
+        {badge}
+      </text>
+    </g>
   );
 }

@@ -160,5 +160,8 @@ export const en: Record<keyof typeof esAR, string> = {
   "intake.prov.measured": "Measured",
   "intake.prov.estimated": "Estimated",
   "intake.wallSheet.title": "Wall {n} length",
-  "intake.wallSheet.unit": "meters",
+  "intake.next": "Next",
+  "intake.prevStep": "Back",
+  "intake.check.estimated": "Wall {n} length is estimated. Tap to confirm it.",
+  "intake.check.narrowDoor": "The door on wall {n} is narrower than 0.80 m.",
 };

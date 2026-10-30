@@ -159,5 +159,8 @@ export const esAR = {
   "intake.prov.measured": "Medido",
   "intake.prov.estimated": "Estimado",
   "intake.wallSheet.title": "Largo de la pared {n}",
-  "intake.wallSheet.unit": "metros",
+  "intake.next": "Siguiente",
+  "intake.prevStep": "Atrás",
+  "intake.check.estimated": "El largo de la pared {n} es estimado. Tocá para confirmarlo.",
+  "intake.check.narrowDoor": "La puerta de la pared {n} mide menos de 0,80 m.",
 } as const;

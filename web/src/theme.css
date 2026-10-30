@@ -79,3 +79,12 @@
 
 button { touch-action: manipulation; }
 :focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
+
+@layer base {
+  *, ::before, ::after { box-sizing: border-box; border: 0 solid var(--border); }
+  h1, h2, h3, p, ol, ul, figure { margin: 0; }
+  ol, ul { padding: 0; list-style: none; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { background: transparent; cursor: pointer; }
+  svg { display: block; }
+}

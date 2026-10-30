@@ -1,6 +1,8 @@
 import type { Opening, Wall } from "../scene/types";
 
 /** Small tolerance so clicks slightly off the line still count as "on wall". */
+/** Narrowest acceptable door (m). */
+export const DOOR_MIN_WIDTH_M = 0.8;
 export const ON_WALL_TOL_M = 0.12;
 
 /** Derive Opening offset/width from two taps projected onto the wall's axis. */

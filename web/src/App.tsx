@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { DEFAULT_LOCALE, getStrings, type Locale, type StringKey } from "./i18n";
 import { IntakeScreen } from "./intake/IntakeScreen";
-import { shouldAutoExpandMaquette, captureStepFromScene } from "./intake/captureSteps";
+import { captureStepFromScene, shouldAutoExpandMaquette, type CaptureStepKey } from "./intake/captureSteps";
 import { HomeScreen } from "./home/HomeScreen";
 import { MethodScreen } from "./home/MethodScreen";
 import { isARSupported } from "./measure/xrAdapter";
@@ -48,6 +48,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
   // so going back to Home or the method list never drops the scene.
   const [workMounted, setWorkMounted] = useState(view === "work");
   const [startInAr, setStartInAr] = useState(false);
+  const [captureStep, setCaptureStep] = useState<CaptureStepKey>(initialScene?.walls?.length ? captureStepFromScene(initialScene) : "photo");
   const [arAvailable, setArAvailable] = useState(arSupported ?? false);
 
   useEffect(() => {
@@ -153,7 +154,6 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
   }
   const canGoBack = !(onCapture && view === "home");
   const wallsCount = intakeScene?.walls?.length ?? 0;
-  const captureStep = captureStepFromScene(intakeScene ?? undefined);
   const maquetteExpanded = shouldAutoExpandMaquette(captureStep);
   const isAgentStage = agentStage !== null;
   const isReform = stage === "stage.reform";
@@ -200,6 +200,8 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
               onArSessionChange={setArSession}
               startInAr={startInAr}
               hideScaleBadge
+              onStepChange={setCaptureStep}
+              onLooksRight={() => setStage("stage.reform")}
             />
           </div>
           {intakeScene !== null && wallsCount > 0 && (

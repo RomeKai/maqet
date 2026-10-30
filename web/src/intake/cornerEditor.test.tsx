@@ -398,3 +398,33 @@ describe("previewEndpoint (live drag preview)", () => {
     ).toEqual(wall.a);
   });
 });
+
+describe("wall length pills (phone-first)", () => {
+  const walls: Scene = {
+    id: "p",
+    version: 1,
+    units: "m",
+    scale_confirmed: false,
+    ceiling_height_m: 2.6,
+    walls: [
+      { id: "a", a: [0, 0], b: [4, 0], thickness_m: 0.2, kind: "exterior", provenance: "written_on_sketch" },
+      { id: "b", a: [4, 0], b: [4, 3], thickness_m: 0.2, kind: "exterior", provenance: "estimated" },
+    ],
+    openings: [],
+    rooms: [],
+  };
+
+  it("draws a pill per wall with a provenance badge, estimated flagged", () => {
+    const html = renderToString(
+      <CornerEditor locale="en" scene={walls} imageUrl={null} imageWidth={800} imageHeight={600}
+        onChange={noopScene} onUndo={noopUndo} canUndo={false} />,
+    );
+    expect((html.match(/class="wall-pill"/g) ?? []).length).toBe(2);
+    expect(html).toContain('data-provenance="written"');
+    expect(html).toContain('data-provenance="estimated"');
+    expect(html).toContain("Written");
+    expect(html).toContain("Estimated");
+    // default scale 1 unit/px -> font 14 units
+    expect(html).toMatch(/font-size:14px/);
+  });
+});

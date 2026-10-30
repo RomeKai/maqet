@@ -90,7 +90,7 @@ export function MaquetteSheet({
         onClick={onActivate}
       >
         <span className="maquette-grip" aria-hidden="true" />
-        <span className="maquette-label">3D</span>
+        <span className="maquette-label">{expanded ? "3D" : t["intake.view3d"]}</span>
       </button>
       {expanded && (
         <div className="maquette-canvas">
