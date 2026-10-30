@@ -236,7 +236,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
       )}
 
       <section className="sheet" aria-label={t["app.name"]}>
-        {(showWork || (!onCapture && !isPresent)) && (<>
+        {(showWork || isAgentStage) && (<>
         {isReform && <VariantTabs onSceneChange={handleIntakeScene} locale={locale} />}
 
         {isAgentStage ? (
@@ -245,15 +245,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
             {agentError ? <p className="agent-error">{agentError}</p> : null}
           </div>
         ) : (
-          <>
-            {stage === "stage.capture" && !hasPhoto && <p className="receipt">{t["sheet.receipt"]}</p>}
-            <div className="inputrow">
-              <input className="prompt" type="text" placeholder={t["sheet.placeholder"]} aria-label={t["sheet.placeholder"]} disabled />
-              <button type="button" className="mic" aria-label={t["sheet.mic"]}>
-                🎙
-              </button>
-            </div>
-          </>
+          stage === "stage.capture" && !hasPhoto && <p className="receipt">{t["sheet.receipt"]}</p>
         )}
         </>)}
 

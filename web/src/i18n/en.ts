@@ -22,8 +22,6 @@ export const en: Record<keyof typeof esAR, string> = {
   "banner.needs_professional": "Needs a licensed professional",
   "banner.needs_professional.detail": "This proposal needs a licensed professional to review it before building.",
   "sheet.receipt": "Upload a plan photo to start.",
-  "sheet.placeholder": "Ask or describe the change…",
-  "sheet.mic": "Hold to talk",
   "sheet.hint": "Tap a wall, then describe the change.",
   "maquette.expand": "Show 3D",
   "maquette.collapse": "Hide 3D",
