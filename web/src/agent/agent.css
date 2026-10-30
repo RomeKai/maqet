@@ -191,6 +191,7 @@
 }
 
 .agent-suggestions {
+  flex: none;
   display: flex;
   gap: 8px;
   overflow-x: auto;
@@ -217,6 +218,7 @@
 }
 
 .agent-bar {
+  flex: none;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
@@ -224,13 +226,17 @@
 }
 
 .agent-bar-left {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
+  /* Hint and keyboard button become grid items of .agent-bar. */
+  display: contents;
+}
+
+.agent-keyboard {
+  justify-self: start;
 }
 
 .agent-bar-hint {
+  grid-column: 1 / -1;
+  text-align: center;
   margin: 0;
   color: var(--muted-foreground);
   font-size: 0.8125rem;
@@ -296,4 +302,5 @@
   min-height: 0;
   max-height: none;
   margin-top: 4px;
+  overflow: hidden;
 }
