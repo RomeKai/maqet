@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
+import { Mic } from "lucide-react";
 import type { Locale } from "../i18n";
 import { getAgentStrings } from "./agent.i18n";
 import { createPressSession } from "./pressSession";
@@ -75,6 +76,7 @@ export function PushToTalk({ locale, onAudio }: PushToTalkProps): React.JSX.Elem
         onKeyUp={onKeyUp}
         onContextMenu={(event) => event.preventDefault()}
       >
+        <Mic className="size-6" aria-hidden />
         {label}
       </button>
       {message ? (

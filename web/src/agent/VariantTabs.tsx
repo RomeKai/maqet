@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Scene, VariantsOut } from "../scene/types";
+import { getStrings, type Locale } from "../i18n";
+import { Segmented } from "../ui";
 import { chooseVariant, fetchVariants, forkVariant, undoVariant } from "./agentApi";
 
 interface VariantTabsProps {
   onSceneChange: (scene: Scene) => void;
-  locale: string;
+  locale: Locale;
 }
 
 export function VariantTabs({ onSceneChange, locale }: VariantTabsProps): React.JSX.Element {
+  const t = getStrings(locale);
   const [data, setData] = useState<VariantsOut | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -74,38 +77,44 @@ export function VariantTabs({ onSceneChange, locale }: VariantTabsProps): React.
 
   if (!data) {
     return (
-      <div className="variant-tabs" aria-busy="true">
-        {error ? <p className="variant-error">{error}</p> : <p className="variant-loading">Loading variants…</p>}
+      <div className="px-3 py-2 font-sans" aria-busy="true">
+        {error ? (
+          <p className="text-[15px] font-semibold text-danger">{error}</p>
+        ) : (
+          <p className="text-[15px] text-muted-foreground">{t["variants.loading"]}</p>
+        )}
       </div>
     );
   }
 
   return (
-    <div className="variant-tabs" data-testid="variant-tabs">
-      <div className="variant-tablist" role="tablist" aria-label={locale === "es-AR" ? "Variantes" : "Variants"}>
-        {data.variants.map((v) => (
-          <button
-            key={v.label}
-            type="button"
-            role="tab"
-            aria-selected={data.chosen === v.label}
-            className={data.chosen === v.label ? "chip chip-active" : "chip"}
-            onClick={() => void handleChoose(v.label)}
-            disabled={busy}
-          >
-            {v.label}
-          </button>
-        ))}
-        <button type="button" className="chip" onClick={() => void handleFork()} disabled={busy} aria-label="Fork variant">
-          + Fork
+    <div className="space-y-2 px-3 py-2 font-sans" data-testid="variant-tabs">
+      <Segmented<string>
+        label={t["variants.label"]}
+        value={data.chosen}
+        onChange={(label) => void handleChoose(label)}
+        options={data.variants.map((v) => ({ value: v.label, label: v.label }))}
+      />
+      <div className="flex gap-2">
+        <button
+          type="button"
+          className="min-h-12 flex-1 rounded-xl border-2 border-foreground bg-card px-3 text-[15px] font-bold disabled:opacity-50"
+          onClick={() => void handleFork()}
+          disabled={busy}
+          aria-label={t["variants.fork"]}
+        >
+          {t["variants.forkShort"]}
+        </button>
+        <button
+          type="button"
+          className="min-h-12 flex-1 rounded-xl border-2 border-border bg-card px-3 text-[15px] font-bold disabled:opacity-50"
+          onClick={() => void handleUndo()}
+          disabled={busy}
+        >
+          {t["variants.undo"]}
         </button>
       </div>
-      <div className="variant-actions">
-        <button type="button" className="chip" onClick={() => void handleUndo()} disabled={busy}>
-          Undo
-        </button>
-      </div>
-      {error ? <p className="variant-error">{error}</p> : null}
+      {error ? <p className="text-[15px] font-semibold text-danger">{error}</p> : null}
     </div>
   );
 }

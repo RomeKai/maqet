@@ -5,6 +5,7 @@ import { captureStepFromScene, shouldAutoExpandMaquette, type CaptureStepKey } f
 import { HomeScreen } from "./home/HomeScreen";
 import { MethodScreen } from "./home/MethodScreen";
 import { isARSupported } from "./measure/xrAdapter";
+import { PresentView } from "./present/PresentView";
 import { Header } from "./shell/Header";
 import { STAGES, Stepper } from "./shell/Stepper";
 import { SceneView } from "./view3d/SceneView";
@@ -158,6 +159,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
   const isAgentStage = agentStage !== null;
   const isReform = stage === "stage.reform";
   const isDeliver = stage === "stage.deliver";
+  const isPresent = stage === "stage.present";
 
   return (
     <div className={arSession ? "app ar-session" : "app"}>
@@ -209,6 +211,14 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
           )}
         </main>
         )
+      ) : isPresent ? (
+        <PresentView
+          scene={intakeScene}
+          locale={locale}
+          selectedWallId={selectedWallId}
+          onSelectWall={setSelectedWallId}
+          onSceneChange={handleIntakeScene}
+        />
       ) : isDeliver ? (
         <main className="flex min-h-0 flex-1 flex-col" aria-label={t["app.name"]}>
           <DeliverView scene={intakeScene} takeoff={null} locale={locale} />
@@ -226,7 +236,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
       )}
 
       <section className="sheet" aria-label={t["app.name"]}>
-        {(showWork || !onCapture) && (<>
+        {(showWork || (!onCapture && !isPresent)) && (<>
         {isReform && <VariantTabs onSceneChange={handleIntakeScene} locale={locale} />}
 
         {isAgentStage ? (
