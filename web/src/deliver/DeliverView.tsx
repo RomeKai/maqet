@@ -7,6 +7,7 @@ import { Banner, Button } from "../ui";
 import { getDeliverStrings } from "./deliver.i18n";
 import { TakeoffView } from "./TakeoffView";
 import type { Takeoff } from "./takeoffTypes";
+import { downloadCsv } from "./takeoffFormat";
 
 function apiBase(): string {
   const configured: unknown = import.meta.env.VITE_API_URL;
@@ -27,6 +28,8 @@ export function DeliverView({ scene, takeoff, locale }: DeliverViewProps): React
   const t = getDeliverStrings(locale);
   const [dxfBusy, setDxfBusy] = useState(false);
   const [dxfError, setDxfError] = useState<string | null>(null);
+  const [csvBusy, setCsvBusy] = useState(false);
+  const [csvError, setCsvError] = useState<string | null>(null);
   const estimatedWalls = (scene?.walls ?? []).filter(isWallEstimated).length;
 
   // Bust snapshot cache when scene version changes
@@ -34,6 +37,24 @@ export function DeliverView({ scene, takeoff, locale }: DeliverViewProps): React
   useEffect(() => {
     setSnapKey((k) => k + 1);
   }, [scene?.version, locale]);
+
+  async function downloadCsvFile(): Promise<void> {
+    if (!scene) return;
+    setCsvBusy(true);
+    setCsvError(null);
+    try {
+      const res = await fetch(`${apiBase()}/export/takeoff.csv`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scene }),
+      });
+      if (!res.ok) throw new Error((await res.text().catch(() => "")) || `CSV export failed (${res.status})`);
+      const csv = await res.text();
+      downloadCsv(csv, "takeoff.csv");
+    } catch (err) {
+      setCsvError(err instanceof Error ? err.message : String(err));
+    } finally { setCsvBusy(false); }
+  }
 
   async function downloadDxf(): Promise<void> {
     if (!scene) return;
@@ -76,6 +97,7 @@ export function DeliverView({ scene, takeoff, locale }: DeliverViewProps): React
       </div>
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+        {csvError ? <Banner tone="danger" title={t["csv.error.title"]}>{csvError}</Banner> : null}
         {dxfError ? (
           <Banner
             tone="danger"
@@ -117,6 +139,9 @@ export function DeliverView({ scene, takeoff, locale }: DeliverViewProps): React
         <Button className="w-full" onClick={() => void downloadDxf()} disabled={dxfBusy || !scene}>
           <FileDown className="size-5" aria-hidden />
           {dxfBusy ? t["action.preparing"] : t["action.dxf"]}
+        </Button>
+        <Button variant="secondary" className="w-full" onClick={() => void downloadCsvFile()} disabled={csvBusy || !scene}>
+          {csvBusy ? t["action.preparing"] : t["action.exportCsv"]}
         </Button>
         <p className="text-center text-sm text-muted-foreground">{t["dxf.hint"]}</p>
       </div>

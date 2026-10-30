@@ -174,4 +174,6 @@ export const esAR = {
   "present.share": "Compartir con la familia",
   "present.shared": "Enlace copiado",
   "present.shareFailed": "No se pudo copiar el enlace. Copialo de la barra de direcciones.",
+  "deliver.loading": "Cargando el cómputo…",
+  "deliver.takeoffError": "No se pudo cargar el cómputo",
 } as const;

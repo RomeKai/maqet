@@ -26,8 +26,8 @@ describe("DeliverView", () => {
     expect(html).toContain("1 walls have a guessed length");
   });
 
-  it("does not offer a server CSV (no /export/takeoff.csv route yet)", () => {
+  it("offers the server CSV export", () => {
     const html = renderToString(<DeliverView scene={scene} takeoff={null} locale="es-AR" />);
-    expect(html).not.toContain(getDeliverStrings("es-AR")["action.exportCsv"]);
+    expect(html).toContain(getDeliverStrings("es-AR")["action.exportCsv"]);
   });
 });

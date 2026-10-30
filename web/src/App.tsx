@@ -6,6 +6,7 @@ import { HomeScreen } from "./home/HomeScreen";
 import { MethodScreen } from "./home/MethodScreen";
 import { isARSupported } from "./measure/xrAdapter";
 import { PresentView } from "./present/PresentView";
+import { Banner } from "./ui";
 import { Header } from "./shell/Header";
 import { STAGES, Stepper } from "./shell/Stepper";
 import { SceneView } from "./view3d/SceneView";
@@ -14,6 +15,8 @@ import { ChatSheet } from "./agent/ChatSheet";
 import { ProBanner } from "./agent/ProBanner";
 import { VariantTabs } from "./agent/VariantTabs";
 import { DeliverView } from "./deliver/DeliverView";
+import { parseTakeoff } from "./deliver/takeoffFormat";
+import type { Takeoff } from "./deliver/takeoffTypes";
 import { sendTurn } from "./agent/agentApi";
 import type { AgentStage } from "./agent/agentApi";
 import type { ChatMessage } from "./agent/agentTypes";
@@ -68,6 +71,50 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
     setWorkMounted(true);
     setView("work");
   }
+
+  // Deliver takeoff (fetched when the Deliver stage opens)
+  const [takeoff, setTakeoff] = useState<Takeoff | null>(null);
+  const [takeoffLoading, setTakeoffLoading] = useState(false);
+  const [takeoffError, setTakeoffError] = useState<string | null>(null);
+
+  function baseUrl(): string {
+    const v: unknown = (import.meta as unknown as Record<string, unknown>).env
+      ? (import.meta as unknown as { env: Record<string, unknown> }).env.VITE_API_URL
+      : undefined;
+    return typeof v === "string" && v.length > 0 ? v : "/api";
+  }
+
+  useEffect(() => {
+    if (stage !== "stage.deliver" || !intakeScene) return;
+    let cancelled = false;
+    setTakeoffLoading(true);
+    setTakeoffError(null);
+    const payload = { scene: intakeScene };
+    fetch(`${baseUrl()}/export/takeoff`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error((await res.text().catch(() => "")) || `takeoff ${res.status}`);
+        return res.json() as Promise<unknown>;
+      })
+      .then((raw) => {
+        if (cancelled) return;
+        try {
+          setTakeoff(parseTakeoff(raw));
+        } catch (err) {
+          setTakeoffError(err instanceof Error ? err.message : String(err));
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setTakeoffError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        if (!cancelled) setTakeoffLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [stage, intakeScene]);
 
   // Agent wiring
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -221,7 +268,12 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
         />
       ) : isDeliver ? (
         <main className="flex min-h-0 flex-1 flex-col" aria-label={t["app.name"]}>
-          <DeliverView scene={intakeScene} takeoff={null} locale={locale} />
+          {takeoffLoading ? (
+            <div className="px-3 pt-3"><Banner tone="info" title={t["deliver.loading"]} /></div>
+          ) : takeoffError ? (
+            <div className="px-3 pt-3"><Banner tone="danger" title={t["deliver.takeoffError"]}>{takeoffError}</Banner></div>
+          ) : null}
+          <DeliverView scene={intakeScene} takeoff={takeoff} locale={locale} />
         </main>
       ) : (
         <main className="viewport" aria-label={t["app.name"]}>

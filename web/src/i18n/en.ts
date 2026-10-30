@@ -175,4 +175,6 @@ export const en: Record<keyof typeof esAR, string> = {
   "present.share": "Share with the family",
   "present.shared": "Link copied",
   "present.shareFailed": "Could not copy the link. Copy it from the address bar.",
+  "deliver.loading": "Loading the takeoff…",
+  "deliver.takeoffError": "Could not load the takeoff",
 };
