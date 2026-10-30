@@ -26,6 +26,15 @@ export function resolveSheetDrag(dyPx: number, slopPx = SHEET_DRAG_SLOP_PX): boo
 }
 
 /**
+ * A click toggles only when it is a keyboard activation (detail 0) that no
+ * pointer gesture already handled. Touch/mouse clicks without a pointerdown on
+ * the handle (ghost clicks after a layout shift) must never expand the sheet.
+ */
+export function shouldToggleOnClick(detail: number, pointerHandled: boolean): boolean {
+  return detail === 0 && !pointerHandled;
+}
+
+/**
  * Phone-first 3D maquette as a two-state bottom sheet (mobile-ui):
  * expanded (~60% of the screen) or collapsed (handle + 3D label, canvas
  * unmounted so the plan editor owns the full screen). Drag the handle or tap
@@ -56,12 +65,10 @@ export function MaquetteSheet({
     else setExpanded(decided);
   }, []);
 
-  const onActivate = useCallback(() => {
-    if (skipClick.current) {
-      skipClick.current = false;
-      return;
-    }
-    setExpanded((prev) => !prev);
+  const onActivate = useCallback((detail: number) => {
+    const handled = skipClick.current;
+    skipClick.current = false;
+    if (shouldToggleOnClick(detail, handled)) setExpanded((prev) => !prev);
   }, []);
 
   return (
@@ -87,7 +94,7 @@ export function MaquetteSheet({
           startY.current = null;
           (e.currentTarget as HTMLElement).releasePointerCapture?.((e as unknown as { pointerId: number }).pointerId);
         }}
-        onClick={onActivate}
+        onClick={(e) => onActivate(e.detail)}
       >
         <span className="maquette-grip" aria-hidden="true" />
         <span className="maquette-label">{expanded ? "3D" : t["intake.view3d"]}</span>
