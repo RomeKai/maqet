@@ -41,6 +41,8 @@ Done means:
 ### 1. Dependency
 `npm install @google/model-viewer` in `web/`. If the install fails twice, stop and report.
 
+Note: model-viewer 4.4 declares peer three ^0.183 and we run it on 0.186 with --legacy-peer-deps (set in web/.npmrc). Verify on a real device.
+
 Register the custom element only when needed: `await import("@google/model-viewer")` inside the viewer, so it never
 loads into the main bundle or into vitest.
 
