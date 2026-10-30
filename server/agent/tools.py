@@ -34,6 +34,8 @@ class AddRoomInput(_ToolInput):
     room_id: str | None = None
     next_to: str | None = None
     room: str | None = None
+    # Wall to attach to: a label ("wall 2") or id. Omit to let code pick a free wall.
+    wall: str | None = None
     polygon: list[tuple[float, float]] | None = Field(default=None, min_length=3)
     size_m: tuple[
         Annotated[float, Field(gt=0)], Annotated[float, Field(gt=0)]

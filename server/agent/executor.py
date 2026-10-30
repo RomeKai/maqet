@@ -23,6 +23,7 @@ from server.agent import stages as stage_table
 from server.agent import tools as tool_contracts
 from server.agent import edit_tools
 from server.agent.wall_labels import resolve_in_walls
+from server.agent.placement import PlacementError, place_on_wall
 from server.agent.room_walls import enclosing_walls
 from server.scene import ops
 from server.scene.models import Opening, Room, Scene, Wall
@@ -124,6 +125,7 @@ def _free_side(
 def _handle_add_room(
     scene: Scene, history: list, a: tool_contracts.AddRoomInput
 ) -> tuple[Scene, ToolResult]:
+    placement_notes: list[str] = []
     if a.polygon is not None:
         poly = [(float(x), float(y)) for x, y in a.polygon]
     else:
@@ -147,7 +149,14 @@ def _handle_add_room(
                     "anchor.ambiguous",
                     f"{len(matches)} rooms match {ref!r}; say which one; Scene unchanged",
                 )
-            free = _free_side(scene, matches[0], a.size_m, a.level)
+            try:
+                on_wall = place_on_wall(scene, matches[0], a.size_m, a.level, a.wall)
+            except PlacementError as exc:
+                return _fail(scene, exc.code, exc.message)
+            if on_wall is not None:
+                free, _wall_id, placement_notes = on_wall
+            else:
+                free = _free_side(scene, matches[0], a.size_m, a.level)
             if free is None:
                 return _fail(
                     scene,
@@ -198,7 +207,7 @@ def _handle_add_room(
     )
     return new_scene, ToolResult(
         ok=True,
-        warnings=[*door_warnings, *(str(w) for w in res.warnings)],
+        warnings=[*placement_notes, *door_warnings, *(str(w) for w in res.warnings)],
         flags=flags,
         changed_ids=list(res.changed_ids),
         version=new_scene.version,

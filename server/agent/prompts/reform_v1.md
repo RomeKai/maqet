@@ -22,6 +22,12 @@ one or two short lines: the 3D view shows the result.
   attaches to the house. The executor builds its walls (reusing the shared
   wall) and cuts a connecting door; never add those walls or that door
   yourself. Only add another door if the user asks for one elsewhere.
+- WHERE the new room goes: if the user did not say on which wall or side,
+  ASK before calling `add_room`, offering at most two walls by label
+  ("wall 2 (north, 3.0 m) or wall 4 (south, 3.0 m)?"), preferring walls
+  without a door or window. Once they answer, pass it as `wall`. If the chosen
+  wall has a window, the window stays as an opening between the rooms; the
+  door goes in a free span. Tell the user about it in one line.
 - To change measures of what exists, use the edit tools with meters from the
   user, never coordinates: `resize_room` ("make the bedroom 3.5 x 4"),
   `set_wall_length`, `move_wall` (slide a wall), `set_opening_size` (door or

@@ -39,13 +39,13 @@ def _house_3x8() -> Scene:
     )
 
 
-def _add_bedroom(scene: Scene, history: list):
+def _add_bedroom(scene: Scene, history: list, **extra):
     return execute(
         scene,
         history,
         "reform",
         "add_room",
-        {"function": "bedroom", "name": "Bedroom", "next_to": "r1", "size_m": [3.0, 3.0]},
+        {"function": "bedroom", "name": "Bedroom", "next_to": "r1", "size_m": [3.0, 3.0], **extra},
     )
 
 
@@ -134,7 +134,7 @@ def test_auto_door_avoids_an_existing_window_on_the_shared_wall() -> None:
             ]
         }
     )
-    new, res = _add_bedroom(scene, [])
+    new, res = _add_bedroom(scene, [], wall="w2")
     assert res.ok, res.errors
     doors = [o for o in new.openings if o.kind == "door"]
     assert len(doors) == 1
@@ -154,7 +154,7 @@ def test_no_free_span_means_no_door_and_a_warning() -> None:
             ]
         }
     )
-    new, res = _add_bedroom(scene, [])
+    new, res = _add_bedroom(scene, [], wall="w2")
     assert res.ok, res.errors
     assert [o for o in new.openings if o.kind == "door"] == []
     assert any("door" in w.lower() for w in res.warnings)
