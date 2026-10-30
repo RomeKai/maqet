@@ -16,7 +16,9 @@ export type SceneOp =
   | { type: "removeOpening"; openingId: string }
   | { type: "setWallLength"; wallId: string; lengthM: number; provenance: WallProvenance }
   | { type: "setWallHeight"; wallId: string; heightM: number }
-  | { type: "confirmScale" };
+  | { type: "confirmScale" }
+  /** Several ops applied as one history step (e.g. dragging a shared corner). */
+  | { type: "batch"; ops: SceneOp[] };
 
 export function createEmptyScene(id = "intake"): Scene {
   return {
@@ -62,6 +64,9 @@ export function applySceneOp(scene: Scene, op: SceneOp): Scene {
   const openings = [...(scene.openings ?? [])];
 
   switch (op.type) {
+    case "batch":
+      return op.ops.reduce(applySceneOp, scene);
+
     case "addWall":
       return { ...scene, version, walls: [...walls, op.wall] };
 
@@ -147,6 +152,13 @@ export class SceneHistory {
 
   apply(op: SceneOp): Scene {
     const next = applySceneOp(this.current, op);
+    this.past.push(this.current);
+    this.current = next;
+    return next;
+  }
+
+  /** Replace the scene with `next` as an undoable step (e.g. "reset to sketch reading"). */
+  restore(next: Scene): Scene {
     this.past.push(this.current);
     this.current = next;
     return next;

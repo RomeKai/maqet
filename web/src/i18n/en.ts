@@ -35,6 +35,8 @@ export const en: Record<keyof typeof esAR, string> = {
   "intake.markWindow": "Mark window",
   "intake.opening.tapHintDoor": "Tap a wall to place the door.",
   "intake.opening.tapHintWindow": "Tap a wall to place the window.",
+  "intake.reset.cta": "Reset to sketch reading",
+  "intake.reset.confirm": "Discard your edits and go back to what the sketch reading found?",
   "intake.removeOpening": "Remove",
   "intake.openingSheet.door": "Door",
   "intake.openingSheet.window": "Window",

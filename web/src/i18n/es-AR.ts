@@ -34,6 +34,8 @@ export const esAR = {
   "intake.markWindow": "Marcar ventana",
   "intake.opening.tapHintDoor": "Tocá una pared para poner la puerta.",
   "intake.opening.tapHintWindow": "Tocá una pared para poner la ventana.",
+  "intake.reset.cta": "Volver a la lectura del croquis",
+  "intake.reset.confirm": "¿Descartar tus cambios y volver a lo que leyó el croquis?",
   "intake.removeOpening": "Quitar",
   "intake.openingSheet.door": "Puerta",
   "intake.openingSheet.window": "Ventana",

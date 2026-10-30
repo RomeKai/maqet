@@ -499,12 +499,11 @@ export function CornerEditor({
     // Shared corner: every wall meeting at this handle moves together.
     const members = handleMembersFor(handles, wallIdValue, end)?.members
       ?? [{ wallId: wallIdValue, end }];
-    let next = scene;
-    for (const m of members) {
-      const op: SceneOp = { type: "moveWallEndpoint", wallId: m.wallId, end: m.end, point: [p.x, p.y] };
-      next = applySceneOp(next, op);
-      onChange(next, op);
-    }
+    const ops: SceneOp[] = members.map((m) => ({
+      type: "moveWallEndpoint" as const, wallId: m.wallId, end: m.end, point: [p.x, p.y] as [number, number],
+    }));
+    // One history step per drag, however many walls share the corner.
+    emit(ops.length === 1 ? ops[0]! : { type: "batch", ops });
   }
 
   function handleFormConfirm(): void {
@@ -817,8 +816,10 @@ export function CornerEditor({
               }}
               onPointerUp={(e) => {
                 e.stopPropagation();
+                const moved = preview !== null;
                 setPreview(null);
-                handleEndpointDragEnd(first.wallId, first.end, e.clientX, e.clientY);
+                // A bare tap (no move) must not nudge the corner.
+                if (moved) handleEndpointDragEnd(first.wallId, first.end, e.clientX, e.clientY);
               }}
               onPointerCancel={() => setPreview(null)}
             />

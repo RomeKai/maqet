@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Scene } from "../scene/types";
 import { SceneHistory, createEmptyScene, type SceneOp } from "../scene/store";
 import { getStrings, type Locale } from "../i18n";
@@ -40,6 +40,8 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
   const t = getStrings(locale);
   const [history] = useState(() => new SceneHistory(initialScene ?? createEmptyScene()));
   const [scene, setScene] = useState<Scene>(history.scene);
+  /** The Scene as the sketch reading returned it: target of "Reset to sketch reading". */
+  const readingRef = useRef<Scene | null>(null);
   const [photo, setPhoto] = useState<{ url: string | null; width: number; height: number } | null>(null);
   const [proposalDims, setProposalDims] = useState<IntakeProposalDimension[]>([]);
   const [proposal, setProposal] = useState<IntakeProposal | null>(null);
@@ -69,6 +71,7 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
   const scaleConfirmed = useMemo(() => scene.scale_confirmed === true, [scene]);
 
   function handleSceneDraft(draft: Scene, result: IntakeResult): void {
+    readingRef.current = draft;
     history.reset(draft);
     setScene({ ...draft });
     setProposalDims(result.proposal.dimensions);
@@ -88,6 +91,16 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
   function handlePhoto(url: string | null, width: number, height: number): void {
     setPhoto({ url, width, height });
     onPhotoChange?.(true);
+  }
+
+  function handleResetToReading(): void {
+    const reading = readingRef.current;
+    if (reading === null) return;
+    if (typeof window !== "undefined" && !window.confirm(t["intake.reset.confirm"])) return;
+    const restored = { ...reading };
+    history.restore(restored);
+    setScene(restored);
+    onSceneChange?.({ ...restored });
   }
 
   function handleUndo(): void {
@@ -153,24 +166,21 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
             onLooksRight={onLooksRight}
             initialStep={initialScene ? captureStepFromScene(initialScene) : "walls"}
             wallsExtras={
-              !scaleConfirmed ? (
-                <div className="flex flex-wrap justify-center gap-x-5 gap-y-1">
-                  <button
-                    type="button"
-                    className="min-h-11 text-sm font-semibold text-muted-foreground underline"
-                    onClick={() => setScaling(true)}
-                  >
+              <div className="flex flex-wrap justify-center gap-x-5 gap-y-1">
+                {!scaleConfirmed && (
+                  <button type="button" className="min-h-11 text-sm font-semibold text-muted-foreground underline" onClick={() => setScaling(true)}>
                     {t["intake.scale.cta"]}
                   </button>
-                  <button
-                    type="button"
-                    className="min-h-11 text-sm font-semibold text-muted-foreground underline"
-                    onClick={() => setMeasuringAR(true)}
-                  >
+                )}
+                {!scaleConfirmed && (
+                  <button type="button" className="min-h-11 text-sm font-semibold text-muted-foreground underline" onClick={() => setMeasuringAR(true)}>
                     {t["measure.ar.title"]}
                   </button>
-                </div>
-              ) : null
+                )}
+                <button type="button" className="min-h-11 text-sm font-semibold text-muted-foreground underline" onClick={handleResetToReading}>
+                  {t["intake.reset.cta"]}
+                </button>
+              </div>
             }
           />
         </>
