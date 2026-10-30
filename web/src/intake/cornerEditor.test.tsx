@@ -271,6 +271,71 @@ describe("shared corner handles", () => {
     expect(html).toContain("handle-active");
   });
 });
+describe("Mode C toolbar — Door/Window tools (RED: toolbar regression from a24ea68)", () => {
+  function toolbarHtml(locale: "en" | "es-AR" = "en"): string {
+    return renderToString(
+      <CornerEditor
+        locale={locale}
+        scene={scene}
+        imageUrl={null}
+        imageWidth={800}
+        imageHeight={600}
+        onChange={noopScene}
+        onUndo={noopUndo}
+        canUndo={false}
+      />,
+    );
+  }
+
+  it("toolbar shows Select / Wall / Door / Window / Undo (Door and Window were removed in a24ea68)", () => {
+    const html = toolbarHtml();
+    expect(html).toContain("Select");
+    expect(html).toContain("Wall");
+    expect(html).toContain("Door");
+    expect(html).toContain("Window");
+    expect(html).toContain("Undo");
+  });
+
+  it("toolbar labels are localized (es-AR: Puerta / Ventana)", () => {
+    const html = toolbarHtml("es-AR");
+    expect(html).toContain("Puerta");
+    expect(html).toContain("Ventana");
+  });
+});
+
+describe("Mode C opening — two taps on a wall span produce markOpening (RED)", () => {
+  it("two taps along a wall project to an opening placement (form prefilled from span)", async () => {
+    const { tapsToPlacement, placementToOpening } = await import("./opening");
+    const { applySceneOp, createEmptyScene } = await import("../scene/store");
+    const wall = { id: "w0", a: [0, 0] as [number, number], b: [4, 0] as [number, number], thickness_m: 0.1, kind: "interior" as const };
+    const res = tapsToPlacement(wall, "door", [0.5, 0], [1.4, 0]);
+    expect("placement" in res).toBe(true);
+    if (!("placement" in res)) throw new Error("taps rejected");
+    expect(res.placement.width_m).toBeCloseTo(0.9, 9);
+    expect(res.placement.offset_m).toBeCloseTo(0.5, 9);
+    // Form is prefilled from the span: width/height/sill per spec (door 0.9/2.05, window 1.4/1.4 sill 0.8)
+    expect(res.placement.height_m).toBeCloseTo(2.05, 9);
+    const opening = placementToOpening(res.placement, "o1");
+    let sc = createEmptyScene();
+    sc = applySceneOp(sc, { type: "addWall", wall });
+    sc = applySceneOp(sc, { type: "markOpening", opening });
+    expect(sc.openings).toHaveLength(1);
+    expect(sc.openings![0]!.kind).toBe("door");
+  });
+
+  it("window span prefills sill 0.80 and double-tap still yields window opening", async () => {
+    const { tapsToPlacement, placementToOpening } = await import("./opening");
+    const wall = { id: "w0", a: [0, 0] as [number, number], b: [4, 0] as [number, number], thickness_m: 0.1, kind: "interior" as const };
+    const res = tapsToPlacement(wall, "window", [0.2, 0], [1.6, 0]);
+    expect("placement" in res).toBe(true);
+    if (!("placement" in res)) throw new Error("taps rejected");
+    expect(res.placement.sill_m).toBeCloseTo(0.8, 9);
+    expect(res.placement.height_m).toBeCloseTo(1.4, 9);
+    const opening = placementToOpening(res.placement, "o2");
+    expect(opening.sill_m).toBeCloseTo(0.8, 9);
+  });
+});
+
 describe("previewEndpoint (live drag preview)", () => {
   const wall = scene.walls![0]!;
 

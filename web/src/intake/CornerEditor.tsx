@@ -473,6 +473,8 @@ export function CornerEditor({
   const toolButtons: { tool: CornerTool; label: string }[] = [
     { tool: "select", label: t["intake.tool.select"] },
     { tool: "addWall", label: t["intake.tool.addWall"] },
+    { tool: "door", label: t["intake.tool.door"] },
+    { tool: "window", label: t["intake.tool.window"] },
   ];
 
   const proposalWalls = useMemo(() => proposal?.walls ?? [], [proposal]);
