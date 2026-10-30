@@ -10,7 +10,8 @@ import { validateScene } from "./validateScene";
  */
 
 /** A turn that has not answered after this long is abandoned so the chat never stays pending. */
-export const TURN_TIMEOUT_MS = 60_000;
+// Muse Wonder (max tier) turns with several tool rounds can take well over a minute.
+export const TURN_TIMEOUT_MS = 180_000;
 
 export class AgentApiError extends Error {
   readonly status: number | null;
