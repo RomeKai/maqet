@@ -235,11 +235,6 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
       {onCapture ? (
         workMounted && (
         <main className="viewport viewport-capture" aria-label={t["app.name"]} style={showWork ? undefined : { display: "none" }}>
-          {wallsCount === 0 && (
-            <div className="viewport-placeholder">
-              <p className="viewport-hint">{t["sheet.hint"]}</p>
-            </div>
-          )}
           <div className="capture-editor">
             <IntakeScreen
               locale={locale}

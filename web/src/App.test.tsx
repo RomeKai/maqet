@@ -42,6 +42,6 @@ describe("App stages", () => {
 
     const withoutScene = renderToString(<App initialView="work" />);
     expect(withoutScene).not.toContain('data-testid="scene-view"');
-    expect(withoutScene).toContain(t["sheet.hint"]);
+    expect(withoutScene).toContain(t["intake.upload.hint"]);
   });
 });
