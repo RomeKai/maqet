@@ -57,8 +57,8 @@ interface UploadStepProps {
   onProposal?: (proposal: IntakeProposal) => void;
 }
 
-/** Recorded fixture replayed without upload or vision (I16, offline demo). */
-const SAMPLE_NAME = "croquis_nonproportional";
+/** Recorded fixture replayed without upload or vision (I16, offline demo): the demo sketch with a door and a window. */
+export const SAMPLE_NAME = "croquis_3x8_door_window";
 /** The fixture above is a sketch: replay posts its true kind, not the toggle. */
 const SAMPLE_KIND: IntakeKind = "sketch";
 

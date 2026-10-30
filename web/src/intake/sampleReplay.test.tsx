@@ -94,3 +94,14 @@ describe("I16 try-a-sample replay", () => {
     expect(html).toContain(getStrings("en")["notice.preliminary"]);
   });
 });
+
+import { SAMPLE_NAME } from "./UploadStep";
+import demoProposal from "../../../samples/plans/croquis_3x8_door_window.proposal.json";
+
+describe("sample button fixture", () => {
+  it("replays the demo sketch that has a door and a window", () => {
+    expect(SAMPLE_NAME).toBe("croquis_3x8_door_window");
+    const p = (demoProposal as { proposal: { openings: { kind: string }[] } }).proposal;
+    expect(p.openings.map((o) => o.kind).sort()).toEqual(["door", "window"]);
+  });
+});
