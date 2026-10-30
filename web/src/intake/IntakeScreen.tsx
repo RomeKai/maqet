@@ -95,7 +95,16 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
     onSceneChange?.({ ...next });
   }
 
+  /** The photo object URL pins the image in memory: revoke it when replaced and on unmount. */
+  const photoUrlRef = useRef<string | null>(null);
+  useEffect(() => () => {
+    if (photoUrlRef.current !== null) URL.revokeObjectURL(photoUrlRef.current);
+  }, []);
+
   function handlePhoto(url: string | null, width: number, height: number): void {
+    const previous = photoUrlRef.current;
+    if (previous !== null && previous !== url && previous.startsWith("blob:")) URL.revokeObjectURL(previous);
+    photoUrlRef.current = url;
     setPhoto({ url, width, height });
     onPhotoChange?.(true);
   }

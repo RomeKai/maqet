@@ -69,3 +69,66 @@ Diagnosis of Scene Viewer "not-presenting" (from the code; only a phone confirms
 - Openings: tests prove doors/windows use OPENING_THEME colors (window translucent) in the maquette and in the exported GLB,
   and that the window sill is honored (bottom at sill_m, top at sill_m + height_m, door from the floor).
 - Phone only: whether Scene Viewer opens over a trusted tunnel; WebXR retry actually presenting.
+
+## Item 4 - Reliability guards: DONE
+
+- File inputs: `UploadStep.onPicked` already clears the input only after the upload settles (covered by `uploadInputs.test.tsx`); unchanged.
+- Layout: the AR button lives in the sticky bottom bar of PresentView, outside the top banner flow; a Playwright spec at 412x640
+  checks it is inside the viewport and not covered (`elementFromPoint`). The existing reform-chat layout spec still passes.
+- Disposal: ArMeasure ends the XR session on unmount and on Done/Cancel; `useMaquetteUrl` revokes GLB/USDZ blob URLs;
+  new: IntakeScreen revokes the photo object URL when replaced and on unmount.
+
+## Item 5 - Playwright (no device, no live calls): DONE
+
+`web/e2e/ar-flow.spec.ts` (9 tests, all pass): unsupported device has no AR card; supported device start screen with 48 px
+targets; permission denied message + fallbacks; a full fake-WebXR 4-wall session (real adapter code path) with ONE height, closing tap,
+review, "Room captured with AR" card and arrival in Reform; out-of-range typed height refused then per-wall override; tracking lost
+guidance; Present AR button disabled until the model is hosted, WebXR-only when the upload fails, and the not-presenting ->
+WebXR retry. `playwright.config.ts` now reads `E2E_WEB_PORT` / `E2E_API_PORT` (defaults 5320/8020) and finds the main repo venv from a
+worktree. Run: `E2E_WEB_PORT=5330 E2E_API_PORT=8030 npx playwright test` from `web/`.
+The reform-chat 412x915 test failed once on a cold first run in a full-suite run and passed alone and on re-run (timing; not changed by this work).
+
+## Gates (final run)
+- `MME_MODE=replay python -m pytest -q server`: 521 passed
+- `npx vitest run`: 89 files, 697 tests passed
+- `npx tsc --noEmit`: clean; `npm run build`: built
+- Playwright `ar-flow.spec.ts`: 9 passed; full e2e: 13 of 14 first run, the failing one passed alone.
+
+## Phone test checklist (human)
+
+Prereq: `vite --host` with the self-signed cert accepted on the phone (HARDENING I14), replay or live server as you prefer.
+Use Android Chrome with ARCore updated. Check the language toggle once (en and es-AR) in each screen below.
+
+### Mode A (AR measure)
+1. Home -> Start capture. The "AR measure" card must be there (if not, WebXR is not available: Mode C remains).
+2. Tap it, then "Measure (AR)". Allow the camera. Expected pill: "Move the phone slowly to find the floor".
+3. Deny the permission once (or revoke it): expect "Camera or AR permission was denied..." with Plan / Sketch buttons and a retry.
+4. Aim at the floor at the first corner and tap. Pill: "Tap the other end". Tap the second corner.
+5. Pill: "Tap where the wall meets the ceiling" and a live height next to it. Aim at the wall/ceiling line and tap.
+   If the number is off, type a height instead (2.0 to 4.0 m, comma or dot) and "Confirm height", or "Use 2.60 m".
+   A value outside 2.0-4.0 m is refused with a message; retype. THIS IS THE FIX FOR THE EARLIER BLOCKED TAP: it must work.
+6. Walls 2..N need only ONE tap each ("Wall N: tap the next corner"); no height prompt again.
+7. Tap near the first corner to close the room. Pill: "Room captured".
+8. Optional: open "Wall N height ... (change)" and type 2.40 for one wall.
+9. Door / Window modes unlock after closing; capture one of each (two taps each).
+10. Cover the camera for a second: pill must say "Tracking lost..." and recover.
+11. Tap Done. Review sheet: values are editable, "Looks right" continues. Then "Room captured with AR" -> "Looks right".
+12. Reform stage: 3D shows the room with floor, wall labels, door/window colors; ask the agent to add a room on a wall.
+13. Check that every AR button is easy to hit (48 px) and that nothing is hidden behind the bottom bar.
+
+### Present AR on the table
+1. With a scene, open Present. The AR button reads "Building the maquette..." then "Preparing the model for AR apps..." then "View in AR on the table".
+2. Tap it. WebXR should place the maquette on the table (worked before).
+3. Scene Viewer: this needs a TRUSTED https host. With the self-signed dev URL it will likely fail: expect the message
+   "AR could not show the maquette..." with the certificate hint and a "Try again with WebXR" button. Tap the button: WebXR must open.
+   For Scene Viewer to succeed, open the app through a trusted https tunnel (cloudflared/ngrok) and repeat.
+4. Look at the doors (orange) and windows (light blue, translucent); the window must float at its sill height, the door touches the floor.
+5. With a professional-flag banner visible (e.g. add a second floor), confirm the AR button is still fully visible.
+6. In Chrome remote debugging, look for `[ar-status]` and `[ar-host]` console lines to report what happened.
+
+## Open issues
+- Everything above is verified by unit tests, a real-browser run with a fake WebXR session and mocked hosting; none of it ran on a phone.
+- Scene Viewer cannot be fixed from code on a self-signed origin (see item 3); needs a trusted https host.
+- DXF is a plan view and has no wall heights; per-wall heights are carried by 3D, GLB and takeoff only.
+- AR walls are saved as `interior` 0.10 m; the user may need to mark exterior walls in the editor.
+- The wall height override form is on the HUD for the LAST wall only; earlier walls are editable in the review sheet.
