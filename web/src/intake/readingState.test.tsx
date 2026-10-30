@@ -40,7 +40,7 @@ describe("BUG4: reading state, receipt hiding, scale badge", () => {
   });
 
   it("start receipt is hidden once a photo is set", () => {
-    const before = renderToString(<App />);
+    const before = renderToString(<App initialView="work" />);
     expect(before).toContain(startReceipt());
   });
 
@@ -53,7 +53,7 @@ describe("BUG4: reading state, receipt hiding, scale badge", () => {
 
   it("unconfirmed scenes keep the Not to scale badge", () => {
     const t = getStrings(DEFAULT_LOCALE);
-    const html = renderToString(<App />);
+    const html = renderToString(<App initialView="work" />);
     expect(html).toContain(t["badge.notToScale"]);
     expect(html).not.toContain(t["badge.measured"]);
   });

@@ -15,6 +15,8 @@ interface IntakeScreenProps {
   initialScene?: Scene;
   /** Test seam: override the auto-detected WebXR immersive-ar support. */
   arSupported?: boolean;
+  /** Open straight into AR measure (chosen from the method screen). */
+  startInAr?: boolean;
   onSceneChange?: (scene: Scene) => void;
   onPhotoChange?: (hasPhoto: boolean) => void;
   /** Fired when the AR session starts/ends (app hides/restores chrome). */
@@ -28,7 +30,7 @@ interface IntakeScreenProps {
  * (ADR-025 mode C); the ScaleTool confirms each wall's measure.
  * Localized strings (demo default English), no prices, preliminary label.
  */
-export function IntakeScreen({ locale, initialScene, arSupported, onSceneChange, onPhotoChange, onArSessionChange }: IntakeScreenProps) {
+export function IntakeScreen({ locale, initialScene, arSupported, startInAr = false, onSceneChange, onPhotoChange, onArSessionChange }: IntakeScreenProps) {
   const t = getStrings(locale);
   const [history] = useState(() => new SceneHistory(initialScene ?? createEmptyScene()));
   const [scene, setScene] = useState<Scene>(history.scene);
@@ -37,7 +39,7 @@ export function IntakeScreen({ locale, initialScene, arSupported, onSceneChange,
   const [proposal, setProposal] = useState<IntakeProposal | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [scaling, setScaling] = useState(false);
-  const [measuringAR, setMeasuringAR] = useState(false);
+  const [measuringAR, setMeasuringAR] = useState(startInAr);
   const [error, setError] = useState<string | null>(null);
   // Mode A entry before any photo (ADR-025): auto-detect WebXR immersive-ar
   // support on mount; the test seam overrides detection.

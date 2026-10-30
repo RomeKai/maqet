@@ -7,7 +7,7 @@ import type { Scene } from "./scene/types";
 describe("App stages", () => {
   it("stage capture renders IntakeScreen", () => {
     const t = getStrings(DEFAULT_LOCALE);
-    const html = renderToString(<App />);
+    const html = renderToString(<App initialView="work" />);
     expect(html).toContain(t["intake.upload.cta"]);
     expect(html).toContain(t["intake.upload.hint"]);
     expect(html).toContain(t["stage.capture"]);
@@ -40,7 +40,7 @@ describe("App stages", () => {
     const withCheck = renderToString(<App initialScene={withSceneCheck} />);
     expect(withCheck).toContain('data-testid="scene-view"');
 
-    const withoutScene = renderToString(<App />);
+    const withoutScene = renderToString(<App initialView="work" />);
     expect(withoutScene).not.toContain('data-testid="scene-view"');
     expect(withoutScene).toContain(t["sheet.hint"]);
   });

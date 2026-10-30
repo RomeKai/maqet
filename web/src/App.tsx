@@ -1,7 +1,10 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DEFAULT_LOCALE, getStrings, type Locale, type StringKey } from "./i18n";
 import { IntakeScreen } from "./intake/IntakeScreen";
 import { shouldAutoExpandMaquette, captureStepFromScene } from "./intake/captureSteps";
+import { HomeScreen } from "./home/HomeScreen";
+import { MethodScreen } from "./home/MethodScreen";
+import { isARSupported } from "./measure/xrAdapter";
 import { Header } from "./shell/Header";
 import { STAGES, Stepper } from "./shell/Stepper";
 import { SceneView } from "./view3d/SceneView";
@@ -21,12 +24,18 @@ const STAGE_TO_AGENT: Partial<Record<StringKey, AgentStage>> = {
   "stage.present": "present",
 };
 
+type CaptureView = "home" | "method" | "work";
+
 interface AppProps {
   initialLocale?: Locale;
+  /** Start inside the capture workspace instead of Home. A seeded scene implies it. */
+  initialView?: CaptureView;
+  /** Test seam: skip WebXR detection. */
+  arSupported?: boolean;
   initialScene?: Scene | null;
 }
 
-export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: AppProps) {
+export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initialView, arSupported }: AppProps) {
   const [locale, setLocale] = useState<Locale>(initialLocale);
   const [stage, setStage] = useState<StringKey>("stage.capture");
   const [scaleConfirmed, setScaleConfirmed] = useState(initialScene?.scale_confirmed === true);
@@ -34,6 +43,29 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: App
   const [intakeScene, setIntakeScene] = useState<Scene | null>(initialScene);
   const [selectedWallId, setSelectedWallId] = useState<string | null>(null);
   const [arSession, setArSession] = useState(false);
+  const [view, setView] = useState<CaptureView>(initialView ?? (initialScene ? "work" : "home"));
+  // The capture workspace mounts on first entry and then stays mounted (hidden)
+  // so going back to Home or the method list never drops the scene.
+  const [workMounted, setWorkMounted] = useState(view === "work");
+  const [startInAr, setStartInAr] = useState(false);
+  const [arAvailable, setArAvailable] = useState(arSupported ?? false);
+
+  useEffect(() => {
+    if (arSupported !== undefined) return;
+    let cancelled = false;
+    void isARSupported().then((ok) => {
+      if (!cancelled) setArAvailable(ok);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [arSupported]);
+
+  function enterWork(ar: boolean): void {
+    setStartInAr(ar);
+    setWorkMounted(true);
+    setView("work");
+  }
 
   // Agent wiring
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -111,6 +143,15 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: App
   );
 
   const stageIndex = STAGES.indexOf(stage);
+  const onCapture = stage === "stage.capture";
+  const showWork = onCapture && view === "work";
+
+  function goBack(): void {
+    if (onCapture && view === "work") setView("method");
+    else if (onCapture && view === "method") setView("home");
+    else if (stageIndex > 0) setStage(STAGES[stageIndex - 1] ?? "stage.capture");
+  }
+  const canGoBack = !(onCapture && view === "home");
   const wallsCount = intakeScene?.walls?.length ?? 0;
   const captureStep = captureStepFromScene(intakeScene ?? undefined);
   const maquetteExpanded = shouldAutoExpandMaquette(captureStep);
@@ -124,14 +165,27 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: App
         locale={locale}
         onLocaleChange={setLocale}
         scaleConfirmed={scaleConfirmed}
-        onBack={stageIndex > 0 ? () => setStage(STAGES[stageIndex - 1] ?? "stage.capture") : null}
+        onBack={canGoBack ? goBack : null}
       />
       <Stepper locale={locale} stage={stage} onSelect={setStage} />
 
       <ProBanner flags={professionalFlags} locale={locale} />
 
-      {stage === "stage.capture" ? (
-        <main className="viewport viewport-capture" aria-label={t["app.name"]}>
+      {onCapture && view === "home" && (
+        <HomeScreen
+          locale={locale}
+          captured={wallsCount > 0}
+          onStart={() => setView("method")}
+          onContinue={() => enterWork(false)}
+          onNewProject={() => setView("method")}
+        />
+      )}
+      {onCapture && view === "method" && (
+        <MethodScreen locale={locale} arSupported={arAvailable} onPhoto={() => enterWork(false)} onAr={() => enterWork(true)} />
+      )}
+      {onCapture ? (
+        workMounted && (
+        <main className="viewport viewport-capture" aria-label={t["app.name"]} style={showWork ? undefined : { display: "none" }}>
           {wallsCount === 0 && (
             <div className="viewport-placeholder">
               <p className="viewport-hint">{t["sheet.hint"]}</p>
@@ -144,12 +198,14 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: App
               onSceneChange={handleIntakeScene}
               onPhotoChange={setHasPhoto}
               onArSessionChange={setArSession}
+              startInAr={startInAr}
             />
           </div>
           {intakeScene !== null && wallsCount > 0 && (
             <MaquetteSheet key={captureStep} scene={intakeScene} locale={locale} selectedWallId={selectedWallId} onSelectWall={setSelectedWallId} initialExpanded={maquetteExpanded} />
           )}
         </main>
+        )
       ) : isDeliver ? (
         <main className="viewport viewport-deliver" aria-label={t["app.name"]}>
           <DeliverView scene={intakeScene} takeoff={null} locale={locale} />
@@ -167,6 +223,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: App
       )}
 
       <section className="sheet" aria-label={t["app.name"]}>
+        {(showWork || !onCapture) && (<>
         {isReform && <VariantTabs onSceneChange={handleIntakeScene} locale={locale} />}
 
         {isAgentStage ? (
@@ -185,6 +242,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: App
             </div>
           </>
         )}
+        </>)}
 
         <div className="sheet-foot">
           <span className="preliminary">{t["notice.preliminary"]}</span>
