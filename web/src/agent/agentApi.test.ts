@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  TURN_TIMEOUT_MS,
   AgentApiError,
   parseTurnResponse,
   sendTurn,
@@ -143,14 +144,14 @@ describe("sendTurn", () => {
       expect(init.signal).toBeInstanceOf(AbortSignal);
     });
 
-    it("aborts a hung request after the default 60 s and rejects with a timeout error", async () => {
+    it("aborts a hung request after the default timeout and rejects with a timeout error", async () => {
       fetchMock.mockImplementation(hangingFetch);
       const outcome = sendTurn({ scene, message: "hi", stage: "reform" }).then(
         () => "resolved",
         (err: unknown) => err,
       );
 
-      await vi.advanceTimersByTimeAsync(59_999);
+      await vi.advanceTimersByTimeAsync(TURN_TIMEOUT_MS - 1);
       expect(fetchMock.mock.calls[0]?.[1]?.signal?.aborted).toBe(false);
       await vi.advanceTimersByTimeAsync(1);
 
