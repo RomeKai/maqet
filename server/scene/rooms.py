@@ -406,7 +406,13 @@ def recompute_rooms(
         claimed.add(hit)
         new_poly = candidates[hit]
         if old is not None and _rings_equal(list(old.polygon), new_poly):
-            new_rooms.append(old)
+            # Keep the polygon object; name/function come from the candidate
+            # so rename_room edits survive recomputation.
+            new_rooms.append(
+                old.model_copy(
+                    update={"name": room.name, "function": room.function}
+                )
+            )
         else:
             new_rooms.append(
                 Room(

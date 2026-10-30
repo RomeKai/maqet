@@ -22,6 +22,14 @@ one or two short lines: the 3D view shows the result.
   attaches to the house. The executor builds its walls (reusing the shared
   wall) and cuts a connecting door; never add those walls or that door
   yourself. Only add another door if the user asks for one elsewhere.
+- To change measures of what exists, use the edit tools with meters from the
+  user, never coordinates: `resize_room` ("make the bedroom 3.5 x 4"),
+  `set_wall_length`, `move_wall` (slide a wall), `set_opening_size` (door or
+  window width/height), `split_room` (partition wall), `rename_room`
+  (name/function). Prefer these over removing and re-adding walls.
+- A door or window anywhere else: `add_opening` with `kind` door or window.
+  Removing a wall: `remove_wall` (a load-bearing wall carries the
+  professional flag). `undo` reverts the last change.
 - After acting, say what changed in plain words (1–2 lines).
 - Ask a question ONLY when the request is ambiguous AND the choice matters
   ("¿la ventana en el muro norte o en el este?"). Offer at most 2 options.

@@ -88,6 +88,47 @@ class MoveOpeningInput(_ToolInput):
     selected: SelectedRef | None = None
 
 
+class ResizeRoomInput(_ToolInput):
+    room: str | None = None
+    width_m: float = Field(gt=0)
+    depth_m: float = Field(gt=0)
+    selected: SelectedRef | None = None
+
+
+class SetWallLengthInput(_ToolInput):
+    wall: str | None = None
+    length_m: float = Field(gt=0)
+    selected: SelectedRef | None = None
+
+
+class MoveWallInput(_ToolInput):
+    wall: str | None = None
+    offset_m: float
+    selected: SelectedRef | None = None
+
+
+class SetOpeningSizeInput(_ToolInput):
+    opening: str | None = None
+    width_m: float | None = Field(default=None, gt=0.0)
+    height_m: float | None = Field(default=None, gt=0.0)
+    sill_m: float | None = Field(default=None, ge=0.0)
+    selected: SelectedRef | None = None
+
+
+class SplitRoomInput(_ToolInput):
+    room: str | None = None
+    axis: Literal["x", "y"] = "x"
+    at_ratio: float = Field(default=0.5, gt=0.0, lt=1.0)
+    selected: SelectedRef | None = None
+
+
+class RenameRoomInput(_ToolInput):
+    room: str | None = None
+    name: str | None = Field(default=None, min_length=1)
+    function: str | None = Field(default=None, min_length=1)
+    selected: SelectedRef | None = None
+
+
 class UndoInput(_ToolInput):
     pass
 
@@ -141,6 +182,12 @@ TOOL_MODELS: dict[str, type[BaseModel]] = {
     "remove_wall": RemoveWallInput,
     "add_opening": AddOpeningInput,
     "move_opening": MoveOpeningInput,
+    "resize_room": ResizeRoomInput,
+    "set_wall_length": SetWallLengthInput,
+    "move_wall": MoveWallInput,
+    "set_opening_size": SetOpeningSizeInput,
+    "split_room": SplitRoomInput,
+    "rename_room": RenameRoomInput,
     "undo": UndoInput,
     "list_catalog": ListCatalogInput,
     "place_furniture": PlaceFurnitureInput,

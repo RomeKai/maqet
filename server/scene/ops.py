@@ -264,7 +264,74 @@ def move_opening(
     )
 
 
+EDIT_OPS = (
+    "resize_room",
+    "set_wall_length",
+    "move_wall",
+    "set_opening_size",
+    "split_room",
+    "rename_room",
+)
+
+
+def edit_geometry(
+    scene: Scene,
+    label: str,
+    *,
+    walls: tuple[Wall, ...],
+    openings: tuple[Opening, ...],
+    rooms: tuple[Room, ...],
+    actor: str = "agent",
+) -> tuple[Scene, OpResult]:
+    """Replace walls/openings/rooms with a deterministically computed result.
+
+    One pure op behind every edit tool (resize_room, set_wall_length, move_wall,
+    set_opening_size, split_room, rename_room): the executor computes the new
+    geometry in code, this validates it exactly like any other op and records
+    the full result in the args so replay reproduces it.
+    """
+    if (err := _check_actor(actor)) is not None:
+        return _fail(scene, err)
+    if label not in EDIT_OPS:
+        return _fail(scene, f"unknown edit op {label!r}")
+    try:
+        new_walls = [Wall.model_validate(w.model_dump()) for w in walls]
+        new_openings = [Opening.model_validate(o.model_dump()) for o in openings]
+        new_rooms = [Room.model_validate(r.model_dump()) for r in rooms]
+    except ValidationError as exc:
+        return _fail(scene, f"invalid geometry: {exc.errors()[0]['msg']}")
+    candidate = scene.model_copy(
+        update={"walls": new_walls, "openings": new_openings, "rooms": new_rooms}
+    )
+    before = {
+        "w": {w.id: w for w in scene.walls},
+        "o": {o.id: o for o in scene.openings},
+        "r": {r.id: r for r in scene.rooms},
+    }
+    changed = [w.id for w in new_walls if before["w"].get(w.id) != w]
+    changed += [o.id for o in new_openings if before["o"].get(o.id) != o]
+    changed += [r.id for r in new_rooms if before["r"].get(r.id) != r]
+    args = {
+        "walls": [w.model_dump() for w in new_walls],
+        "openings": [o.model_dump() for o in new_openings],
+        "rooms": [r.model_dump() for r in new_rooms],
+    }
+    return _apply(scene, label, args, candidate, changed, actor)
+
+
+def _replay_edit(label: str):
+    return lambda s, a: edit_geometry(
+        s,
+        label,
+        walls=tuple(Wall.model_validate(w) for w in a["walls"]),
+        openings=tuple(Opening.model_validate(o) for o in a["openings"]),
+        rooms=tuple(Room.model_validate(r) for r in a["rooms"]),
+        actor=a.get("_actor", "agent"),
+    )
+
+
 _OPS = {
+    **{label: _replay_edit(label) for label in EDIT_OPS},
     "add_room": lambda s, a: add_room(
         s,
         Room.model_validate(a["room"]),

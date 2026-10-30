@@ -14,6 +14,12 @@ STAGES: dict[str, tuple[str, ...]] = {
         "remove_wall",
         "add_opening",
         "move_opening",
+        "resize_room",
+        "set_wall_length",
+        "move_wall",
+        "set_opening_size",
+        "split_room",
+        "rename_room",
         "undo",
     ),
     "design": (

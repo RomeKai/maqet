@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from server.agent import stages as stage_table
 from server.agent import tools as tool_contracts
+from server.agent import edit_tools
 from server.agent.room_walls import enclosing_walls
 from server.scene import ops
 from server.scene.models import Opening, Room, Scene, Wall
@@ -458,6 +459,22 @@ def _handle_undo(scene: Scene, history: list, args: dict) -> tuple[Scene, ToolRe
                 update={"openings": [o for o in scene.openings if o.id not in dropped]}
             )
         changed = sorted(dropped)
+    elif record.op in ops.EDIT_OPS:
+        if snap.get("kind") != "geometry":
+            history.append(record)
+            return _fail(
+                scene,
+                "history.corrupt",
+                f"cannot undo {record.op!r}: missing snapshot; history unchanged",
+            )
+        rebuilt = scene.model_copy(
+            update={
+                "walls": [Wall.model_validate(w) for w in snap["walls"]],
+                "openings": [Opening.model_validate(o) for o in snap["openings"]],
+                "rooms": [Room.model_validate(r) for r in snap["rooms"]],
+            }
+        )
+        changed = [record.op]
     elif record.op == "remove_wall":
         if not all(k in snap for k in ("wall", "wall_index", "openings", "opening_indices")):
             history.append(record)
@@ -562,7 +579,28 @@ _MISSING_OP = {
     "render_view": "render_view",
 }
 
+def _make_edit_handler(tool: str):
+    def handler(scene: Scene, history: list, a) -> tuple[Scene, ToolResult]:
+        try:
+            new_scene, res, snapshot = edit_tools.run_edit(scene, tool, a)
+        except edit_tools.EditError as exc:
+            return _fail(scene, exc.code, exc.message)
+        if not res.ok:
+            return _op_fail(scene, res)
+        edit_tools.attach_history(history, res.record, snapshot)
+        return new_scene, ToolResult(
+            ok=True,
+            warnings=[str(w) for w in res.warnings],
+            flags=[str(f) for f in res.flags],
+            changed_ids=list(res.changed_ids),
+            version=new_scene.version,
+        )
+
+    return handler
+
+
 _HANDLERS = {
+    **{tool: _make_edit_handler(tool) for tool in edit_tools.COMPUTE},
     "add_room": _handle_add_room,
     "add_wall": _handle_add_wall,
     "remove_wall": _handle_remove_wall,
