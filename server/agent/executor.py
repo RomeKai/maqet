@@ -161,7 +161,9 @@ def _handle_add_room(
         id=rid, name=a.name or a.function, polygon=poly, function=a.function, level=a.level
     )
     # Upper levels have no walls of their own (models.Room.level).
-    new_walls, door = enclosing_walls(scene, poly) if a.level == 1 else ([], None)
+    new_walls, door, door_warnings = (
+        enclosing_walls(scene, poly) if a.level == 1 else ([], None, [])
+    )
     new_scene, res = ops.add_room(
         scene,
         room,
@@ -193,7 +195,7 @@ def _handle_add_room(
     )
     return new_scene, ToolResult(
         ok=True,
-        warnings=[str(w) for w in res.warnings],
+        warnings=[*door_warnings, *(str(w) for w in res.warnings)],
         flags=flags,
         changed_ids=list(res.changed_ids),
         version=new_scene.version,

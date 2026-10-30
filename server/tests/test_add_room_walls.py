@@ -115,3 +115,46 @@ def test_long_house_wall_flag_is_a_known_span_rule() -> None:
     # an 8 m masonry run without a cross support needs a bond beam / review.
     _, res = _add_bedroom(_house_3x8(), [])
     assert any(f.startswith(PRO_FLAG_SPAN) for f in res.flags)
+
+
+def _overlaps(a, b) -> bool:
+    return not (a.offset_m + a.width_m <= b.offset_m or b.offset_m + b.width_m <= a.offset_m)
+
+
+def test_auto_door_avoids_an_existing_window_on_the_shared_wall() -> None:
+    from server.scene.models import Opening
+
+    scene = _house_3x8()
+    # 0.6 m window near the centre of the 3 m shared wall w2.
+    scene = scene.model_copy(
+        update={
+            "openings": [
+                Opening(id="v1", wall_id="w2", kind="window", offset_m=1.2,
+                        width_m=0.6, height_m=1.1, sill_m=0.9)
+            ]
+        }
+    )
+    new, res = _add_bedroom(scene, [])
+    assert res.ok, res.errors
+    doors = [o for o in new.openings if o.kind == "door"]
+    assert len(doors) == 1
+    window = next(o for o in new.openings if o.id == "v1")
+    assert not _overlaps(doors[0], window)
+    assert doors[0].offset_m + doors[0].width_m <= 3.0 + 1e-9
+
+
+def test_no_free_span_means_no_door_and_a_warning() -> None:
+    from server.scene.models import Opening
+
+    scene = _house_3x8().model_copy(
+        update={
+            "openings": [
+                Opening(id="v1", wall_id="w2", kind="window", offset_m=0.3,
+                        width_m=2.4, height_m=1.1, sill_m=0.9)
+            ]
+        }
+    )
+    new, res = _add_bedroom(scene, [])
+    assert res.ok, res.errors
+    assert [o for o in new.openings if o.kind == "door"] == []
+    assert any("door" in w.lower() for w in res.warnings)
