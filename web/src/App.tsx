@@ -210,7 +210,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
         </main>
         )
       ) : isDeliver ? (
-        <main className="viewport viewport-deliver" aria-label={t["app.name"]}>
+        <main className="flex min-h-0 flex-1 flex-col" aria-label={t["app.name"]}>
           <DeliverView scene={intakeScene} takeoff={null} locale={locale} />
         </main>
       ) : (

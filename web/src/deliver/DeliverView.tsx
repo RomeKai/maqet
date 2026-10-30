@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
+import { FileDown, ShieldAlert } from "lucide-react";
 import type { Locale } from "../i18n";
 import type { Scene } from "../scene/types";
+import { isWallEstimated } from "../scene/store";
+import { Banner, Button } from "../ui";
 import { getDeliverStrings } from "./deliver.i18n";
 import { TakeoffView } from "./TakeoffView";
 import type { Takeoff } from "./takeoffTypes";
@@ -24,6 +27,7 @@ export function DeliverView({ scene, takeoff, locale }: DeliverViewProps): React
   const t = getDeliverStrings(locale);
   const [dxfBusy, setDxfBusy] = useState(false);
   const [dxfError, setDxfError] = useState<string | null>(null);
+  const estimatedWalls = (scene?.walls ?? []).filter(isWallEstimated).length;
 
   // Bust snapshot cache when scene version changes
   const [snapKey, setSnapKey] = useState(0);
@@ -60,28 +64,62 @@ export function DeliverView({ scene, takeoff, locale }: DeliverViewProps): React
   }
 
   return (
-    <div className="deliver-view" data-testid="deliver-view">
-      <div className="deliver-snapshot-row">
-        <div className="deliver-snapshot">
+    <div className="flex min-h-0 w-full flex-1 flex-col self-stretch bg-background font-sans" data-testid="deliver-view">
+      <div className="shrink-0 border-b border-border px-3 py-2">
+        <p
+          className="flex items-center gap-2 rounded-xl border-2 border-foreground bg-card px-3 py-2 text-[15px] font-bold leading-snug"
+          data-testid="preliminary-label"
+        >
+          <ShieldAlert className="size-5 shrink-0 text-danger" aria-hidden />
+          {t["footer.preliminary"]}
+        </p>
+      </div>
+
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+        {dxfError ? (
+          <Banner
+            tone="danger"
+            title={t["dxf.error.title"]}
+            action={
+              <Button variant="danger" onClick={() => void downloadDxf()}>
+                {t["action.retry"]}
+              </Button>
+            }
+          >
+            {dxfError}
+          </Banner>
+        ) : null}
+
+        {estimatedWalls > 0 ? (
+          <Banner tone="warning" title={t["walls.estimated.title"].replace("{n}", String(estimatedWalls))}>
+            {t["walls.estimated.body"]}
+          </Banner>
+        ) : scene?.walls?.length ? (
+          <Banner tone="success" title={t["walls.confirmed.title"]}>
+            {t["walls.confirmed.body"]}
+          </Banner>
+        ) : null}
+
+        <div className="overflow-hidden rounded-xl border-2 border-border bg-card">
           <img
             key={snapKey}
             src={snapshotSrc(locale)}
-            alt="Plan snapshot"
-            className="deliver-snapshot-img"
+            alt={t["snapshot.alt"]}
+            className="block w-full"
             loading="lazy"
           />
         </div>
-        <div className="deliver-dxf">
-          <button type="button" className="deliver-export" onClick={() => void downloadDxf()} disabled={dxfBusy || !scene}>
-            {dxfBusy ? "…" : "DXF"}
-          </button>
-          {dxfError ? <p className="deliver-error">{dxfError}</p> : null}
-        </div>
+
+        {takeoff ? <TakeoffView takeoff={takeoff} locale={locale} /> : null}
       </div>
-      <p className="preliminary" data-testid="preliminary-label">
-        {t["footer.preliminary"]}
-      </p>
-      {takeoff ? <TakeoffView takeoff={takeoff} locale={locale} /> : null}
+
+      <div className="shrink-0 space-y-2 border-t-2 border-foreground bg-card p-3">
+        <Button className="w-full" onClick={() => void downloadDxf()} disabled={dxfBusy || !scene}>
+          <FileDown className="size-5" aria-hidden />
+          {dxfBusy ? t["action.preparing"] : t["action.dxf"]}
+        </Button>
+        <p className="text-center text-sm text-muted-foreground">{t["dxf.hint"]}</p>
+      </div>
     </div>
   );
 }
