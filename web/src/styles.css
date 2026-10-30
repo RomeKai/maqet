@@ -663,3 +663,37 @@ body {
 
 /* Invisible 32px finger target over each opening (Select mode). */
 .intake-svg .opening-hit { stroke: transparent; stroke-width: 32px; stroke-linecap: round; pointer-events: stroke; cursor: pointer; }
+
+/* Mode A: every AR tap target is at least 48 px (Android guideline). */
+.ar-hud .chip,
+.ar-hud .btn-primary,
+.ar-measure .chip,
+.ar-measure .btn-primary,
+.ar-confirm .chip,
+.ar-confirm .btn-primary {
+  min-height: 48px;
+  min-width: 48px;
+}
+
+.ar-hud-ceiling-input {
+  min-height: 48px;
+}
+
+.ar-hud-wallheight {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(96px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.ar-hud-wallheight > summary {
+  cursor: pointer;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+}

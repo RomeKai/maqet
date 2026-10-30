@@ -171,6 +171,17 @@ def test_effective_height() -> None:
     assert items["brick-solid-common-20"] == pytest.approx((43.515 + 1.2) * 108 * 1.05)
 
 
+def test_per_wall_height_override_lowers_wall_quantities() -> None:
+    """A wall overridden to 2.40 m (uneven ceiling) counts at 2.40, not 2.60."""
+    scene = _load("croquis_ampliacion.truth.json")
+    data = scene.model_dump()
+    data["walls"][0]["height_m"] = 2.4  # w_s1: 3 m long, 0.2 m exterior
+    takeoff = compute_takeoff(Scene(**data))
+    items = _items_by_material(takeoff, "walls")
+    # gross 3*2.4 = 7.2 instead of 7.8 -> net exterior 43.515 - 0.6 m2.
+    assert items["brick-solid-common-20"] == pytest.approx((43.515 - 0.6) * 108 * 1.05)
+
+
 def test_professional_flags_and_csv() -> None:
     scene = _load("croquis_ampliacion.truth.json")
     data = scene.model_dump()

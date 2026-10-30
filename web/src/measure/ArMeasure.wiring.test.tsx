@@ -33,11 +33,8 @@ function reducerOps4Walls() {
   state = captureReducer(state, { type: "baseTap", point: B }).state;
   state = captureReducer(state, { type: "ceilingTap", point: CEIL(B, 2.6) }).state;
   state = captureReducer(state, { type: "baseTap", point: C }).state;
-  state = captureReducer(state, { type: "ceilingTap", point: CEIL(C, 2.75) }).state;
   state = captureReducer(state, { type: "baseTap", point: D }).state;
-  state = captureReducer(state, { type: "ceilingTap", point: CEIL(D, 2.5) }).state;
   state = captureReducer(state, { type: "baseTap", point: [0.1, 1.1, 0.05] }).state;
-  state = captureReducer(state, { type: "ceilingTap", point: CEIL(A, 2.9) }).state;
   const { ops } = toSceneOps(state);
   return { state, ops };
 }
@@ -68,7 +65,7 @@ describe("ArMeasure wiring (reducer -> component -> Scene ops parity)", () => {
     });
     expect(walls.map((w) => w.id)).toEqual(["wall-1", "wall-2", "wall-3", "wall-4"]);
     expect(walls.map((w) => w.measured_length_m)).toEqual([4, 3, 4, 3]);
-    expect(walls.map((w) => w.height_m)).toEqual([2.6, 2.75, 2.5, 2.9]);
+    expect(walls.map((w) => w.height_m)).toEqual([2.6, 2.6, 2.6, 2.6]);
     // Applying them to an empty scene yields the same room
     let scene = createEmptyScene("parity");
     for (const op of ops) scene = applySceneOp(scene, op);

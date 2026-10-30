@@ -28,13 +28,13 @@ describe("fix 2: ceiling step no longer needs a hit-test (ceilingConfirm with ty
     expect(r.state.pendingEnd).toBeNull();
   });
 
-  it("typed outside 2-4 m is still kept, flagged per existing rules", () => {
+  it("typed outside 2-4 m is rejected so the user can retype", () => {
     let s = withFloor();
     s = captureReducer(s, { type: "baseTap", point: A }).state;
     s = captureReducer(s, { type: "baseTap", point: B }).state;
     const r = captureReducer(s, { type: "ceilingConfirm", heightM: 1.2 });
-    expect(r.state.walls[0]?.heightM).toBeCloseTo(1.2, 9);
-    expect(r.state.walls[0]?.flaggedHeight).toBe(true);
+    expect(r.error).toBe("bad-height");
+    expect(r.state.walls).toHaveLength(0);
   });
 
   it("rejects non-finite or non-positive typed height", () => {

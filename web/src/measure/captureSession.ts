@@ -42,6 +42,8 @@ export interface CapturedWall {
   heightM: number | null;
   /** True when the height fell outside MIN/MAX_ROOM_HEIGHT_M. */
   flaggedHeight: boolean;
+  /** True when the user typed a height for this wall (sloped/uneven ceilings). */
+  heightOverridden?: boolean;
 }
 
 /** Walls flow only: door/window unlock after closing or "Finish walls" (W3). */
@@ -70,6 +72,11 @@ export interface CaptureState {
   openings: CapturedOpening[];
   /** Pending opening: first diagonal corner, until second tap completes it. */
   pendingOpening: PendingOpening | null;
+  /**
+   * The ONE ceiling height of the room (m), captured once on wall 1 and reused
+   * for every wall. null until captured. Always inside 2.0-4.0 m.
+   */
+  roomHeightM: number | null;
   /** Bounded undo stack of snapshots (states, not events). */
   past: CaptureSnapshot[];
 }
@@ -98,6 +105,8 @@ export type CaptureEvent =
   | { type: "baseTap"; point: Vec3 }
   | { type: "ceilingTap"; point: Vec3 }
   | { type: "ceilingConfirm"; heightM: number }
+  | { type: "setRoomHeight"; heightM: number }
+  | { type: "setWallHeight"; wallId: string; heightM: number }
   | { type: "finishWalls" }
   | { type: "modeChange"; mode: CaptureMode }
   | { type: "openingTap"; point: Vec3 }
@@ -112,6 +121,7 @@ export type CaptureError =
   | "mode-locked"
   | "no-pending"
   | "bad-tap"
+  | "bad-height"
   | "opening-no-wall"
   | "opening-outside"
   | "opening-degenerate";
@@ -134,6 +144,7 @@ export function initialCaptureState(): CaptureState {
     mode: "walls",
     openings: [],
     pendingOpening: null,
+    roomHeightM: null,
     past: [],
   };
 }
@@ -213,6 +224,28 @@ export function captureReducer(
           closePending: false,
         });
       }
+      // Room height known: this base tap COMPLETES the pending wall (the
+      // height is captured once per room, never per wall).
+      if (state.roomHeightM !== null && state.pendingEnd === null) {
+        const startFirst = state.walls[0]?.start;
+        let end = corner;
+        let closes = false;
+        if (startFirst !== undefined && isCloseTap(corner, startFirst)) {
+          if (state.walls.length >= 3) {
+            end = { ...startFirst };
+            closes = true;
+          } else {
+            return { state, error: null };
+          }
+        }
+        return accepted(state, {
+          walls: [...state.walls, newWall(state, state.pendingStart, end, state.roomHeightM)],
+          pendingStart: end,
+          pendingEnd: null,
+          closePending: false,
+          closed: closes || state.closed,
+        });
+      }
       // A base tap while the ceiling is pending re-taps the far end.
       // 3+ walls traced: a tap near corner A snaps to it (W2) — still
       // followed by that wall's ceiling tap. Earlier near-A taps are
@@ -234,33 +267,14 @@ export function captureReducer(
     case "ceilingTap": {
       if (!isValidCorner(event.point)) return rejected(state, "bad-tap");
       if (state.floorY === null) return rejected(state, "floor-first");
-      // Done means done: taps after done change nothing (same treatment as
-      // closed/finished — the session's content is final).
+      // Done means done: taps after done change nothing.
       if (state.closed || state.finished || state.done) {
         return { state, error: null };
       }
       if (state.pendingStart === null || state.pendingEnd === null) {
         return rejected(state, "no-pending");
       }
-      // Raw height, never clamped: implausible values are KEPT with a flag.
-      const heightM = event.point[1] - state.floorY;
-      const flaggedHeight = !(
-        heightM >= MIN_ROOM_HEIGHT_M && heightM <= MAX_ROOM_HEIGHT_M
-      );
-      const wall: CapturedWall = {
-        id: `wall-${state.walls.length + 1}`,
-        start: state.pendingStart,
-        end: state.pendingEnd,
-        heightM,
-        flaggedHeight,
-      };
-      return accepted(state, {
-        walls: [...state.walls, wall],
-        pendingStart: state.pendingEnd,
-        pendingEnd: null,
-        closePending: false,
-        closed: state.closePending || state.closed,
-      });
+      return applyRoomHeight(state, event.point[1] - state.floorY);
     }
 
     case "ceilingConfirm": {
@@ -273,23 +287,26 @@ export function captureReducer(
       if (state.pendingStart === null || state.pendingEnd === null) {
         return rejected(state, "no-pending");
       }
-      const heightM = event.heightM;
-      const flaggedHeight = !(
-        heightM >= MIN_ROOM_HEIGHT_M && heightM <= MAX_ROOM_HEIGHT_M
-      );
-      const wall: CapturedWall = {
-        id: `wall-${state.walls.length + 1}`,
-        start: state.pendingStart,
-        end: state.pendingEnd,
-        heightM,
-        flaggedHeight,
-      };
+      return applyRoomHeight(state, event.heightM);
+    }
+
+    case "setRoomHeight": {
+      if (state.floorY === null) return rejected(state, "floor-first");
+      if (state.done) return { state, error: null };
+      return applyRoomHeight(state, event.heightM);
+    }
+
+    case "setWallHeight": {
+      if (state.done) return { state, error: null };
+      const target = state.walls.find((w) => w.id === event.wallId);
+      if (target === undefined) return rejected(state, "no-pending");
+      if (!isPlausibleHeight(event.heightM)) return rejected(state, "bad-height");
       return accepted(state, {
-        walls: [...state.walls, wall],
-        pendingStart: state.pendingEnd,
-        pendingEnd: null,
-        closePending: false,
-        closed: state.closePending || state.closed,
+        walls: state.walls.map((w) =>
+          w.id === event.wallId
+            ? { ...w, heightM: event.heightM, flaggedHeight: false, heightOverridden: true }
+            : w,
+        ),
       });
     }
 
@@ -413,6 +430,53 @@ export function captureReducer(
       return accepted(state, { done: true });
     }
   }
+}
+
+function isPlausibleHeight(heightM: number): boolean {
+  return (
+    Number.isFinite(heightM) &&
+    heightM >= MIN_ROOM_HEIGHT_M &&
+    heightM <= MAX_ROOM_HEIGHT_M
+  );
+}
+
+function newWall(
+  state: CaptureState,
+  start: CapturedCorner,
+  end: CapturedCorner,
+  heightM: number,
+): CapturedWall {
+  return {
+    id: `wall-${state.walls.length + 1}`,
+    start,
+    end,
+    heightM,
+    flaggedHeight: false,
+  };
+}
+
+/**
+ * Store the ONE room height. Out-of-range values are rejected (nothing
+ * changes) so the user retypes; a valid value is applied to every wall already
+ * captured and completes the pending wall, if any.
+ */
+function applyRoomHeight(state: CaptureState, heightM: number): CaptureResult {
+  if (!isPlausibleHeight(heightM)) return rejected(state, "bad-height");
+  // Walls the user overrode by hand keep their own height.
+  const walls = state.walls.map((w) =>
+    w.heightOverridden === true ? w : { ...w, heightM, flaggedHeight: false },
+  );
+  if (state.pendingStart !== null && state.pendingEnd !== null) {
+    return accepted(state, {
+      roomHeightM: heightM,
+      walls: [...walls, newWall(state, state.pendingStart, state.pendingEnd, heightM)],
+      pendingStart: state.pendingEnd,
+      pendingEnd: null,
+      closePending: false,
+      closed: state.closePending || state.closed,
+    });
+  }
+  return accepted(state, { roomHeightM: heightM, walls });
 }
 
 function wallLength(w: CapturedWall): number {

@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MeasureReview } from "./MeasureReview";
 import type { Scene } from "../scene/types";
+import type { CaptureError } from "./captureSession";
 import {
   applySceneOp,
   type SceneOp,
@@ -11,6 +12,8 @@ import type { Vec3 } from "./cornerMath";
 import {
   captureReducer,
   initialCaptureState,
+  type CaptureEvent,
+  type CaptureResult,
   stepKey,
   toSceneOps,
   type CaptureState,
@@ -214,6 +217,8 @@ interface ArHudProps {
   /** Live ray height on the ceiling step (written via overlay frame, no setState/frame). */
   previewCeilM?: number | null;
   onCeilingConfirm?: (heightM: number) => void;
+  /** Per-wall override: type a height for one wall (sloped/uneven ceilings). */
+  onWallHeight?: (wallId: string, heightM: number) => void;
   // Legacy props (kept for compat, ignored when capture provided)
   previewM?: number | null;
   targetLengthM?: number | null;
@@ -253,6 +258,7 @@ export function ArHud({
   measureLocale,
   previewCeilM = null,
   onCeilingConfirm = noopArHudActionNumber,
+  onWallHeight,
   previewM = null,
   targetLengthM = null,
   stepLabel = "",
@@ -287,6 +293,7 @@ export function ArHud({
     const modeUnlocked = capture.closed || capture.finished;
     const isWalls = capture.mode === "walls";
     const ceilingStep = sk === "ceiling";
+    const lastWall = capture.walls[capture.walls.length - 1];
     return (
       <div ref={hudRef} className="ar-hud" role="dialog" aria-label={t["measure.ar.title"]}>
         {overlayFrameRef !== undefined && overlayCorners !== undefined && (
@@ -333,6 +340,31 @@ export function ArHud({
               {tMeasure(ml, "ceiling.useDefault")}
             </button>
           </div>
+        )}
+        {!ceilingStep && isWalls && !capture.done && !capture.finished && lastWall !== undefined && (
+          <details className="ar-hud-wallheight">
+            <summary className="chip">
+              {tMeasure(ml, "wallHeight.summary", {
+                n: capture.walls.length,
+                h: formatMeasureM(ml === "en" ? "en" : "es-AR", lastWall.heightM ?? 0),
+              })}
+            </summary>
+            <form
+              className="ar-hud-ceiling-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const input = (e.currentTarget.elements.namedItem("wallh") as HTMLInputElement | null)?.value ?? "";
+                const n = parseTypedHeightM(input);
+                if (n !== null) onWallHeight?.(lastWall.id, n);
+              }}
+            >
+              <label className="ar-hud-ceiling-label" htmlFor="ar-wallh-input">
+                {tMeasure(ml, "wallHeight.label", { n: capture.walls.length })}
+              </label>
+              <input id="ar-wallh-input" name="wallh" className="ar-hud-ceiling-input" inputMode="decimal" placeholder={tMeasure(ml, "ceiling.typePlaceholder")} />
+              <button type="submit" className="chip chip-primary">{tMeasure(ml, "wallHeight.set")}</button>
+            </form>
+          </details>
         )}
         {debugFrames !== null && <p className="ar-hud-debug" role="status">{`frames: ${debugFrames}`}</p>}
         <div className="ar-hud-bar">
@@ -412,12 +444,17 @@ export function ArMeasure({
   // --- Capture state: single source of truth for Mode A walls flow.
   // React's reducer must return CaptureState; the pure reducer returns
   // {state, error} so we unwrap here and check errors via direct calls.
-  const [capture, dispatch] = useReducer(
-    (s: CaptureState, e: import("./captureSession").CaptureEvent): CaptureState =>
-      captureReducer(s, e).state,
-    null as unknown as CaptureState,
-    () => initialCaptureState(),
-  );
+  // The XR callbacks are created once at session start, so they must read the
+  // LATEST state through a ref (a closure over `capture` would freeze the
+  // initial empty state and every tap would restart the flow).
+  const [capture, setCapture] = useState<CaptureState>(() => initialCaptureState());
+  const captureRef = useRef<CaptureState>(capture);
+  const send = useCallback((event: CaptureEvent): CaptureResult => {
+    const result = captureReducer(captureRef.current, event);
+    captureRef.current = result.state;
+    setCapture(result.state);
+    return result;
+  }, []);
   const [hudError, setHudError] = useState<string | null>(null);
   const [showStartOverConfirm, setShowStartOverConfirm] = useState(false);
   const [showReview, setShowReview] = useState(false);
@@ -448,41 +485,37 @@ export function ArMeasure({
     return () => { cancelled = true; };
   }, [adapter]);
 
+  /** Map a rejected reducer event to the HUD pill (null clears it). */
+  const pillFor = useCallback((error: CaptureError | null): string | null => {
+    if (error === null) return null;
+    if (error === "bad-height") return tMeasure(ml, "pill.badHeight");
+    if (error === "mode-locked") return tMeasure(ml, "pill.modeLocked");
+    if (error === "floor-first") return tMeasure(ml, "pill.floorFirst");
+    return tMeasure(ml, "pill.badTap");
+  }, [ml]);
+
   const handleTapAtomic = useCallback((point: Vec3, horizontal: boolean) => {
-    const st = capture;
+    const st = captureRef.current;
     // Openings mode: route to openingTap
     if (st.mode === "door" || st.mode === "window") {
-      const r = captureReducer(st, { type: "openingTap", point });
-      dispatch({ type: "openingTap", point });
-      if (r.error) setHudError(tMeasure(ml, `pill.${r.error}`));
-      else setHudError(null);
+      setHudError(pillFor(send({ type: "openingTap", point }).error));
       return;
     }
     if (st.floorY === null) {
-      const r1 = captureReducer(st, { type: "floorHit", point, horizontal });
-      dispatch({ type: "floorHit", point, horizontal });
-      const skAfterFloor = stepKey(r1.state);
-      if (skAfterFloor === "floor") {
+      const r1 = send({ type: "floorHit", point, horizontal });
+      if (stepKey(r1.state) === "floor") {
         setHudError(tMeasure(ml, "pill.floorFirst"));
         return;
       }
-      // Treat same tap as base if routing now expects a base/end.
-      if (skAfterFloor === "base" || skAfterFloor === "end") {
-        const r2 = captureReducer(r1.state, { type: "baseTap", point });
-        dispatch({ type: "baseTap", point });
-        if (r2.error) setHudError(r2.error === "bad-tap" ? tMeasure(ml, "pill.badTap") : null);
-        else setHudError(null);
-        return;
-      }
+      // Treat the same tap as the first base once the floor datum exists.
+      setHudError(pillFor(send({ type: "baseTap", point }).error));
       return;
     }
     const sk = stepKey(st);
     if (sk === "base" || sk === "end") {
-      const r = captureReducer(st, { type: "baseTap", point });
-      dispatch({ type: "baseTap", point });
-      setHudError(r.error === "bad-tap" ? tMeasure(ml, "pill.badTap") : null);
+      setHudError(pillFor(send({ type: "baseTap", point }).error));
     } else if (sk === "ceiling") {
-      // No hit-test needed: tap confirms the ray height live-previewed on the quad.
+      // No hit-test needed: the tap confirms the ray height live-previewed on the quad.
       const h = ceilingHeightFromCenterRay(
         st.pendingStart,
         st.pendingEnd,
@@ -493,24 +526,20 @@ export function ArMeasure({
         setHudError(tMeasure(ml, "pill.badTap"));
         return;
       }
-      const r = captureReducer(st, { type: "ceilingConfirm", heightM: h });
-      dispatch({ type: "ceilingConfirm", heightM: h });
-      if (r.error) setHudError(tMeasure(ml, "pill.badTap"));
-      else if (r.state.walls[r.state.walls.length - 1]?.flaggedHeight) setHudError(tMeasure(ml, "pill.checkHeight"));
-      else setHudError(null);
+      setHudError(pillFor(send({ type: "ceilingConfirm", heightM: h }).error));
     }
-  }, [capture, dispatch, ml]);
+  }, [send, pillFor, ml]);
 
-  /** Shared confirm path for the ceiling pill buttons + input (fix 2). */
+  /** Per-wall override typed by the user. */
+  const handleWallHeight = useCallback((wallId: string, heightM: number) => {
+    setHudError(pillFor(send({ type: "setWallHeight", wallId, heightM }).error));
+  }, [send, pillFor]);
+
+  /** Single room-height confirm: ray tap, typed value or the 2.60 m default. */
   const handleCeilingConfirm = useCallback((heightM: number) => {
-    const st = capture;
-    if (stepKey(st) !== "ceiling") return;
-    const r = captureReducer(st, { type: "ceilingConfirm", heightM });
-    dispatch({ type: "ceilingConfirm", heightM });
-    if (r.error) setHudError(tMeasure(ml, "pill.badTap"));
-    else if (r.state.walls[r.state.walls.length - 1]?.flaggedHeight) setHudError(tMeasure(ml, "pill.checkHeight"));
-    else setHudError(null);
-  }, [capture, dispatch, ml]);
+    if (stepKey(captureRef.current) !== "ceiling") return;
+    setHudError(pillFor(send({ type: "ceilingConfirm", heightM }).error));
+  }, [send, pillFor]);
 
   function handleStart(): void {
     if (!startGuardRef.current.tryStart()) return;
@@ -520,7 +549,7 @@ export function ArMeasure({
       // No hit-test pose (aiming at the wall/ceiling junction): the tap
       // confirms the ceiling from the camera ray instead of the hit pose.
       onTapEmpty: () => {
-        const st = capture;
+        const st = captureRef.current;
         if (stepKey(st) !== "ceiling" || st.mode !== "walls") return;
         handleCeilingConfirm(
           ceilingHeightFromCenterRay(
@@ -533,8 +562,8 @@ export function ArMeasure({
       },
       onHit: (point, horizontal) => {
         // Floor datum may come from continuous hits before the first tap.
-        if (capture.floorY === null && horizontal) {
-          dispatch({ type: "floorHit", point, horizontal });
+        if (captureRef.current.floorY === null && horizontal) {
+          send({ type: "floorHit", point, horizontal });
         }
       },
       onEnd: () => {
@@ -569,24 +598,20 @@ export function ArMeasure({
   }
 
   function handleUndo(): void {
-    dispatch({ type: "undo" });
+    send({ type: "undo" });
     setHudError(null);
   }
   function handleStartOver(): void {
     if (!showStartOverConfirm) { setShowStartOverConfirm(true); return; }
-    dispatch({ type: "startOver" });
+    send({ type: "startOver" });
     setShowStartOverConfirm(false);
     setHudError(null);
   }
   function handleModeChange(mode: "walls" | "door" | "window"): void {
-    dispatch({ type: "modeChange", mode });
-    const r = captureReducer(capture, { type: "modeChange", mode });
-    if (r.error === "mode-locked") setHudError(tMeasure(ml, "pill.modeLocked"));
-    else setHudError(null);
+    setHudError(pillFor(send({ type: "modeChange", mode }).error));
   }
   function handleDone(): void {
-    dispatch({ type: "done" });
-    const doneState = captureReducer(capture, { type: "done" }).state;
+    const doneState = send({ type: "done" }).state;
     const { ops } = toSceneOps(doneState);
     let next = sceneRef.current;
     for (const op of ops) {
@@ -699,6 +724,7 @@ export function ArMeasure({
         measureLocale={ml}
         previewCeilM={previewCeilM}
         onCeilingConfirm={handleCeilingConfirm}
+        onWallHeight={handleWallHeight}
         surfaceFound={surfaceFound}
         debugFrames={debugFrames}
         onUndo={handleUndo}
@@ -711,7 +737,7 @@ export function ArMeasure({
         <div className="ar-confirm" role="dialog" aria-label={tMeasure(ml, "confirm.startOver.title")}>
           <p>{tMeasure(ml, "confirm.startOver.title")}</p>
           <p>{tMeasure(ml, "confirm.startOver.body")}</p>
-          <button type="button" className="btn-primary" onClick={() => { dispatch({ type: "startOver" }); setShowStartOverConfirm(false); setHudError(null); }}>
+          <button type="button" className="btn-primary" onClick={() => { send({ type: "startOver" }); setShowStartOverConfirm(false); setHudError(null); }}>
             {tMeasure(ml, "confirm.startOver.confirm")}
           </button>
           <button type="button" className="chip" onClick={() => setShowStartOverConfirm(false)}>{tMeasure(ml, "confirm.startOver.cancel")}</button>

@@ -29,7 +29,11 @@ function withFloor(state: CaptureState = initialCaptureState()): CaptureState {
   }).state;
 }
 
-/** One base tap + one ceiling tap completes the pending wall. */
+/**
+ * One base tap completes the pending wall once the room height is known.
+ * On wall 1 the height is still pending after the second base tap, so one
+ * ceiling tap supplies it (the single room height, reused by every wall).
+ */
 function tapWall(
   state: CaptureState,
   base: Vec3,
@@ -37,6 +41,7 @@ function tapWall(
 ): CaptureState {
   const afterBase = captureReducer(state, { type: "baseTap", point: base });
   expect(afterBase.error).toBeNull();
+  if (afterBase.state.pendingEnd === null) return afterBase.state;
   const afterCeiling = captureReducer(afterBase.state, {
     type: "ceilingTap",
     point: [base[0], FLOOR_Y + heightM, base[2]],
@@ -110,7 +115,7 @@ describe("captureSession walls flow (W1, W2)", () => {
     expect(state.walls[0]?.id).toBe("wall-1");
   });
 
-  it("chains: the next wall starts at the previous end (one base + one ceiling)", () => {
+  it("chains: the next wall starts at the previous end (one base tap)", () => {
     let state = withFloor();
     state = captureReducer(state, { type: "baseTap", point: A }).state;
     state = captureReducer(state, { type: "baseTap", point: B }).state;
@@ -125,7 +130,8 @@ describe("captureSession walls flow (W1, W2)", () => {
     expect(state.walls[1]?.id).toBe("wall-2");
     expect(state.walls[1]?.start).toEqual({ x: 4, z: 0 });
     expect(state.walls[1]?.end).toEqual({ x: 4, z: -3 });
-    expect(state.walls[1]?.heightM).toBeCloseTo(2.75, 9);
+    // Single room height from wall 1 is reused.
+    expect(state.walls[1]?.heightM).toBeCloseTo(2.6, 9);
   });
 
   it("rejects a ceiling tap with no pending wall", () => {
@@ -149,14 +155,9 @@ describe("captureSession walls flow (W1, W2)", () => {
     state = tapWall(state, C, 2.75);
     state = tapWall(state, D, 2.5);
     expect(state.walls).toHaveLength(3);
-    // ~11 cm from A: snaps to A, still followed by that wall's ceiling tap.
+    // ~11 cm from A: snaps to A and closes the room in the same tap.
     const closeTap: Vec3 = [0.1, 1.1, 0.05];
     state = captureReducer(state, { type: "baseTap", point: closeTap }).state;
-    expect(state.pendingEnd).toEqual({ x: 0, z: 0 });
-    state = captureReducer(state, {
-      type: "ceilingTap",
-      point: [0, FLOOR_Y + 2.9, 0],
-    }).state;
     expect(state.closed).toBe(true);
     expect(state.walls).toHaveLength(4);
     expect(state.walls[3]?.end).toEqual(state.walls[0]?.start);
@@ -175,24 +176,27 @@ describe("captureSession walls flow (W1, W2)", () => {
     const farTap: Vec3 = [0.26, FLOOR_Y, 0];
     state = captureReducer(state, { type: "baseTap", point: farTap }).state;
     expect(state.closed).toBe(false);
-    expect(state.pendingEnd).toEqual({ x: 0.26, z: 0 });
+    expect(state.walls).toHaveLength(4);
+    expect(state.pendingStart).toEqual({ x: 0.26, z: 0 });
   });
 
-  it("keeps implausible heights with a flag, never drops them", () => {
+  it("rejects an implausible height (retype), then walls 2..N still work", () => {
     let state = withFloor();
     state = captureReducer(state, { type: "baseTap", point: A }).state;
     state = captureReducer(state, { type: "baseTap", point: B }).state;
-    state = captureReducer(state, {
+    const bad = captureReducer(state, {
       type: "ceilingTap",
       point: [4, FLOOR_Y + 1.5, 0],
+    });
+    expect(bad.error).toBe("bad-height");
+    expect(bad.state.walls).toHaveLength(0);
+    state = captureReducer(bad.state, {
+      type: "ceilingTap",
+      point: [4, FLOOR_Y + 2.6, 0],
     }).state;
-    expect(state.walls).toHaveLength(1);
-    // Raw value kept, flagged for the "check this" pill.
-    expect(state.walls[0]?.heightM).toBeCloseTo(1.5, 9);
-    expect(state.walls[0]?.flaggedHeight).toBe(true);
     state = tapWall(state, C, 4.5);
-    expect(state.walls[1]?.heightM).toBeCloseTo(4.5, 9);
-    expect(state.walls[1]?.flaggedHeight).toBe(true);
+    expect(state.walls).toHaveLength(2);
+    expect(state.walls[1]?.heightM).toBeCloseTo(2.6, 9);
   });
 });
 
@@ -280,10 +284,6 @@ describe("captureSession unlock (W3)", () => {
       type: "baseTap",
       point: [0.1, 1.1, 0.05],
     }).state;
-    state = captureReducer(state, {
-      type: "ceilingTap",
-      point: [0, FLOOR_Y + 2.9, 0],
-    }).state;
     expect(state.closed).toBe(true);
     state = captureReducer(state, {
       type: "modeChange",
@@ -315,26 +315,23 @@ describe("captureSession stepKey (F6)", () => {
 });
 
 describe("captureSession toSceneOps", () => {
-  it("keeps a flagged height raw in the op and lists the wall id alongside", () => {
+  it("emits the single room height on every wall op, nothing flagged", () => {
     let state = withFloor();
     state = captureReducer(state, { type: "baseTap", point: A }).state;
-    state = captureReducer(state, { type: "baseTap", point: B }).state;
-    state = captureReducer(state, {
-      type: "ceilingTap",
-      point: [4, FLOOR_Y + 1.5, 0],
-    }).state;
+    state = tapWall(state, B, 2.8);
+    state = tapWall(state, C, 2.8);
     const { ops, flaggedWallIds } = toSceneOps(state);
-    expect(ops).toHaveLength(1);
-    expect(ops[0]?.type).toBe("addWall");
-    if (ops[0]?.type === "addWall") {
-      expect(ops[0].wall.height_m).toBeCloseTo(1.5, 9);
-      expect(ops[0].wall.provenance).toBe("measured_ar");
+    expect(ops).toHaveLength(2);
+    for (const op of ops) {
+      if (op.type !== "addWall") throw new Error("expected addWall");
+      expect(op.wall.height_m).toBeCloseTo(2.8, 9);
+      expect(op.wall.provenance).toBe("measured_ar");
     }
-    expect(flaggedWallIds).toEqual(["wall-1"]);
+    expect(flaggedWallIds).toEqual([]);
   });
 
   it("a scripted 4-wall session emits the exact Scene ops", () => {
-    // 4x3 m room, one height per wall, closing tap on corner A.
+    // 4x3 m room, one room height, closing tap on corner A.
     let state = withFloor();
     state = captureReducer(state, { type: "baseTap", point: A }).state;
     state = tapWall(state, B, 2.6);
@@ -343,10 +340,6 @@ describe("captureSession toSceneOps", () => {
     state = captureReducer(state, {
       type: "baseTap",
       point: [0.1, 1.1, 0.05],
-    }).state;
-    state = captureReducer(state, {
-      type: "ceilingTap",
-      point: [0, FLOOR_Y + 2.9, 0],
     }).state;
     expect(state.closed).toBe(true);
     const { ops, flaggedWallIds } = toSceneOps(state);
@@ -384,7 +377,7 @@ describe("captureSession toSceneOps", () => {
       ],
     ]);
     expect(walls.map((w) => w.measured_length_m)).toEqual([4, 3, 4, 3]);
-    expect(walls.map((w) => w.height_m)).toEqual([2.6, 2.75, 2.5, 2.9]);
+    expect(walls.map((w) => w.height_m)).toEqual([2.6, 2.6, 2.6, 2.6]);
     expect(walls.every((w) => w.provenance === "measured_ar")).toBe(true);
     expect(walls.every((w) => w.thickness_m === 0.1)).toBe(true);
   });
@@ -423,7 +416,7 @@ describe("captureSession hardening (stage 3/4)", () => {
     expect(chained.state.walls).toHaveLength(1);
   });
 
-  it("a close tap can be redirected: tapping elsewhere clears closePending", () => {
+  it("a close tap completes the room at once and undo re-opens it", () => {
     let state = withFloor();
     state = captureReducer(state, { type: "baseTap", point: A }).state;
     state = tapWall(state, B, 2.6);
@@ -434,15 +427,13 @@ describe("captureSession hardening (stage 3/4)", () => {
       type: "baseTap",
       point: [0.1, 1.1, 0.05],
     }).state;
-    expect(state.pendingEnd).toEqual({ x: 0, z: 0 });
-    // Changed mind: tap a different corner instead.
+    expect(state.closed).toBe(true);
+    expect(state.walls).toHaveLength(4);
+    state = captureReducer(state, { type: "undo" }).state;
+    expect(state.closed).toBe(false);
+    expect(state.walls).toHaveLength(3);
     const E: Vec3 = [1, FLOOR_Y, -1];
     state = captureReducer(state, { type: "baseTap", point: E }).state;
-    expect(state.pendingEnd).toEqual({ x: 1, z: -1 });
-    state = captureReducer(state, {
-      type: "ceilingTap",
-      point: [1, FLOOR_Y + 2.6, -1],
-    }).state;
     expect(state.closed).toBe(false);
     expect(state.walls).toHaveLength(4);
     expect(state.walls[3]?.end).toEqual({ x: 1, z: -1 });

@@ -14,6 +14,7 @@ const EN: Record<string, string> = {
   "pill.badTap": "Try again",
   "pill.modeLocked": "Finish the walls first",
   "pill.checkHeight": "Check this height",
+  "pill.badHeight": "Height must be between 2.0 and 4.0 m. Type it or use 2.60 m",
   "selector.walls": "Walls",
   "selector.door": "Door",
   "selector.window": "Window",
@@ -33,6 +34,9 @@ const EN: Record<string, string> = {
   "ceiling.typePlaceholder": "Height in m",
   "ceiling.useDefault": "Use 2.60 m",
   "ceiling.confirm": "Confirm height",
+  "wallHeight.summary": "Wall {n} height: {h} (change)",
+  "wallHeight.label": "Height of wall {n} (m)",
+  "wallHeight.set": "Set wall height",
 };
 
 const ES_AR: Record<string, string> = {
@@ -47,6 +51,7 @@ const ES_AR: Record<string, string> = {
   "pill.badTap": "Probá de nuevo",
   "pill.modeLocked": "Terminá las paredes primero",
   "pill.checkHeight": "Revisá esta altura",
+  "pill.badHeight": "La altura tiene que estar entre 2,0 y 4,0 m. Escribila o usá 2,60 m",
   "selector.walls": "Paredes",
   "selector.door": "Puerta",
   "selector.window": "Ventana",
@@ -66,6 +71,9 @@ const ES_AR: Record<string, string> = {
   "ceiling.typePlaceholder": "Altura en m",
   "ceiling.useDefault": "Usar 2,60 m",
   "ceiling.confirm": "Confirmar altura",
+  "wallHeight.summary": "Altura pared {n}: {h} (cambiar)",
+  "wallHeight.label": "Altura de la pared {n} (m)",
+  "wallHeight.set": "Fijar altura de la pared",
 };
 
 const DICTS: Record<MeasureLocale, Record<string, string>> = {
