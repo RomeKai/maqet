@@ -37,6 +37,7 @@ class AddRoomInput(_ToolInput):
     # Wall to attach to: a label ("wall 2") or id. Omit to let code pick a free wall.
     wall: str | None = None
     polygon: list[tuple[float, float]] | None = Field(default=None, min_length=3)
+    # [width along the attached wall, depth outward]: exactly what the user said.
     size_m: tuple[
         Annotated[float, Field(gt=0)], Annotated[float, Field(gt=0)]
     ] = (3.0, 3.0)

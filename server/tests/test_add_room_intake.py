@@ -109,3 +109,22 @@ def test_prompt_asks_which_wall_when_ambiguous() -> None:
     ).casefold()
     assert "did not say on which wall" in text and "ask before calling `add_room`" in text
     assert "window stays as an opening" in text
+
+
+def test_requested_3x4_is_not_clamped_to_the_wall_length(intake_scene: Scene) -> None:
+    """Bug O: 3x4 on a 3 m wall must stay 3 x 4 (width along the wall, depth 4)."""
+    new, res = _add(intake_scene, size_m=[3.0, 4.0], wall="wall 1")
+    assert res.ok, res.errors
+    room = new.rooms[-1]
+    xs = [p[0] for p in room.polygon]
+    ys = [p[1] for p in room.polygon]
+    sides = sorted([max(xs) - min(xs), max(ys) - min(ys)])
+    assert sides[0] == pytest.approx(3.0, abs=0.35)  # skewed intake walls: small tolerance
+    assert sides[1] == pytest.approx(4.0, abs=0.35)
+
+
+def test_prompt_tells_the_model_not_to_clamp_the_size() -> None:
+    from pathlib import Path
+
+    text = " ".join(Path("server/agent/prompts/reform_v1.md").read_text(encoding="utf-8").split())
+    assert "never shrink a side to the wall length" in text

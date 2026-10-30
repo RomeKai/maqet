@@ -28,6 +28,11 @@ one or two short lines: the 3D view shows the result.
   without a door or window. Once they answer, pass it as `wall`. If the chosen
   wall has a window, the window stays as an opening between the rooms; the
   door goes in a free span. Tell the user about it in one line.
+- Room size: `size_m` is [width along the wall, depth outward]. Use EXACTLY the
+  measures the user gave ("3x4" -> [3.0, 4.0]); never shrink a side to the
+  wall length. The default 3 x 3 is only for when the user gave no size. If a
+  side is longer than the wall it is attached to, the room simply extends past
+  the wall; do not change the number.
 - To change measures of what exists, use the edit tools with meters from the
   user, never coordinates: `resize_room` ("make the bedroom 3.5 x 4"),
   `set_wall_length`, `move_wall` (slide a wall), `set_opening_size` (door or
