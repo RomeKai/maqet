@@ -780,8 +780,9 @@ def to_scene(
 
     Defaults (server/scene/rules.py): exterior 0.20 m, interior 0.10 m,
     ceiling 2.60 m; door height 2.05 m, window 1.40 m + sill 0.80 m.
-    scale_confirmed=False: the anchor was picked automatically, the human
-    confirms (ADR-002). Per-wall provenance: measured walls carry
+    scale_confirmed is True only for mode C (written on the sketch) with EVERY wall measured
+    (ADR-025: scale is per wall, not one global factor, so a fully measured
+    sketch needs no extra confirmation); otherwise the human confirms (ADR-002). Per-wall provenance: measured walls carry
     ``measured_provenance`` (mode C ``written_on_sketch`` by default; mode B
     passes ``measured_tape``) + measured_length_m, the rest stay estimated.
     """
@@ -828,7 +829,11 @@ def to_scene(
     return Scene(
         id=scene_id,
         units="m",
-        scale_confirmed=False,
+        scale_confirmed=(
+            measured_provenance == "written_on_sketch"
+            and bool(walls)
+            and all(w.measured_length_m is not None for w in walls)
+        ),
         ceiling_height_m=rules.DEFAULT_CEILING_HEIGHT_M,
         walls=list(walls),
         openings=list(openings),

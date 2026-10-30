@@ -128,3 +128,11 @@ def test_prompt_tells_the_model_not_to_clamp_the_size() -> None:
 
     text = " ".join(Path("server/agent/prompts/reform_v1.md").read_text(encoding="utf-8").split())
     assert "never shrink a side to the wall length" in text
+
+
+def test_fully_measured_sketch_is_scale_confirmed_and_exports_dxf(intake_scene: Scene) -> None:
+    """E2E-003 (ADR-025): every wall has a written length, so DXF export is not blocked."""
+    assert all(w.measured_length_m is not None for w in intake_scene.walls)
+    assert intake_scene.scale_confirmed is True
+    res = TestClient(app).post("/export/dxf", json=intake_scene.model_dump(mode="json"))
+    assert res.status_code == 200, res.text

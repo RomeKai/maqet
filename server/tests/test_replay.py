@@ -92,7 +92,8 @@ def test_sample_replay_matches_upload_shape(
         "anchor_meters",
     }
     assert replay["proposal"]["input_kind"] == "sketch"
-    assert replay["scene"]["scale_confirmed"] is False
+    # Mode C sketch with every wall written on it counts as scale confirmed (ADR-025).
+    assert replay["scene"]["scale_confirmed"] is True
     assert len(replay["scene"]["walls"]) == 6
     assert replay["anchor_meters"] == pytest.approx(6.0)
     # Every fixture wall carries a written length, so no warnings here; the
