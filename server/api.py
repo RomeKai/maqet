@@ -23,6 +23,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from server.agent import edit_tools
+from server.agent.executor import execute
 from server.agent.loop import ReformClient, run_turn
 from server.agent.tools import SelectedRef
 from server.db import load_project, save_project
@@ -448,6 +450,45 @@ def post_agent_turn(
         scene=result.scene,
         reply=result.reply,
         ops_applied=applied,
+        professional_flags=flags,
+        history=[OpRecordIn(**asdict(record)) for record in history],
+    )
+
+
+_UI_EDIT_TOOLS = frozenset({*edit_tools.COMPUTE, "undo"})
+
+
+class AgentEditIn(BaseModel):
+    scene: Scene
+    tool: str
+    args: dict[str, Any] = {}
+    history: list[OpRecordIn] = []
+
+
+@app.post("/agent/edit", response_model=AgentTurnOut)
+def post_agent_edit(body: AgentEditIn) -> AgentTurnOut:
+    """One deterministic edit from the UI (tap a wall or room, type meters).
+
+    Same executor, rules and history as an agent turn, minus the model:
+    $0 and undoable like any agent change.
+    """
+    if body.tool not in _UI_EDIT_TOOLS:
+        raise HTTPException(status_code=422, detail=f"tool {body.tool!r} is not an edit tool")
+    history = [OpRecord(**record.model_dump()) for record in body.history]
+    new_scene, res = execute(body.scene, history, "reform", body.tool, body.args)
+    if not res.ok:
+        raise HTTPException(
+            status_code=422, detail="; ".join(e.message for e in res.errors)
+        )
+    flags = list(new_scene.professional_flags)
+    for raw in res.flags:
+        code = ":".join(raw.split(":")[:2])
+        if code not in flags:
+            flags.append(code)
+    return AgentTurnOut(
+        scene=new_scene,
+        reply="",
+        ops_applied=[AppliedOpOut(name=body.tool, arguments=body.args, flags=res.flags)],
         professional_flags=flags,
         history=[OpRecordIn(**asdict(record)) for record in history],
     )
