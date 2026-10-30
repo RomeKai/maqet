@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
 import { DeliverView } from "./DeliverView";
+import { getDeliverStrings } from "./deliver.i18n";
 
 const takeoffFixture = {
-  preliminary: true,
-  flags: [],
+  preliminary: true as const,
+  flags: [] as { code: string }[],
   stages: {
     foundations: [],
     walls: [],
@@ -16,16 +17,15 @@ const takeoffFixture = {
 
 describe("DeliverView fetch", () => {
   it("shows DXF and CSV export buttons", () => {
-    const scene: any = { id: "s", scale_confirmed: true, walls: [] };
-    const { container } = render(<DeliverView scene={scene} takeoff={takeoffFixture as any} locale="en" />);
-    expect(screen.getByText(/DXF/i)).toBeTruthy();
-    expect(screen.getByText(/Export CSV/i)).toBeTruthy();
-    expect(container.textContent).toBeTruthy();
+    const scene = { id: "s", scale_confirmed: true, walls: [] } as unknown as import("../scene/types").Scene;
+    const html = renderToString(<DeliverView scene={scene} takeoff={takeoffFixture as any} locale="en" />);
+    expect(html).toContain("DXF");
+    expect(html).toContain(getDeliverStrings("en")["action.exportCsv"]);
   });
 
   it("shows preliminary label", () => {
-    const scene: any = { id: "s", scale_confirmed: true, walls: [] };
-    render(<DeliverView scene={scene} takeoff={null} locale="en" />);
-    expect(screen.getByTestId("preliminary-label")).toBeTruthy();
+    const scene = { id: "s", scale_confirmed: true, walls: [] } as unknown as import("../scene/types").Scene;
+    const html = renderToString(<DeliverView scene={scene} takeoff={null} locale="en" />);
+    expect(html).toContain(getDeliverStrings("en")["footer.preliminary"]);
   });
 });
