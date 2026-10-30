@@ -52,7 +52,7 @@ describe("camera and gallery reach the same upload with a downscaled file", () =
       const d = deps(async () => result);
       await runUpload(new File(["raw-big"], name), "sketch", d);
       expect(d.downscale).toHaveBeenCalledTimes(1);
-      expect(d.post.mock.calls[0]?.[0]).toBe(image.blob);
+      expect(d.post).toHaveBeenCalledWith(image.blob, "sketch");
     }
   });
 });
