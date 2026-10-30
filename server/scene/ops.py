@@ -129,8 +129,13 @@ def add_room(
     actor: str = "agent",
     needs_second_floor: bool = False,
     soil_unknown: bool = False,
+    walls: tuple[Wall, ...] = (),
+    openings: tuple[Opening, ...] = (),
 ) -> tuple[Scene, OpResult]:
-    """Add a room polygon (rooms are derived from walls after intake; kept for naming/targeting)."""
+    """Add a room polygon plus its enclosing ``walls`` and connecting ``openings``.
+
+    The executor derives the walls deterministically (server/agent/room_walls.py);
+    they are recorded in the op args so replay reproduces them."""
     if (err := _check_actor(actor)) is not None:
         return _fail(scene, err)
     if any(r.id == room.id for r in scene.rooms):
@@ -139,8 +144,21 @@ def add_room(
         valid = Room.model_validate(room.model_dump())
     except ValidationError as exc:
         return _fail(scene, f"invalid room: {exc.errors()[0]['msg']}")
-    candidate = scene.model_copy(update={"rooms": [*scene.rooms, valid]})
+    taken = {w.id for w in scene.walls}
+    if len({w.id for w in walls}) != len(walls) or any(w.id in taken for w in walls):
+        return _fail(scene, "wall id clash while adding room walls")
+    candidate = scene.model_copy(
+        update={
+            "rooms": [*scene.rooms, valid],
+            "walls": [*scene.walls, *walls],
+            "openings": [*scene.openings, *openings],
+        }
+    )
     args: dict = {"room": valid.model_dump()}
+    if walls:
+        args["walls"] = [w.model_dump() for w in walls]
+    if openings:
+        args["openings"] = [o.model_dump() for o in openings]
     # Recorded only when set so replay reproduces the flags and older
     # history records stay byte-identical.
     if needs_second_floor:
@@ -150,7 +168,8 @@ def add_room(
     ctx = ValidationContext(
         needs_second_floor=needs_second_floor, soil_unknown=soil_unknown
     )
-    return _apply(scene, "add_room", args, candidate, [valid.id], actor, ctx)
+    changed = [valid.id, *(w.id for w in walls), *(o.id for o in openings)]
+    return _apply(scene, "add_room", args, candidate, changed, actor, ctx)
 
 
 def add_wall(
@@ -252,6 +271,8 @@ _OPS = {
         actor=a.get("_actor", "agent"),
         needs_second_floor=a.get("needs_second_floor", False),
         soil_unknown=a.get("soil_unknown", False),
+        walls=tuple(Wall.model_validate(w) for w in a.get("walls", ())),
+        openings=tuple(Opening.model_validate(o) for o in a.get("openings", ())),
     ),
     "add_wall": lambda s, a: add_wall(s, Wall.model_validate(a["wall"]), actor=a.get("_actor", "agent")),
     "remove_wall": lambda s, a: remove_wall(s, a["wall_id"], actor=a.get("_actor", "agent")),

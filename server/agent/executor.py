@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from server.agent import stages as stage_table
 from server.agent import tools as tool_contracts
+from server.agent.room_walls import enclosing_walls
 from server.scene import ops
 from server.scene.models import Opening, Room, Scene, Wall
 from server.scene.validation import rooms_overlap_m2
@@ -158,11 +159,15 @@ def _handle_add_room(
     room = Room(
         id=rid, name=a.name or a.function, polygon=poly, function=a.function, level=a.level
     )
+    # Upper levels have no walls of their own (models.Room.level).
+    new_walls, door = enclosing_walls(scene, poly) if a.level == 1 else ([], None)
     new_scene, res = ops.add_room(
         scene,
         room,
         needs_second_floor=a.level > 1,
         soil_unknown=a.foundation_unknown_soil,
+        walls=tuple(new_walls),
+        openings=(door,) if door is not None else (),
     )
     if not res.ok:
         return _op_fail(scene, res)
@@ -174,14 +179,22 @@ def _handle_add_room(
     history.append(
         replace(
             res.record,
-            args={**res.record.args, "_undo": {"kind": "room", "added_ids": [rid]}},
+            args={
+                **res.record.args,
+                "_undo": {
+                    "kind": "room",
+                    "added_ids": [rid],
+                    "added_wall_ids": [w.id for w in new_walls],
+                    "added_opening_ids": [door.id] if door is not None else [],
+                },
+            },
         )
     )
     return new_scene, ToolResult(
         ok=True,
         warnings=[str(w) for w in res.warnings],
         flags=flags,
-        changed_ids=[rid],
+        changed_ids=list(res.changed_ids),
         version=new_scene.version,
     )
 
@@ -428,7 +441,16 @@ def _handle_undo(scene: Scene, history: list, args: dict) -> tuple[Scene, ToolRe
                 f"cannot undo {record.op!r}: missing snapshot; history unchanged",
             )
         if kind == "room":
-            rebuilt = scene.model_copy(update={"rooms": [r for r in scene.rooms if r.id not in dropped]})
+            dead_walls = set(snap.get("added_wall_ids", []))
+            dead_openings = set(snap.get("added_opening_ids", []))
+            rebuilt = scene.model_copy(
+                update={
+                    "rooms": [r for r in scene.rooms if r.id not in dropped],
+                    "walls": [w for w in scene.walls if w.id not in dead_walls],
+                    "openings": [o for o in scene.openings if o.id not in dead_openings],
+                }
+            )
+            dropped = dropped | dead_walls | dead_openings
         elif kind == "wall":
             rebuilt = scene.model_copy(update={"walls": [w for w in scene.walls if w.id not in dropped]})
         else:

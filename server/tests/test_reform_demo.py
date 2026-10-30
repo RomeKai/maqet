@@ -184,7 +184,7 @@ def test_turn1_adds_a_room() -> None:
     client = ScriptedClient(_steps(turn))
     result = run_turn(scene, history, sc["stage"], turn["user_text"], client)
     assert len(result.scene.rooms) == base_rooms + 1
-    assert len(result.scene.walls) == base_walls
+    assert len(result.scene.walls) == base_walls + 3  # shared wall reused
     assert any(r.function == "bedroom" for r in result.scene.rooms)
     assert "preliminar" in result.reply.casefold()
     assert client.calls[0]["kwargs"]["tag"] == "reform"
@@ -211,7 +211,7 @@ def test_turn3_adds_a_wall_and_a_window() -> None:
     turn = sc["turns"][2]
     client = ScriptedClient(_steps(turn))
     result = run_turn(scene, history, sc["stage"], turn["user_text"], client)
-    assert len(result.scene.walls) == 5
+    assert len(result.scene.walls) == 8  # 4 + 3 room walls + 1 added
     windows = [o for o in result.scene.openings if o.kind == "window"]
     assert len(windows) >= 2
     assert any(o.wall_id == "w5" and o.kind == "window" for o in result.scene.openings)
@@ -230,7 +230,7 @@ def test_turn4_read_only_surfaces_what_is_missing() -> None:
     result = run_turn(scene, history, sc["stage"], turn["user_text"], client)
     assert result.tool_events == []
     assert len(result.scene.rooms) == 2
-    assert len(result.scene.walls) == 5
+    assert len(result.scene.walls) == 8
     assert "preliminar" in result.reply.casefold()
     assert len(history) == 4
 

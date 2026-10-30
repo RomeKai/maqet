@@ -20,4 +20,4 @@ script:
 must_mention: ["dormitorio", "preliminar"]
 expect:
   rooms_delta: 1
-  openings_delta: 1
+  openings_delta: 2

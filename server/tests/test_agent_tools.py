@@ -137,7 +137,7 @@ def test_add_room_next_to_kitchen_case_insensitive() -> None:
     )
     assert res.ok is True
     assert scene2.version == 1
-    assert len(history) == 1 and len(res.changed_ids) == 1
+    assert len(history) == 1 and res.changed_ids[0] == "r2"
     new_room = next(r for r in scene2.rooms if r.id == res.changed_ids[0])
     assert new_room.function == "bedroom"
     # Deterministic geometry: east-adjacent to the kitchen bbox, shared edge.
