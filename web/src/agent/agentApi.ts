@@ -49,6 +49,10 @@ export function turnUrl(): string {
   return `${apiBase()}/agent/turn`;
 }
 
+export function editUrl(): string {
+  return `${apiBase()}/agent/edit`;
+}
+
 export function variantsUrl(): string {
   return `${apiBase()}/variants`;
 }
@@ -224,6 +228,30 @@ export async function sendTurn(
   } finally {
     clearTimeout(timer);
   }
+}
+
+export interface SendEditParams {
+  scene: Scene;
+  tool: string;
+  args: Record<string, unknown>;
+  history?: OpRecordIn[];
+}
+
+/** One deterministic edit (no model): same scene/history contract as a turn; tool "undo" reverts it. */
+export async function sendEdit(
+  params: SendEditParams,
+  timeoutMs: number = TURN_TIMEOUT_MS,
+): Promise<AgentTurnOut> {
+  const payload = await fetchJson(
+    editUrl(),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...params, history: params.history ?? [] }),
+    },
+    timeoutMs,
+  );
+  return parseTurnResponse(payload);
 }
 
 // Variants helpers — thin wrappers that validate the shape minimally

@@ -22,8 +22,13 @@ describe("ReformScreen", () => {
       pending={false}
       agentError={null}
       onNext={noop}
+      onEdit={async () => null}
     />,
   );
+  it("offers the Edit measures button", () => {
+    expect(html).toContain(t["edit.open"]);
+  });
+
   it("has the 3D card undo, chips, talk bar and Next", () => {
     expect(html).toContain(`aria-label="${t["card.undo"]}"`);
     expect(html).toContain(t["suggest.bedroom"]);

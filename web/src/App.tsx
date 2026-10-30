@@ -18,7 +18,8 @@ import { ReformScreen } from "./agent/ReformScreen";
 import { DeliverView } from "./deliver/DeliverView";
 import { parseTakeoff } from "./deliver/takeoffFormat";
 import type { Takeoff } from "./deliver/takeoffTypes";
-import { sendTurn } from "./agent/agentApi";
+import { sendEdit, sendTurn } from "./agent/agentApi";
+import type { EditCall } from "./agent/editCall";
 import type { AgentStage } from "./agent/agentApi";
 import type { ChatMessage } from "./agent/agentTypes";
 import type { OpRecordIn, Scene } from "./scene/types";
@@ -175,6 +176,22 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
     [intakeScene, agentStage, history, selectedWallId],
   );
 
+  const handleEdit = useCallback(
+    async (call: EditCall): Promise<string | null> => {
+      if (!intakeScene) return "No scene";
+      try {
+        const res = await sendEdit({ scene: intakeScene, tool: call.tool, args: call.args, history });
+        setIntakeScene(res.scene);
+        setHistory(res.history);
+        setProfessionalFlags(res.professional_flags);
+        return null;
+      } catch (err) {
+        return err instanceof Error ? err.message : String(err);
+      }
+    },
+    [intakeScene, history],
+  );
+
   const handleAudio = useCallback(
     async (audio: Blob) => {
       // Transcribe then send as text
@@ -271,6 +288,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
           pending={pending}
           agentError={agentError}
           onNext={() => setStage(STAGES[stageIndex + 1] ?? "stage.deliver")}
+          onEdit={handleEdit}
         />
       ) : isDeliver ? (
         <main className="flex min-h-0 flex-1 flex-col" aria-label={t["app.name"]}>

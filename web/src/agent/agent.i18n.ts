@@ -40,6 +40,16 @@ const en = {
   "variants.nowCaption": "Current home, no changes",
   "variants.optionCaption": "Option {label} · {area}",
   "caption.preliminary": "Preliminary: not a structural certification",
+  "edit.open": "Edit measures",
+  "edit.title": "Edit measures",
+  "edit.wall": "Wall length (m)",
+  "edit.room": "Room",
+  "edit.width": "Width (m)",
+  "edit.depth": "Depth (m)",
+  "edit.apply": "Apply",
+  "edit.cancel": "Cancel",
+  "edit.invalid": "Type a number of meters greater than zero.",
+  "edit.preliminary": "Preliminary measures: not a structural certification",
 } as const;
 
 export type AgentKey = keyof typeof en;
@@ -81,6 +91,16 @@ const esAR: AgentStrings = {
   "variants.nowCaption": "Casa actual, sin cambios",
   "variants.optionCaption": "Opción {label} · {area}",
   "caption.preliminary": "Preliminar: no es una certificación estructural",
+  "edit.open": "Editar medidas",
+  "edit.title": "Editar medidas",
+  "edit.wall": "Largo del muro (m)",
+  "edit.room": "Ambiente",
+  "edit.width": "Ancho (m)",
+  "edit.depth": "Fondo (m)",
+  "edit.apply": "Aplicar",
+  "edit.cancel": "Cancelar",
+  "edit.invalid": "Escribí un número de metros mayor que cero.",
+  "edit.preliminary": "Medidas preliminares: no es una certificación estructural",
 };
 
 const dictionaries: Record<Locale, AgentStrings> = { en, "es-AR": esAR };
