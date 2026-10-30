@@ -52,6 +52,13 @@ export function hitPoseHorizontal(pose: HitTestPoseLike | null | undefined): boo
  * Callbacks carried by the hit-test session. Length math stays in cornerMath.
  */
 export interface XrTapCallbacks {
+  /**
+   * Fired on a session `select` (tap) that produced no hit-test pose — e.g.
+   * aiming at the wall/ceiling junction where there is no plane to hit.
+   * Optional: steps that need no hit (ceiling height from the camera ray)
+   * confirm from this; other steps ignore it. Old fakes omit it.
+   */
+  onTapEmpty?: () => void;
   onTapCorner: (corner: Vec3, horizontal: boolean) => void;
   /** Per-frame hit payload: position + whether it is horizontal. */
   onHit?: (point: Vec3, horizontal: boolean) => void;
@@ -388,7 +395,13 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
         const frame = (event as XRInputSourceEvent).frame;
         if (!frame) return;
         const hit = this.hitFromFrame(frame);
-        const corner = this.cornerFromVec(hit?.transform.position);
+        if (hit === null) {
+          // No hit-test pose (e.g. aiming at the wall/ceiling junction):
+          // the tap still confirms steps that need no hit, like ceiling.
+          callbacks.onTapEmpty?.();
+          return;
+        }
+        const corner = this.cornerFromVec(hit.transform.position);
         if (corner === null) return;
         const horizontal = this.isHorizontalPose(hit);
         callbacks.onTapCorner(corner, horizontal);

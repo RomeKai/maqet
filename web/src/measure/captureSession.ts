@@ -97,6 +97,7 @@ export type CaptureEvent =
   | { type: "floorHit"; point: Vec3; horizontal: boolean }
   | { type: "baseTap"; point: Vec3 }
   | { type: "ceilingTap"; point: Vec3 }
+  | { type: "ceilingConfirm"; heightM: number }
   | { type: "finishWalls" }
   | { type: "modeChange"; mode: CaptureMode }
   | { type: "openingTap"; point: Vec3 }
@@ -243,6 +244,36 @@ export function captureReducer(
       }
       // Raw height, never clamped: implausible values are KEPT with a flag.
       const heightM = event.point[1] - state.floorY;
+      const flaggedHeight = !(
+        heightM >= MIN_ROOM_HEIGHT_M && heightM <= MAX_ROOM_HEIGHT_M
+      );
+      const wall: CapturedWall = {
+        id: `wall-${state.walls.length + 1}`,
+        start: state.pendingStart,
+        end: state.pendingEnd,
+        heightM,
+        flaggedHeight,
+      };
+      return accepted(state, {
+        walls: [...state.walls, wall],
+        pendingStart: state.pendingEnd,
+        pendingEnd: null,
+        closePending: false,
+        closed: state.closePending || state.closed,
+      });
+    }
+
+    case "ceilingConfirm": {
+      if (!Number.isFinite(event.heightM) || event.heightM <= 0)
+        return rejected(state, "bad-tap");
+      if (state.floorY === null) return rejected(state, "floor-first");
+      if (state.closed || state.finished || state.done) {
+        return { state, error: null };
+      }
+      if (state.pendingStart === null || state.pendingEnd === null) {
+        return rejected(state, "no-pending");
+      }
+      const heightM = event.heightM;
       const flaggedHeight = !(
         heightM >= MIN_ROOM_HEIGHT_M && heightM <= MAX_ROOM_HEIGHT_M
       );

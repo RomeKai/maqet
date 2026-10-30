@@ -15,6 +15,10 @@ import {
   toSceneOps,
   type CaptureState,
 } from "./captureSession";
+import {
+  ceilingHeightFromCenterRay,
+  centerRayFromViewInverse,
+} from "./ceilingRay";
 import { tMeasure, stepKeyLabel, modeLabel } from "./measure.i18n";
 import {
   AR_START_WATCHDOG_MS,
@@ -161,6 +165,42 @@ interface ArMeasureProps {
 /** Walls-flow HUD mode (F6 spec): Walls | Door | Window. Last two disabled until closed/finished. */
 export type ArHudMode = "wall" | "height" | "door" | "window";
 
+/** Fallback room height (m) offered on the ceiling step (ADR-023 2.60 m default). */
+export const DEFAULT_CEILING_HEIGHT_M = 2.6;
+
+/**
+ * Live ceiling preview from the frame's viewer matrices: ray through the
+ * pending wall's vertical plane, above floorY. No hit-test needed.
+ */
+export function previewCeilingHeight(
+  capture: CaptureState,
+  viewInverse: readonly number[] | null,
+): number | null {
+  if (stepKey(capture) !== "ceiling") return null;
+  if (viewInverse === null) return null;
+  return ceilingHeightFromCenterRay(
+    capture.pendingStart,
+    capture.pendingEnd,
+    capture.floorY,
+    centerRayFromViewInverse(viewInverse),
+  );
+}
+
+/**
+ * Parse a typed height in meters: accepts "2.6", "2,6", "2.60 m".
+ * Returns null for empty, non-numeric, or non-positive input.
+ */
+export function parseTypedHeightM(raw: string): number | null {
+  const cleaned = raw
+    .trim()
+    .replace(/\s*m\s*$/i, "")
+    .replace(",", ".");
+  if (cleaned === "") return null;
+  const n = Number(cleaned);
+  if (!Number.isFinite(n) || !(n > 0)) return null;
+  return n;
+}
+
 interface ArHudProps {
   locale: Locale;
   hudRef: { current: HTMLDivElement | null };
@@ -171,6 +211,9 @@ interface ArHudProps {
   capture?: CaptureState;
   pillError?: string | null;
   measureLocale?: "en" | "es-AR";
+  /** Live ray height on the ceiling step (written via overlay frame, no setState/frame). */
+  previewCeilM?: number | null;
+  onCeilingConfirm?: (heightM: number) => void;
   // Legacy props (kept for compat, ignored when capture provided)
   previewM?: number | null;
   targetLengthM?: number | null;
@@ -192,6 +235,7 @@ interface ArHudProps {
 }
 
 function noopArHudAction(): void {}
+function noopArHudActionNumber(_heightM: number): void {}
 function noopArHudModeChange(_mode: ArHudMode): void {}
 const HUD_MODES: ArHudMode[] = ["wall", "height", "door", "window"];
 function hudModeKey(mode: ArHudMode): `measure.ar.mode.${ArHudMode}` {
@@ -207,6 +251,8 @@ export function ArHud({
   capture,
   pillError,
   measureLocale,
+  previewCeilM = null,
+  onCeilingConfirm = noopArHudActionNumber,
   previewM = null,
   targetLengthM = null,
   stepLabel = "",
@@ -240,6 +286,7 @@ export function ArHud({
     const canStartOver = capture.walls.length > 0 || capture.pendingStart !== null;
     const modeUnlocked = capture.closed || capture.finished;
     const isWalls = capture.mode === "walls";
+    const ceilingStep = sk === "ceiling";
     return (
       <div ref={hudRef} className="ar-hud" role="dialog" aria-label={t["measure.ar.title"]}>
         {overlayFrameRef !== undefined && overlayCorners !== undefined && (
@@ -253,7 +300,40 @@ export function ArHud({
             floorY={capture.floorY}
           />
         )}
-        <p className="ar-hud-pill" role="status">{pill}</p>
+        <p className="ar-hud-pill" role="status">
+          {pill}
+          {ceilingStep && previewCeilM !== null ? ` · ${formatMeasureM(ml === "en" ? "en" : "es-AR", previewCeilM)}` : ""}
+        </p>
+        {ceilingStep && (
+          <div className="ar-hud-ceiling" role="group" aria-label={tMeasure(ml, "ceiling.typeLabel")}>
+            <form
+              className="ar-hud-ceiling-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const input = (e.currentTarget.elements.namedItem("ceil") as HTMLInputElement | null)?.value ?? "";
+                const n = parseTypedHeightM(input);
+                if (n !== null) onCeilingConfirm(n);
+              }}
+            >
+              <label className="ar-hud-ceiling-label" htmlFor="ar-ceil-input">
+                {tMeasure(ml, "ceiling.typeLabel")}
+              </label>
+              <input
+                id="ar-ceil-input"
+                name="ceil"
+                className="ar-hud-ceiling-input"
+                inputMode="decimal"
+                placeholder={tMeasure(ml, "ceiling.typePlaceholder")}
+              />
+              <button type="submit" className="chip chip-primary">
+                {tMeasure(ml, "ceiling.confirm")}
+              </button>
+            </form>
+            <button type="button" className="chip" onClick={() => onCeilingConfirm(DEFAULT_CEILING_HEIGHT_M)}>
+              {tMeasure(ml, "ceiling.useDefault")}
+            </button>
+          </div>
+        )}
         {debugFrames !== null && <p className="ar-hud-debug" role="status">{`frames: ${debugFrames}`}</p>}
         <div className="ar-hud-bar">
           <span className="ar-hud-bar-modes" role="group" aria-label={t["measure.ar.title"]}>
@@ -402,12 +482,34 @@ export function ArMeasure({
       dispatch({ type: "baseTap", point });
       setHudError(r.error === "bad-tap" ? tMeasure(ml, "pill.badTap") : null);
     } else if (sk === "ceiling") {
-      const r = captureReducer(st, { type: "ceilingTap", point });
-      dispatch({ type: "ceilingTap", point });
-      if (r.error) setHudError(r.error ? tMeasure(ml, "pill.badTap") : null);
+      // No hit-test needed: tap confirms the ray height live-previewed on the quad.
+      const h = ceilingHeightFromCenterRay(
+        st.pendingStart,
+        st.pendingEnd,
+        st.floorY,
+        centerRayFromViewInverse(overlayFrameRef.current?.view.viewInverse ?? null),
+      );
+      if (h === null) {
+        setHudError(tMeasure(ml, "pill.badTap"));
+        return;
+      }
+      const r = captureReducer(st, { type: "ceilingConfirm", heightM: h });
+      dispatch({ type: "ceilingConfirm", heightM: h });
+      if (r.error) setHudError(tMeasure(ml, "pill.badTap"));
       else if (r.state.walls[r.state.walls.length - 1]?.flaggedHeight) setHudError(tMeasure(ml, "pill.checkHeight"));
       else setHudError(null);
     }
+  }, [capture, dispatch, ml]);
+
+  /** Shared confirm path for the ceiling pill buttons + input (fix 2). */
+  const handleCeilingConfirm = useCallback((heightM: number) => {
+    const st = capture;
+    if (stepKey(st) !== "ceiling") return;
+    const r = captureReducer(st, { type: "ceilingConfirm", heightM });
+    dispatch({ type: "ceilingConfirm", heightM });
+    if (r.error) setHudError(tMeasure(ml, "pill.badTap"));
+    else if (r.state.walls[r.state.walls.length - 1]?.flaggedHeight) setHudError(tMeasure(ml, "pill.checkHeight"));
+    else setHudError(null);
   }, [capture, dispatch, ml]);
 
   function handleStart(): void {
@@ -415,6 +517,20 @@ export function ArMeasure({
     const notify = onSessionChangeRef.current;
     const callbacks: XrTapCallbacks = {
       onTapCorner: (corner, horizontal) => handleTapAtomic(corner, horizontal ?? false),
+      // No hit-test pose (aiming at the wall/ceiling junction): the tap
+      // confirms the ceiling from the camera ray instead of the hit pose.
+      onTapEmpty: () => {
+        const st = capture;
+        if (stepKey(st) !== "ceiling" || st.mode !== "walls") return;
+        handleCeilingConfirm(
+          ceilingHeightFromCenterRay(
+            st.pendingStart,
+            st.pendingEnd,
+            st.floorY,
+            centerRayFromViewInverse(overlayFrameRef.current?.view.viewInverse ?? null),
+          ) ?? NaN,
+        );
+      },
       onHit: (point, horizontal) => {
         // Floor datum may come from continuous hits before the first tap.
         if (capture.floorY === null && horizontal) {
@@ -565,6 +681,12 @@ export function ArMeasure({
     return out;
   })();
 
+  // Live ceiling preview (fix 2): ray height from the latest overlay frame.
+  // Read during render only — no state, so no 60/s re-renders.
+  const previewCeilM = stepKey(capture) === "ceiling"
+    ? previewCeilingHeight(capture, overlayFrameRef.current?.view.viewInverse ?? null)
+    : null;
+
   return (
     <>
       <ArHud
@@ -575,6 +697,8 @@ export function ArMeasure({
         capture={capture}
         pillError={hudError}
         measureLocale={ml}
+        previewCeilM={previewCeilM}
+        onCeilingConfirm={handleCeilingConfirm}
         surfaceFound={surfaceFound}
         debugFrames={debugFrames}
         onUndo={handleUndo}
