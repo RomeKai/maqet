@@ -20,6 +20,7 @@ import {
   DOOR_MIN_WIDTH_M,
   validateAgainstWall,
 } from "./opening";
+import { snapToEndpoint } from "./weld";
 import { fitPlan, planToCanvas, canvasToPlan } from "./fitPlan";
 import { StepHeader } from "./StepHeader";
 import { CheckList } from "./CheckList";
@@ -186,6 +187,8 @@ export interface SharedHandle {
 
 /** Display-space distance below which endpoints merge into one handle. */
 export const HANDLE_CLUSTER_PX = 12;
+/** Snap radius (screen px) to an existing endpoint when drawing or dragging. */
+export const ENDPOINT_SNAP_PX = 24;
 
 /** Meters equiv of 12 px when no photo calibration maps px to meters. */
 export const HANDLE_CLUSTER_M = 0.05;
@@ -442,7 +445,9 @@ export function CornerEditor({
   function handleCanvasTap(clientX: number, clientY: number): void {
     if (openingToolKind !== null) return; // handled by pointer events
     if (tool === "addWall") {
-      const p = toSceneCoords(clientX, clientY);
+      const raw = toSceneCoords(clientX, clientY);
+      const snapped = snapToEndpoint([raw.x, raw.y], walls, toDisplay, ENDPOINT_SNAP_PX * unitsPerPx);
+      const p = snapped === null ? raw : { x: snapped[0], y: snapped[1] };
       if (pendingStart === null) {
         setPendingStart(p);
         return;
@@ -499,8 +504,10 @@ export function CornerEditor({
     // Shared corner: every wall meeting at this handle moves together.
     const members = handleMembersFor(handles, wallIdValue, end)?.members
       ?? [{ wallId: wallIdValue, end }];
+    const snapped = snapToEndpoint([p.x, p.y], walls, toDisplay, ENDPOINT_SNAP_PX * unitsPerPx, members);
+    const target: [number, number] = snapped ?? [p.x, p.y];
     const ops: SceneOp[] = members.map((m) => ({
-      type: "moveWallEndpoint" as const, wallId: m.wallId, end: m.end, point: [p.x, p.y] as [number, number],
+      type: "moveWallEndpoint" as const, wallId: m.wallId, end: m.end, point: target,
     }));
     // One history step per drag, however many walls share the corner.
     emit(ops.length === 1 ? ops[0]! : { type: "batch", ops });

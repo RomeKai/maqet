@@ -6,6 +6,7 @@ import { UploadStep } from "./UploadStep";
 import { cn } from "../ui";
 import { ScaleBadge } from "./ScaleBadge";
 import { CornerEditor } from "./CornerEditor";
+import { weldOp } from "./weld";
 import { captureStepFromScene, type CaptureStepKey } from "./captureSteps";
 import { ScaleTool } from "./ScaleTool";
 import { ArMeasure } from "../measure/ArMeasure";
@@ -71,8 +72,12 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
   const scaleConfirmed = useMemo(() => scene.scale_confirmed === true, [scene]);
 
   function handleSceneDraft(draft: Scene, result: IntakeResult): void {
-    readingRef.current = draft;
     history.reset(draft);
+    // Close the corners the reading left almost-touching: one undoable op.
+    const weld = weldOp(draft);
+    const ready = weld === null ? draft : history.apply(weld);
+    readingRef.current = ready;
+    draft = ready;
     setScene({ ...draft });
     setProposalDims(result.proposal.dimensions);
     setProposal(result.proposal);
