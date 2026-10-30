@@ -620,33 +620,45 @@ export function CornerEditor({
               wall.a[0] + ux * (o.offset_m + o.width_m),
               wall.a[1] + uy * (o.offset_m + o.width_m),
             );
-            const cls = [
-              o.kind === "door" ? "opening-door" : "opening-window",
-              selectedOpening === o.id ? "opening-selected" : "",
-            ].filter(Boolean).join(" ");
+            if (o.kind === "door") {
+              const mx = s1.x - s0.x;
+              const my = s1.y - s0.y;
+              const mLen = Math.hypot(mx, my);
+              const tx = mLen > 0 ? mx / mLen : 0;
+              const ty = mLen > 0 ? my / mLen : 1;
+              const nx = ty;
+              const ny = -tx;
+              const r = mLen;
+              const arcEnd = { x: s0.x + r * nx, y: s0.y + r * ny };
+              const arcD = `M ${s0.x} ${s0.y} A ${r} ${r} 0 0 1 ${arcEnd.x} ${arcEnd.y}`;
+              const doorCls = ["opening-door", selectedOpening === o.id ? "opening-selected" : ""].filter(Boolean).join(" ");
+              return (
+                <g key={o.id}>
+                  <line x1={s0.x} y1={s0.y} x2={s1.x} y2={s1.y} className="opening-door-gap" />
+                  <line x1={s0.x} y1={s0.y} x2={s1.x} y2={s1.y} className={doorCls} onClick={(e) => { e.stopPropagation(); setSelectedOpening(o.id); setSelectedWall(wall.id); }} />
+                  <path d={arcD} className="opening-door-arc" />
+                  {selectedOpening === o.id && (<text x={(s0.x + s1.x) / 2} y={(s0.y + s1.y) / 2} className="wall-label">{`${t["intake.selected.door"]} · ${formatLengthM(o.width_m)}`}</text>)}
+                </g>
+              );
+            }
+            const mx = s1.x - s0.x;
+            const my = s1.y - s0.y;
+            const mLen = Math.hypot(mx, my);
+            const tx = mLen > 0 ? mx / mLen : 0;
+            const ty = mLen > 0 ? my / mLen : 1;
+            const nx = ty;
+            const ny = -tx;
+            const off = 3;
+            const winCls = ["opening-window", selectedOpening === o.id ? "opening-selected" : ""].filter(Boolean).join(" ");
+            const wA0 = { x: s0.x + nx * off, y: s0.y + ny * off };
+            const wA1 = { x: s1.x + nx * off, y: s1.y + ny * off };
+            const wB0 = { x: s0.x - nx * off, y: s0.y - ny * off };
+            const wB1 = { x: s1.x - nx * off, y: s1.y - ny * off };
             return (
               <g key={o.id}>
-                <line
-                  x1={s0.x}
-                  y1={s0.y}
-                  x2={s1.x}
-                  y2={s1.y}
-                  className={cls}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedOpening(o.id);
-                    setSelectedWall(wall.id);
-                  }}
-                />
-                {selectedOpening === o.id && (
-                  <text
-                    x={(s0.x + s1.x) / 2}
-                    y={(s0.y + s1.y) / 2}
-                    className="wall-label"
-                  >
-                    {`${o.kind === "door" ? t["intake.selected.door"] : t["intake.selected.window"]} · ${formatLengthM(o.width_m)}`}
-                  </text>
-                )}
+                <line x1={wA0.x} y1={wA0.y} x2={wA1.x} y2={wA1.y} className={winCls} onClick={(e) => { e.stopPropagation(); setSelectedOpening(o.id); setSelectedWall(wall.id); }} />
+                <line x1={wB0.x} y1={wB0.y} x2={wB1.x} y2={wB1.y} className={winCls} onClick={(e) => { e.stopPropagation(); setSelectedOpening(o.id); setSelectedWall(wall.id); }} />
+                {selectedOpening === o.id && (<text x={(s0.x + s1.x) / 2} y={(s0.y + s1.y) / 2} className="wall-label">{`${t["intake.selected.window"]} · ${formatLengthM(o.width_m)}`}</text>)}
               </g>
             );
           })}

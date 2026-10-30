@@ -336,6 +336,45 @@ describe("Mode C opening — two taps on a wall span produce markOpening (RED)", (
   });
 });
 
+
+describe("Mode C opening line styles — door arc+gap vs window double line (RED)", () => {
+  const makeScene = (): Scene => ({
+    id: "intake",
+    version: 1,
+    units: "m",
+    scale_confirmed: false,
+    ceiling_height_m: 2.6,
+    walls: [{ id: "w0", a: [0, 0], b: [4, 0], thickness_m: 0.1, kind: "interior" }],
+    openings: [
+      { id: "o-door", wall_id: "w0", kind: "door", offset_m: 0.5, width_m: 0.9, height_m: 2.05 },
+      { id: "o-win", wall_id: "w0", kind: "window", offset_m: 2, width_m: 1.2, height_m: 1.4, sill_m: 0.8 },
+    ],
+    rooms: [],
+  });
+
+  it("door renders as an arc+gap (not same style as window) and window as double line", () => {
+    const html = renderToString(
+      <CornerEditor
+        locale="en"
+        scene={makeScene()}
+        imageUrl={null}
+        imageWidth={800}
+        imageHeight={600}
+        onChange={noopScene}
+        onUndo={noopUndo}
+        canUndo={false}
+      />,
+    );
+    // Door: a swung-arc path + a gap marker on the wall line
+    expect(html).toContain('class="opening-door"');
+    expect(html).toContain('class="opening-door-arc"');
+    expect(html).toContain('class="opening-door-gap"');
+    // Window: two thin parallel lines (double line), not a single dashed line
+    expect(html).toContain('class="opening-window"');
+    expect((html.match(/class="opening-window"/g) ?? []).length).toBeGreaterThanOrEqual(2);
+  });
+});
+
 describe("previewEndpoint (live drag preview)", () => {
   const wall = scene.walls![0]!;
 
