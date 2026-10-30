@@ -87,7 +87,7 @@ def _tool_names(tools: list[dict[str, Any]]) -> list[str]:
     names = []
     for tool in tools:
         if isinstance(tool.get("function"), dict):
-            names.append(tool["function"]["name"])
+            names.append(tool["name"])
         else:
             names.append(tool["name"])
     return names

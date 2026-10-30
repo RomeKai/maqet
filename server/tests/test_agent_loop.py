@@ -87,7 +87,7 @@ def _tool_names(tools: list[dict[str, Any]]) -> list[str]:
     names = []
     for tool in tools:
         if isinstance(tool.get("function"), dict):
-            names.append(tool["function"]["name"])
+            names.append(tool["name"])
         else:
             names.append(tool["name"])
     return names
@@ -534,3 +534,12 @@ def test_result_history_is_a_snapshot_not_a_view() -> None:
     assert len(result.history) == 1
     history.clear()
     assert len(result.history) == 1  # snapshot survived the caller's clear
+
+
+def test_function_tools_use_flat_responses_shape() -> None:
+    from server.agent.loop import _function_tools
+
+    for tool in _function_tools("reform"):
+        assert tool["type"] == "function"
+        assert isinstance(tool["name"], str) and tool["name"]
+        assert "parameters" in tool and "function" not in tool

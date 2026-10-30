@@ -102,12 +102,11 @@ def _function_tools(stage: str) -> list[dict[str, Any]]:
         defs = schema.pop("$defs", {})
         tools.append(
             {
+                # Responses API shape: flat, not Chat Completions' nested "function".
                 "type": "function",
-                "function": {
-                    "name": name,
-                    "description": TOOL_DESCRIPTIONS.get(name, name),
-                    "parameters": _resolve_refs(schema, defs),
-                },
+                "name": name,
+                "description": TOOL_DESCRIPTIONS.get(name, name),
+                "parameters": _resolve_refs(schema, defs),
             }
         )
     return tools
