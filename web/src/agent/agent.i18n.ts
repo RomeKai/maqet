@@ -90,8 +90,19 @@ export function getAgentStrings(locale: Locale): AgentStrings {
 }
 
 /** Localized label for a professional-required flag; unknown codes get the generic label. */
+/** Server flags may carry a trailing detail ("code:wall_id"); the stable code is the first two segments. */
+export function professionalFlagCode(flag: string): string {
+  const [prefix, name] = flag.split(":");
+  return name === undefined ? flag : `${prefix}:${name}`;
+}
+
+/** Stable codes only, each once, in first-seen order. */
+export function normalizeProfessionalFlags(flags: readonly string[]): string[] {
+  return [...new Set(flags.map(professionalFlagCode))];
+}
+
 export function professionalFlagLabel(locale: Locale, flag: string): string {
   const t = dictionaries[locale];
-  const key = `flag.${flag}`;
+  const key = `flag.${professionalFlagCode(flag)}`;
   return key in t ? t[key as AgentKey] : t["flag.generic"];
 }

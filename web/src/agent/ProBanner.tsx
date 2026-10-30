@@ -1,7 +1,7 @@
 import { OctagonAlert } from "lucide-react";
 import type { Locale } from "../i18n";
 import { getStrings } from "../i18n";
-import { professionalFlagLabel } from "./agent.i18n";
+import { normalizeProfessionalFlags, professionalFlagLabel } from "./agent.i18n";
 
 interface ProBannerProps {
   flags: string[];
@@ -10,7 +10,8 @@ interface ProBannerProps {
 
 /** Red "Needs a licensed professional" flag (ADR-023), one line per flagged condition. */
 export function ProBanner({ flags, locale }: ProBannerProps): React.JSX.Element | null {
-  if (flags.length === 0) return null;
+  const codes = normalizeProfessionalFlags(flags);
+  if (codes.length === 0) return null;
   const t = getStrings(locale);
   return (
     <div
@@ -23,7 +24,7 @@ export function ProBanner({ flags, locale }: ProBannerProps): React.JSX.Element 
         <strong className="block text-base font-bold leading-snug">{t["banner.needs_professional"]}</strong>
         <p className="mt-0.5 text-[15px] leading-snug">{t["banner.needs_professional.detail"]}</p>
         <ul className="mt-1 list-disc pl-5 text-[15px]">
-          {flags.map((flag) => (
+          {codes.map((flag) => (
             <li key={flag} data-flag={flag}>
               {professionalFlagLabel(locale, flag)}
             </li>

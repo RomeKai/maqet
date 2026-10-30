@@ -439,7 +439,10 @@ def post_agent_turn(
     ]
     flags = list(result.scene.professional_flags)
     for op in applied:
-        flags += [f for f in op.flags if f not in flags]
+        for raw in op.flags:
+            code = ":".join(raw.split(":")[:2])  # drop the ':wall_id' detail
+            if code not in flags:
+                flags.append(code)
     logger.info("agent turn stage=%s ops=%d", body.stage, len(applied))
     return AgentTurnOut(
         scene=result.scene,
