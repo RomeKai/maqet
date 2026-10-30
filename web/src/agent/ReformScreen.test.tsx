@@ -32,7 +32,7 @@ describe("ReformScreen", () => {
 
   it("has the 3D card undo, chips, talk bar and Next", () => {
     expect(html).toContain(`aria-label="${t["card.undo"]}"`);
-    expect(html).toContain(t["suggest.bedroom"]);
+    expect(html).toContain(t["suggest.reform.bedroom"]);
     expect(html).toContain(t["bar.hint"]);
     expect(html).toContain(t["bar.next"]);
   });

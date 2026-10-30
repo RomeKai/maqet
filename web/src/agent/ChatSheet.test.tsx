@@ -155,7 +155,7 @@ describe("ChatSheet", () => {
   it("shows quick-request chips that are buttons", () => {
     const html = render([], { suggestions: true });
     expect(html).toContain("agent-suggestion");
-    expect(html).toContain(getAgentStrings("en")["suggest.bedroom"]);
+    expect(html).toContain(getAgentStrings("en")["suggest.reform.bedroom"]);
   });
 
   it("with a microphone: talk bar with hint, round mic, Next, and the text row behind a keyboard button", () => {

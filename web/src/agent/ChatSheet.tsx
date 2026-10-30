@@ -3,6 +3,7 @@ import { ArrowRight, Keyboard } from "lucide-react";
 import type { FormEvent } from "react";
 import type { Locale } from "../i18n";
 import "./agent.css";
+import { SUGGESTIONS, type SuggestionStage } from "./suggestions";
 import { getAgentStrings, normalizeProfessionalFlags, professionalFlagLabel, toolLabel } from "./agent.i18n";
 import type { AgentStrings } from "./agent.i18n";
 import type { ChatMessage, ToolEvent } from "./agentTypes";
@@ -63,11 +64,12 @@ interface ChatSheetProps {
   pending?: boolean;
   /** Show the quick-request chips above the bottom bar. */
   suggestions?: boolean;
+  /** Which stage the chips belong to (each chip maps to one tool of that stage). */
+  suggestionStage?: SuggestionStage;
   /** "Next ->" in the bottom bar. */
   onNext?: () => void;
 }
 
-const SUGGESTIONS = ["suggest.bedroom", "suggest.brighter", "suggest.floor", "suggest.door"] as const;
 
 /** Chat with the agent: bubbles, quick requests and a talk bar (phone-first). */
 export function ChatSheet({
@@ -77,6 +79,7 @@ export function ChatSheet({
   onAudio,
   pending = false,
   suggestions = false,
+  suggestionStage = "reform",
   onNext,
 }: ChatSheetProps): React.JSX.Element {
   const t = getAgentStrings(locale);
@@ -123,7 +126,7 @@ export function ChatSheet({
       </ol>
       {suggestions ? (
         <div className="agent-suggestions" role="group" aria-label={t["suggest.label"]}>
-          {SUGGESTIONS.map((key) => (
+          {SUGGESTIONS[suggestionStage].map(({ key }) => (
             <button
               key={key}
               type="button"

@@ -365,7 +365,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
 
         {isAgentStage ? (
           <div className="agent-stage">
-            <ChatSheet messages={messages} locale={locale} onSend={handleSend} onAudio={handleAudio} pending={pending} />
+            <ChatSheet messages={messages} locale={locale} onSend={handleSend} onAudio={handleAudio} pending={pending} suggestions suggestionStage="design" />
             {agentError ? <p className="agent-error">{agentError}</p> : null}
           </div>
         ) : (
