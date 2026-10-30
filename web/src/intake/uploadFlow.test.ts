@@ -45,3 +45,14 @@ describe("runUpload (camera and gallery share it)", () => {
     expect(d.onFailure).toHaveBeenCalledWith("photo", expect.any(String));
   });
 });
+
+describe("camera and gallery reach the same upload with a downscaled file", () => {
+  it("posts the downscaled blob, not the raw file, for either source", async () => {
+    for (const name of ["camera.jpg", "gallery.heic"]) {
+      const d = deps(async () => result);
+      await runUpload(new File(["raw-big"], name), "sketch", d);
+      expect(d.downscale).toHaveBeenCalledTimes(1);
+      expect(d.post.mock.calls[0]?.[0]).toBe(image.blob);
+    }
+  });
+});
