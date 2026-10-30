@@ -1,59 +1,99 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Locale } from "../i18n";
 import "./ar.css";
 import { getArStrings } from "./ar.i18n";
+import type { ModelViewerElement } from "./model-viewer.d";
+import { loadModelViewer } from "./modelViewerLoader";
 
 const AR_MODES = "webxr scene-viewer quick-look";
 
-/** True when the <model-viewer> custom element has been registered in this page. */
-export function isModelViewerRegistered(): boolean {
-  return typeof customElements !== "undefined" && customElements.get("model-viewer") !== undefined;
+/** "loading": exports or the library are pending. "ready": model-viewer is registered. "failed": it could not load. */
+export type ViewerPhase = "loading" | "ready" | "failed";
+
+interface ViewerBodyProps {
+  phase: ViewerPhase;
+  src: string | null;
+  iosSrc: string | null;
+  canActivateAR: boolean;
+  locale: Locale;
+  modelRef?: React.RefObject<ModelViewerElement | null>;
+}
+
+/** Presentational part of the viewer: everything it shows is decided by its props. */
+export function ViewerBody({ phase, src, iosSrc, canActivateAR, locale, modelRef }: ViewerBodyProps): React.JSX.Element {
+  const t = getArStrings(locale);
+  const showModel = phase === "ready" && src !== null;
+  const showFallback = phase === "failed" || (phase === "ready" && !canActivateAR);
+
+  return (
+    <figure className="ar-viewer">
+      {phase === "loading" || (phase === "ready" && src === null) ? (
+        <div className="ar-fallback" role="status">
+          <strong>{t["viewer.loading"]}</strong>
+        </div>
+      ) : null}
+      {showModel ? (
+        <model-viewer
+          ref={modelRef as React.Ref<HTMLElement>}
+          src={src}
+          ios-src={iosSrc ?? undefined}
+          alt={t["viewer.alt"]}
+          ar
+          ar-modes={AR_MODES}
+          ar-placement="floor"
+          camera-controls
+          shadow-intensity="1"
+        >
+          <button slot="ar-button" type="button" className="ar-button">
+            {t["viewer.arButton"]}
+          </button>
+        </model-viewer>
+      ) : null}
+      {showFallback ? (
+        <p className="ar-fallback" role="status">
+          {t["viewer.arNotAvailable"]}
+        </p>
+      ) : null}
+      <figcaption className="ar-caption">{t["caption.preliminary"]}</figcaption>
+    </figure>
+  );
 }
 
 interface MaquetteViewerProps {
-  /** URL of the GLB (typically a blob URL from exportGlb). */
-  src: string;
-  /** Optional pre-baked USDZ for iOS Quick Look. */
-  iosSrc?: string;
+  /** GLB object URL; null while the exports are still building. */
+  src: string | null;
+  /** USDZ object URL for iOS Quick Look; null while building. */
+  iosSrc: string | null;
   locale: Locale;
+  /** Lets the parent call `activateAR()` from its own button. */
+  elementRef?: React.RefObject<ModelViewerElement | null>;
 }
 
-/** Table-top AR viewer: <model-viewer> when registered, otherwise a clear "AR viewer unavailable" fallback. */
-export function MaquetteViewer({ src, iosSrc, locale }: MaquetteViewerProps): React.JSX.Element {
-  const t = getArStrings(locale);
-  const [available, setAvailable] = useState(isModelViewerRegistered);
+/** Table-top AR viewer: registers <model-viewer> lazily and degrades to a 3D-only fallback. */
+export function MaquetteViewer({ src, iosSrc, locale, elementRef }: MaquetteViewerProps): React.JSX.Element {
+  const [phase, setPhase] = useState<ViewerPhase>("loading");
+  const [canActivateAR, setCanActivateAR] = useState(true);
+  const ownRef = useRef<ModelViewerElement | null>(null);
+  const modelRef = elementRef ?? ownRef;
 
-  // The script may register the element after first render; switch over when it does.
   useEffect(() => {
-    if (available || typeof customElements === "undefined") return;
     let cancelled = false;
-    void customElements.whenDefined("model-viewer").then(() => {
-      if (!cancelled) setAvailable(true);
+    void loadModelViewer().then((ok) => {
+      if (!cancelled) setPhase(ok ? "ready" : "failed");
     });
     return () => {
       cancelled = true;
     };
-  }, [available]);
+  }, []);
 
-  return (
-    <figure className="ar-viewer">
-      {available ? (
-        <model-viewer
-          src={src}
-          ios-src={iosSrc}
-          alt={t["viewer.alt"]}
-          ar
-          ar-modes={AR_MODES}
-          camera-controls
-          shadow-intensity="1"
-        />
-      ) : (
-        <div className="ar-fallback" role="status">
-          <strong>{t["viewer.unavailable"]}</strong>
-          <p>{t["viewer.unavailableHint"]}</p>
-        </div>
-      )}
-      <figcaption className="ar-caption">{t["caption.preliminary"]}</figcaption>
-    </figure>
-  );
+  // `canActivateAR` is only meaningful once the model has loaded.
+  useEffect(() => {
+    const element = modelRef.current;
+    if (phase !== "ready" || element === null) return undefined;
+    const onLoad = (): void => setCanActivateAR(element.canActivateAR);
+    element.addEventListener("load", onLoad);
+    return () => element.removeEventListener("load", onLoad);
+  }, [phase, src]);
+
+  return <ViewerBody phase={phase} src={src} iosSrc={iosSrc} canActivateAR={canActivateAR} locale={locale} modelRef={modelRef} />;
 }

@@ -23,4 +23,5 @@ declare module "react" {
 /** The part of the element API we read after load. */
 export interface ModelViewerElement extends HTMLElement {
   canActivateAR: boolean;
+  activateAR: () => Promise<void>;
 }

@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Box, Share2 } from "lucide-react";
 import { getStrings, type Locale } from "../i18n";
+import type { MaquetteFiles } from "../ar/buildMaquetteFiles";
 import type { Scene } from "../scene/types";
 import { SceneView } from "../view3d/SceneView";
 import { MaquetteViewer } from "../ar/MaquetteViewer";
-import { useMaquetteUrl } from "../ar/useMaquetteUrl";
+import type { ModelViewerElement } from "../ar/model-viewer.d";
+import { USDZ_MIME, useMaquetteUrl } from "../ar/useMaquetteUrl";
 import { VariantTabs } from "../agent/VariantTabs";
 import { Banner, Button } from "../ui";
 
@@ -23,29 +25,43 @@ type ShareState = "idle" | "copied" | "failed";
 /** Present stage: full 3D, variants, AR on the table, share link. */
 export function PresentView({ scene, locale, selectedWallId, onSelectWall, onSceneChange, copyLink }: PresentViewProps): React.JSX.Element {
   const t = getStrings(locale);
-  const [glb, setGlb] = useState<ArrayBuffer | null>(null);
+  const [files, setFiles] = useState<MaquetteFiles | null>(null);
   const [building, setBuilding] = useState(false);
   const [arError, setArError] = useState(false);
   const [share, setShare] = useState<ShareState>("idle");
-  const maquetteUrl = useMaquetteUrl(glb);
+  const viewerRef = useRef<ModelViewerElement | null>(null);
+  const glbUrl = useMaquetteUrl(files?.glb ?? null);
+  const usdzUrl = useMaquetteUrl(files?.usdz ?? null, USDZ_MIME);
   const hasPlan = scene !== null && (scene.walls?.length ?? 0) > 0;
 
-  async function buildAr(): Promise<void> {
-    if (scene === null) return;
+  // Build GLB + USDZ in parallel whenever Present opens or the Scene changes. A stale build is dropped.
+  useEffect(() => {
+    if (scene === null || !hasPlan) {
+      setFiles(null);
+      return undefined;
+    }
+    let cancelled = false;
     setBuilding(true);
     setArError(false);
-    try {
-      // Loaded on demand: three's exporters are heavy and only needed here.
-      const [{ sceneToMaquette }, { exportGlb }] = await Promise.all([
-        import("../ar/sceneToMaquette"),
-        import("../ar/exportMaquette"),
-      ]);
-      setGlb(await exportGlb(sceneToMaquette(scene)));
-    } catch {
-      setArError(true);
-    } finally {
-      setBuilding(false);
-    }
+    // Loaded on demand: three's exporters are heavy and only needed here.
+    void import("../ar/buildMaquetteFiles")
+      .then(({ buildMaquetteFiles }) => buildMaquetteFiles(scene))
+      .then((built) => {
+        if (!cancelled) setFiles(built);
+      })
+      .catch(() => {
+        if (!cancelled) setArError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setBuilding(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [scene, hasPlan]);
+
+  function openAr(): void {
+    void viewerRef.current?.activateAR();
   }
 
   async function shareLink(): Promise<void> {
@@ -73,13 +89,13 @@ export function PresentView({ scene, locale, selectedWallId, onSelectWall, onSce
         <VariantTabs onSceneChange={onSceneChange} locale={locale} />
 
         {arError && <Banner tone="danger" title={t["present.ar.error"]} />}
-        {maquetteUrl !== null && <MaquetteViewer src={maquetteUrl} locale={locale} />}
+        {hasPlan && <MaquetteViewer src={glbUrl} iosSrc={usdzUrl} locale={locale} elementRef={viewerRef} />}
         {share === "copied" && <Banner tone="success" title={t["present.shared"]} />}
         {share === "failed" && <Banner tone="warning" title={t["present.shareFailed"]} />}
       </div>
 
       <div className="sticky bottom-0 mt-auto space-y-2 border-t-2 border-foreground bg-card p-3">
-        <Button className="w-full" disabled={!hasPlan || building} onClick={() => void buildAr()}>
+        <Button className="w-full" disabled={!hasPlan || building || glbUrl === null} onClick={openAr}>
           <Box className="size-6" aria-hidden />
           {building ? t["present.ar.building"] : t["present.ar"]}
         </Button>

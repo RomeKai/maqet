@@ -38,9 +38,9 @@ vi.mock("react", () => ({
 
 import { useMaquetteUrl } from "./useMaquetteUrl";
 
-function render(buffer: ArrayBuffer | null): string | null {
+function render(buffer: ArrayBuffer | Uint8Array | null, mime?: string): string | null {
   harness.renders = 0;
-  const url = useMaquetteUrl(buffer);
+  const url = useMaquetteUrl(buffer, mime);
   for (const effect of harness.effects) {
     if (effect.cleanup === undefined && effect.run) effect.cleanup = effect.run();
   }
@@ -76,6 +76,12 @@ describe("useMaquetteUrl", () => {
     const blob = create.mock.calls[0]?.[0] as Blob;
     expect(blob.type).toBe("model/gltf-binary");
     expect(harness.state).toBe("blob:maquette-1");
+  });
+
+  it("creates a USDZ blob URL when given the USDZ mime type", () => {
+    render(new Uint8Array(8), "model/vnd.usdz+zip");
+    const blob = create.mock.calls[0]?.[0] as Blob;
+    expect(blob.type).toBe("model/vnd.usdz+zip");
   });
 
   it("does nothing while there is no buffer", () => {

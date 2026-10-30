@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { renderToString } from "react-dom/server";
 import { PresentView } from "./PresentView";
 import { getStrings } from "../i18n";
+import { getArStrings } from "../ar/ar.i18n";
 import type { Scene } from "../scene/types";
 
 const scene = {
@@ -32,5 +33,20 @@ describe("PresentView", () => {
     expect(html).toContain(t["present.empty"]);
     expect(html).not.toContain('data-testid="scene-view"');
     expect(html).toMatch(/<button[^>]*disabled[^>]*>(?:(?!<\/button>).)*Ver en AR/s);
+  });
+
+  it("shows the AR viewer in its loading state while the exports build", () => {
+    const html = renderToString(
+      <PresentView scene={scene} locale="en" selectedWallId={null} onSelectWall={noop} onSceneChange={noop} />,
+    );
+    expect(html).toContain(getArStrings("en")["viewer.loading"]);
+    expect(html).toContain(getArStrings("en")["caption.preliminary"]);
+  });
+
+  it("does not show the AR viewer when there is no plan", () => {
+    const html = renderToString(
+      <PresentView scene={null} locale="en" selectedWallId={null} onSelectWall={noop} onSceneChange={noop} />,
+    );
+    expect(html).not.toContain(getArStrings("en")["viewer.loading"]);
   });
 });
