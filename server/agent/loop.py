@@ -38,7 +38,7 @@ from server.scene.models import Scene
 MAX_TOOL_ROUNDS = 6
 PROMPT_CACHE_KEY = "reform-v1"
 TAG = "reform"
-TIER = "draft"
+TIER = "max"
 
 _PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "reform_v1.md"
 

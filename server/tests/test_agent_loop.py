@@ -145,7 +145,7 @@ def test_single_tool_call() -> None:
     assert first["input"] == "Agregá un dormitorio"
     assert first["kwargs"]["tag"] == "reform"
     assert first["kwargs"]["prompt_cache_key"] == "reform-v1"
-    assert first["kwargs"]["tier"] == "draft"
+    assert first["kwargs"]["tier"] == "max"
     assert _tool_names(first["kwargs"]["tools"]) == list(STAGES["reform"])
     assert "Current scene" in first["kwargs"]["instructions"]
 
