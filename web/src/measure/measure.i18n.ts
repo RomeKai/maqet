@@ -29,6 +29,10 @@ const EN: Record<string, string> = {
   "review.apply": "Apply",
   "mode.done.title": "Ready to apply",
   "mode.done.body": "Tap Done to add the walls to the plan.",
+  "ceiling.typeLabel": "Type height",
+  "ceiling.typePlaceholder": "Height in m",
+  "ceiling.useDefault": "Use 2.60 m",
+  "ceiling.confirm": "Confirm height",
 };
 
 const ES_AR: Record<string, string> = {
@@ -58,6 +62,10 @@ const ES_AR: Record<string, string> = {
   "review.apply": "Aplicar",
   "mode.done.title": "Listo para aplicar",
   "mode.done.body": "Tocá Listo para agregar las paredes al plano.",
+  "ceiling.typeLabel": "Escribí la altura",
+  "ceiling.typePlaceholder": "Altura en m",
+  "ceiling.useDefault": "Usar 2,60 m",
+  "ceiling.confirm": "Confirmar altura",
 };
 
 const DICTS: Record<MeasureLocale, Record<string, string>> = {

@@ -6,6 +6,7 @@ import {
   shouldCloseRoom,
   type Vec3,
 } from "./cornerMath";
+import { centerRayFromViewInverse, ceilingHeightFromCenterRay } from "./ceilingRay";
 import { projectToScreen } from "./projectToScreen";
 import type { OverlayFrame } from "./xrAdapter";
 import type { CapturedWall, CapturedCorner } from "./captureSession";
@@ -290,12 +291,18 @@ export function computeWallsOverlayLayout(
     }
   }
 
-  // Rubber-band quad: pending wall extruded to reticle height.
+  // Rubber-band quad (fix 2): pending wall extruded to the camera-ray height.
+  // No hit-test needed: aiming at the wall/ceiling junction yields no reticle,
+  // but the frame still carries the viewer matrices for the center ray.
   let rubberQuad: OverlayQuad | null = null;
-  if (floorY !== null && pendingStart !== null && pendingEnd !== null && frame.reticle !== null) {
-    const retY = frame.reticle[1];
-    const h = retY - floorY;
-    if (Number.isFinite(h) && h > 0.05) {
+  if (floorY !== null && pendingStart !== null && pendingEnd !== null) {
+    const h = ceilingHeightFromCenterRay(
+      pendingStart,
+      pendingEnd,
+      floorY,
+      centerRayFromViewInverse(frame.view.viewInverse),
+    );
+    if (h !== null && Number.isFinite(h) && h > 0.05) {
       rubberQuad = wallQuad(pendingStart, pendingEnd, floorY, h, frame, locale);
     }
   }
