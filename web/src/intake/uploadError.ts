@@ -6,6 +6,7 @@ export type UploadErrorKind = "server" | "photo" | "replay" | "offline";
  * whatever words its detail text contains.
  */
 export function classifyUploadError(message: string): UploadErrorKind {
+  if (/no recorded vision response/i.test(message)) return "offline";
   if (/Server returned 409\b/.test(message)) return "replay";
   if (/Server returned \d{3}\b/.test(message)) return "photo";
   if (/^Could not reach the server|failed to fetch|networkerror|load failed|network request failed/i.test(message)) {

@@ -143,6 +143,8 @@ export const esAR = {
   "intake.err.server.body": "Revisá tu conexión. La foto sigue en este teléfono.",
   "intake.err.photo.title": "No pude leer la foto",
   "intake.err.photo.body": "Sacala de nuevo con buena luz, plana, y con los largos escritos grandes.",
+  "intake.err.offline.title": "El servidor está en modo replay",
+  "intake.err.offline.body": "No puede leer fotos nuevas. Usá el botón de muestra o pasá el servidor a modo en vivo.",
   "intake.err.replay.title": "Muestra no encontrada",
   "intake.err.replay.body": "Esa muestra grabada no está disponible. Sacá una foto.",
   "intake.reading.title": "Leyendo tu croquis",

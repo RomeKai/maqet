@@ -144,6 +144,8 @@ export const en: Record<keyof typeof esAR, string> = {
   "intake.err.server.body": "Check your connection. Your photo is still on this phone.",
   "intake.err.photo.title": "Couldn't read the photo",
   "intake.err.photo.body": "Take it again in good light, flat, with the lengths written large.",
+  "intake.err.offline.title": "Server is in offline replay mode",
+  "intake.err.offline.body": "It cannot read new photos. Use the sample button, or switch the server to live mode.",
   "intake.err.replay.title": "Sample not found",
   "intake.err.replay.body": "That recorded sample is not available. Take a photo instead.",
   "intake.reading.title": "Reading your sketch",
