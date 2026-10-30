@@ -1,0 +1,204 @@
+{
+ "id": "s",
+ "version": 2,
+ "units": "m",
+ "scale_confirmed": true,
+ "ceiling_height_m": 2.6,
+ "walls": [
+  {
+   "id": "w1",
+   "a": [
+    0.0,
+    0.0
+   ],
+   "b": [
+    8.0,
+    0.0
+   ],
+   "thickness_m": 0.2,
+   "kind": "exterior",
+   "height_m": null,
+   "load_bearing": false,
+   "provenance": "estimated",
+   "measured_length_m": null
+  },
+  {
+   "id": "w2",
+   "a": [
+    8.0,
+    0.0
+   ],
+   "b": [
+    8.0,
+    3.0
+   ],
+   "thickness_m": 0.2,
+   "kind": "exterior",
+   "height_m": null,
+   "load_bearing": false,
+   "provenance": "estimated",
+   "measured_length_m": null
+  },
+  {
+   "id": "w3",
+   "a": [
+    8.0,
+    3.0
+   ],
+   "b": [
+    0.0,
+    3.0
+   ],
+   "thickness_m": 0.2,
+   "kind": "exterior",
+   "height_m": null,
+   "load_bearing": false,
+   "provenance": "estimated",
+   "measured_length_m": null
+  },
+  {
+   "id": "w4",
+   "a": [
+    0.0,
+    3.0
+   ],
+   "b": [
+    0.0,
+    0.0
+   ],
+   "thickness_m": 0.2,
+   "kind": "exterior",
+   "height_m": null,
+   "load_bearing": false,
+   "provenance": "estimated",
+   "measured_length_m": null
+  },
+  {
+   "id": "w5",
+   "a": [
+    8.0,
+    0.0
+   ],
+   "b": [
+    11.0,
+    0.0
+   ],
+   "thickness_m": 0.2,
+   "kind": "exterior",
+   "height_m": null,
+   "load_bearing": false,
+   "provenance": "estimated",
+   "measured_length_m": null
+  },
+  {
+   "id": "w6",
+   "a": [
+    11.0,
+    0.0
+   ],
+   "b": [
+    11.0,
+    3.0
+   ],
+   "thickness_m": 0.2,
+   "kind": "exterior",
+   "height_m": null,
+   "load_bearing": false,
+   "provenance": "estimated",
+   "measured_length_m": null
+  },
+  {
+   "id": "w7",
+   "a": [
+    11.0,
+    3.0
+   ],
+   "b": [
+    8.0,
+    3.0
+   ],
+   "thickness_m": 0.2,
+   "kind": "exterior",
+   "height_m": null,
+   "load_bearing": false,
+   "provenance": "estimated",
+   "measured_length_m": null
+  }
+ ],
+ "openings": [
+  {
+   "id": "o1",
+   "wall_id": "w2",
+   "kind": "door",
+   "offset_m": 1.05,
+   "width_m": 0.9,
+   "height_m": 2.1,
+   "sill_m": null
+  },
+  {
+   "id": "o2",
+   "wall_id": "w2",
+   "kind": "door",
+   "offset_m": 0.07500000000000001,
+   "width_m": 0.9,
+   "height_m": 2.1,
+   "sill_m": null
+  }
+ ],
+ "rooms": [
+  {
+   "id": "r1",
+   "name": "House",
+   "polygon": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     8.0,
+     0.0
+    ],
+    [
+     8.0,
+     3.0
+    ],
+    [
+     0.0,
+     3.0
+    ]
+   ],
+   "function": "living",
+   "level": 1
+  },
+  {
+   "id": "r2",
+   "name": "Bedroom",
+   "polygon": [
+    [
+     8.0,
+     0.0
+    ],
+    [
+     11.0,
+     0.0
+    ],
+    [
+     11.0,
+     3.0
+    ],
+    [
+     8.0,
+     3.0
+    ]
+   ],
+   "function": "bedroom",
+   "level": 1
+  }
+ ],
+ "surfaces": [],
+ "furniture": [],
+ "materials": [],
+ "professional_flags": [
+  "needs_professional:span_over_limit"
+ ]
+}

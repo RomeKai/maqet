@@ -47,3 +47,22 @@ describe("buildMaquetteFiles", () => {
     expect(usdz[1]).toBe(0x4b);
   });
 });
+
+describe("buildMaquetteFiles for a reformed scene (bug D)", () => {
+  beforeEach(() => {
+    vi.stubGlobal("FileReader", BlobFileReader);
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("exports GLB and USDZ after add_room plus an extra door", async () => {
+    // Fixture produced by the server executor: 3x8 house + bedroom (auto walls and door) + a second door.
+    const reformed = (await import("./reformedScene.fixture.json")).default as unknown as Scene;
+    expect(reformed.walls?.length).toBe(7);
+    expect(reformed.openings?.length).toBe(2);
+    const { glb, usdz } = await buildMaquetteFiles(reformed);
+    expect(new TextDecoder().decode(glb.slice(0, 4))).toBe("glTF");
+    expect(usdz[0]).toBe(0x50);
+  });
+});

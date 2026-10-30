@@ -35,3 +35,18 @@ describe("professional flags", () => {
     expect(items).toEqual(["Needs a licensed professional: span over the limit"]);
   });
 });
+
+describe("ProBanner compact mode (bug D)", () => {
+  const flags = ["needs_professional:span_over_limit", "needs_professional:unknown_soil"];
+  it("collapses to one line with the reasons behind a details toggle", () => {
+    const html = renderToStaticMarkup(<ProBanner locale="en" flags={flags} compact />);
+    expect(html).toContain("<details");
+    expect(html).toContain("Needs a licensed professional");
+    expect(html).toContain("span over the limit");
+  });
+  it("never lets the banner take over the screen", () => {
+    const html = renderToStaticMarkup(<ProBanner locale="en" flags={flags} />);
+    expect(html).toMatch(/max-h-\[\d+dvh\]/);
+    expect(html).toContain("overflow-y-auto");
+  });
+});
