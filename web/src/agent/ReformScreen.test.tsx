@@ -41,6 +41,35 @@ describe("ReformScreen", () => {
   });
 });
 
+describe("ReformScreen conversation (bug E)", () => {
+  it("renders the user and agent bubbles in the dock", () => {
+    const html = renderToString(
+      <ReformScreen
+        scene={null}
+        locale="en"
+        selectedWallId={null}
+        onSelectWall={noop}
+        onSceneChange={noop}
+        messages={[
+          { id: "u1", role: "user", text: "Add a bedroom" },
+          { id: "a1", role: "assistant", text: "Added the bedroom." },
+        ]}
+        onSend={noop}
+        onAudio={noop}
+        pending={false}
+        agentError={null}
+        onNext={noop}
+        onEdit={async () => null}
+        variants={{ data: null, error: null, busy: false, selected: "A", active: "A", reload: async () => {}, fork: async () => {}, choose: async () => {}, undo: async () => {} }}
+      />,
+    );
+    expect(html).toContain("Add a bedroom");
+    expect(html).toContain("Added the bedroom.");
+    expect(html).toContain('data-role="user"');
+    expect(html).toContain('data-role="assistant"');
+  });
+});
+
 describe("activeVariant", () => {
   it("is null on Now (read-only) and the label otherwise", () => {
     expect(activeVariant(NOW, "A")).toBeNull();

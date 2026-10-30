@@ -24,8 +24,14 @@ describe("agent chat dock layout (phone width)", () => {
     expect(css).toMatch(/\.agent-messages[^{]*\{[^}]*overflow-y:\s*auto/);
   });
 
-  it("clips the sheet inside its flex slot and honours the safe-area inset", () => {
-    expect(rule('[data-testid="reform-screen"] .agent-sheet')).toMatch(/overflow:\s*hidden/);
+  it("sizes the sheet by content (screen scrolls) and honours the safe-area inset", () => {
+    expect(rule('[data-testid="reform-screen"] .agent-sheet')).toMatch(/flex:\s*1\s+0\s+auto/);
     expect(rule(".agent-sheet")).toMatch(/safe-area-inset-bottom/);
+  });
+
+  it("never collapses the conversation to zero height (bug E)", () => {
+    const messages = css.match(/(?:^|[\s}])\.agent-sheet \.agent-messages\s*\{([^}]*)\}/);
+    expect(messages, "missing .agent-sheet .agent-messages").not.toBeNull();
+    expect(messages![1]).toMatch(/min-height:\s*(?:[6-9]|\d{2,})(?:\.\d+)?rem/);
   });
 });
