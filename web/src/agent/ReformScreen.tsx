@@ -55,7 +55,7 @@ export function ReformScreen(props: ReformScreenProps): React.JSX.Element {
 
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden font-sans" aria-label={t["chat.title"]} data-testid="reform-screen">
-      <div className="relative mx-3 mt-2 h-[30dvh] min-h-[7rem] shrink-0 overflow-hidden rounded-2xl border-2 border-foreground bg-card">
+      <div className="agent-card relative mx-3 mt-2 h-[26dvh] min-h-[4.5rem] shrink overflow-hidden rounded-2xl border-2 border-foreground bg-card">
         {scene !== null && (scene.walls?.length ?? 0) > 0 ? (
           <SceneView scene={scene} selectedWallId={props.selectedWallId} onSelectWall={selectWall} wallNumbers />
         ) : null}
@@ -89,7 +89,7 @@ export function ReformScreen(props: ReformScreenProps): React.JSX.Element {
         </button>
       </div>
       <VariantTabs state={variants} locale={locale} />
-      <div className="agent-dock flex min-h-0 flex-1 flex-col">
+      <div className="agent-dock flex flex-1 flex-col">
         <ChatSheet
           messages={props.messages}
           locale={locale}

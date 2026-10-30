@@ -303,17 +303,28 @@
 [data-testid="reform-screen"] .agent-sheet,
 .agent-stage .agent-sheet {
   flex: 1 1 0;
-  min-height: 0;
+  /* auto min-height (content size): the dock keeps its messages and controls,
+     the 3D card above shrinks instead. */
+  min-height: auto;
   max-height: none;
   margin-top: 4px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 [data-testid="reform-screen"] .agent-sheet .agent-messages,
 .agent-stage .agent-sheet .agent-messages {
   flex: 1 1 0;
-  min-height: 0;
+  /* Never collapse: the card above shrinks first (bug N, measured 3 px at 412x780). */
+  min-height: 7rem;
   overflow-y: auto;
+}
+
+/* Short viewports (browser chrome, on-screen keyboard): drop the secondary rows. */
+@media (max-height: 820px) {
+  [data-testid="reform-screen"] .agent-suggestions,
+  [data-testid="reform-screen"] .agent-bar-hint {
+    display: none;
+  }
 }
 
 .agent-stage {
@@ -321,4 +332,11 @@
   flex-direction: column;
   min-height: 0;
   max-height: 55dvh;
+}
+
+/* Keyboard-open heights: the 3D card gives way so bubbles and input stay visible. */
+@media (max-height: 560px) {
+  [data-testid="reform-screen"] .agent-card {
+    display: none;
+  }
 }
