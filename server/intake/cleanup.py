@@ -40,6 +40,8 @@ ENDPOINT_SNAP_TOL = 0.05
 ORTHO_SNAP_DEG = 15.0
 # Warning code emitted when a wall's endpoints moved by >10% due to snapping.
 CODE_SNAP_LARGE = "wall.snapped_large_change"
+# Warning code emitted when a diagonal/angled wall is kept for human confirmation.
+CODE_DIAGONAL_KEPT = "wall.diagonal_kept"
 # Cleanup tolerance for mode C wall normalization (meters in normalized units).
 CLEANUP_TOL = ENDPOINT_SNAP_TOL
 # Nominal fuse threshold is tol + 1e-9; the implementation allows 2e-9 so the
@@ -388,21 +390,18 @@ def _drop_zero_and_duplicate(
     return filtered
 
 
-def _drop_diagonal_walls(
+def _emit_diagonal_warnings(
     walls: list[tuple[tuple[float, float], tuple[float, float], str | None]],
-) -> list[tuple[tuple[float, float], tuple[float, float], str | None]]:
-    """Drop walls that are diagonal after snapping (spurious, not part of orthogonal loop)."""
-    kept: list[tuple[tuple[float, float], tuple[float, float], str | None]] = []
-    for (ax, ay), (bx, by), kind in walls:
+    warnings: list[str],
+) -> None:
+    """Emit wall.diagonal_kept for every wall that is not within 15 deg of orthogonal."""
+    for idx, ((ax, ay), (bx, by), _kind) in enumerate(walls):
         dx, dy = bx - ax, by - ay
         ang = math.degrees(math.atan2(dy, dx)) % 360
-        # orthogonal iff near 0/90/180/270 (within epsilon for float)
         nearest = round(ang / 90) * 90
         delta = abs((ang - nearest + 180) % 360 - 180)
-        if delta > 1.0:
-            continue
-        kept.append(((ax, ay), (bx, by), kind))
-    return kept
+        if delta > ORTHO_SNAP_DEG + 1e-9:
+            warnings.append(f"{CODE_DIAGONAL_KEPT}: wall {idx + 1} is diagonal/angled, confirm or delete in editor")
 
 
 def _close_loop(
@@ -448,7 +447,9 @@ def build_scaled_plan(
     # 5) then apply written per-wall lengths
     norm_walls = _orthogonal_snap(norm_walls, tol, warnings)
     norm_walls = _drop_zero_and_duplicate(norm_walls, tol, warnings)
-    norm_walls = _drop_diagonal_walls(norm_walls)
+    # Diagonal/angled walls are real geometry (chamfers, angled walls); keep them
+    # and flag for human confirmation instead of silently dropping.
+    _emit_diagonal_warnings(norm_walls, warnings)
     # close loop is handled by vertex clustering, but normalize near-miss endpoints here
     norm_walls = _close_loop(norm_walls, tol)
     fused, members = _fuse_walls(norm_walls, tol)
@@ -836,7 +837,11 @@ def to_scene(
 
 
 __all__ = [
+    "CLEANUP_TOL",
+    "CODE_DIAGONAL_KEPT",
+    "CODE_SNAP_LARGE",
     "ENDPOINT_SNAP_TOL",
+    "ORTHO_SNAP_DEG",
     "TOL_DEFAULT",
     "ScaleError",
     "ScaledOpening",

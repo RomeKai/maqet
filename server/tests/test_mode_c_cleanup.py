@@ -132,8 +132,9 @@ def test_close_loop_when_ends_within_tolerance() -> None:
     assert len(plan.rooms) == 1, f"loop not closed: {plan.warnings}"
 
 
-def test_spurious_diagonal_is_dropped() -> None:
-    from server.intake.cleanup import build_scaled_plan
+def test_diagonal_wall_is_kept_with_warning() -> None:
+    """Angled walls are real geometry (chamfer): kept, not silently dropped."""
+    from server.intake.cleanup import CODE_DIAGONAL_KEPT, build_scaled_plan
 
     proposal = IntakeProposal.model_validate(
         {
@@ -151,7 +152,32 @@ def test_spurious_diagonal_is_dropped() -> None:
         }
     )
     plan = build_scaled_plan(proposal, 1000, 1000)
-    assert len(plan.walls) == 4
+    assert len(plan.walls) == 5
+    assert any(CODE_DIAGONAL_KEPT in w for w in plan.warnings)
+
+
+def test_pentagon_with_chamfer_keeps_five_walls() -> None:
+    """Pentagon sketch with one 45 deg chamfer wall keeps 5 walls + warning."""
+    from server.intake.cleanup import CODE_DIAGONAL_KEPT, build_scaled_plan
+
+    proposal = IntakeProposal.model_validate(
+        {
+            "input_kind": "sketch",
+            "walls": [
+                {"a": [0.10, 0.10], "b": [0.80, 0.10], "kind": "exterior"},
+                {"a": [0.80, 0.10], "b": [0.90, 0.20], "kind": "exterior"},  # 45 deg chamfer
+                {"a": [0.90, 0.20], "b": [0.90, 0.90], "kind": "exterior"},
+                {"a": [0.90, 0.90], "b": [0.10, 0.90], "kind": "exterior"},
+                {"a": [0.10, 0.90], "b": [0.10, 0.10], "kind": "exterior"},
+            ],
+            "openings": [],
+            "labels": [],
+            "dimensions": [{"text": "8,00 m", "a": [0.0, 0.02], "b": [1.0, 0.02], "wall_index": 0}],
+        }
+    )
+    plan = build_scaled_plan(proposal, 1000, 1000)
+    assert len(plan.walls) == 5, f"chamfer wall dropped, got {len(plan.walls)}"
+    assert any(CODE_DIAGONAL_KEPT in w for w in plan.warnings), f"no diagonal warning: {plan.warnings}"
 
 
 def test_snap_warning_over_ten_percent() -> None:
