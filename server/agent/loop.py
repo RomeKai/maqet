@@ -126,7 +126,10 @@ def scene_summary(scene: Scene) -> str:
     """Compact Scene digest: ids and names only, never polygons."""
     rooms = ", ".join(f"{r.id}={r.name}({r.function or 'room'})" for r in scene.rooms)
     walls = ", ".join(f"{w.id}({w.kind}, {_wall_length_m(w):.2f} m)" for w in scene.walls)
-    openings = ", ".join(f"{o.id}({o.kind} on {o.wall_id})" for o in scene.openings)
+    openings = ", ".join(
+        f"{o.id}({o.kind} on {o.wall_id}, offset {o.offset_m:.2f} m, width {o.width_m:.2f} m)"
+        for o in scene.openings
+    )
     return (
         f"Scene {scene.id} v{scene.version}. "
         f"Rooms: {rooms or 'none'}. Walls: {walls or 'none'}. "
@@ -287,6 +290,8 @@ def run_turn(
                     "ok": res.ok,
                     "flags": list(res.flags),
                     "errors": [error.code for error in res.errors],
+                    "error_messages": [error.message for error in res.errors],
+                    "warnings": list(res.warnings),
                 }
             )
             outputs.append(

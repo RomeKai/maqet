@@ -408,6 +408,9 @@ class AgentTurnOut(BaseModel):
     ops_applied: list[AppliedOpOut]
     professional_flags: list[str]
     history: list[OpRecordIn]
+    # Failed tool calls and rule warnings: shown to the user, never swallowed.
+    tool_errors: list[str] = []
+    tool_warnings: list[str] = []
 
 
 def get_reform_client() -> ReformClient:
@@ -457,6 +460,12 @@ def post_agent_turn(
         ops_applied=applied,
         professional_flags=flags,
         history=[OpRecordIn(**asdict(record)) for record in history],
+        tool_errors=[m for ev in result.tool_events for m in ev.get("error_messages", [])],
+        tool_warnings=list(
+            dict.fromkeys(
+                w for ev in result.tool_events if ev["ok"] for w in ev.get("warnings", [])
+            )
+        ),
     )
 
 

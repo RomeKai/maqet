@@ -125,3 +125,47 @@ def test_turn_without_a_recording_is_409() -> None:
     res = _turn(message="Agregá un dormitorio al lado de la cocina")
     assert res.status_code == 409, res.text
     assert "record" in res.json()["detail"]
+
+
+def _next(first: dict, message: str) -> Any:
+    return client.post(
+        "/agent/turn",
+        json={
+            "scene": first["scene"],
+            "stage": "reform",
+            "message": message,
+            "history": first["history"],
+        },
+    )
+
+
+def test_second_turn_applies_on_top_of_the_first(script: list) -> None:
+    script += [
+        {"calls": [{"name": "add_room", "arguments": {
+            "function": "bedroom", "name": "Bedroom", "next_to": "Cocina", "size_m": [3.0, 3.5],
+        }}]},
+        {"reply": "Added the bedroom."},
+        {"calls": [{"name": "add_opening", "arguments": {
+            "wall_id": "w_s2", "kind": "window", "at_ratio": 0.2,
+        }}]},
+        {"reply": "Added a window."},
+    ]
+    first = _turn(message="Add a bedroom next to the kitchen").json()
+    res = _next(first, "Add a window")
+    assert res.status_code == 200, res.text
+    second = res.json()
+    assert [op["name"] for op in second["ops_applied"]] == ["add_opening"]
+    assert len(second["scene"]["rooms"]) == len(first["scene"]["rooms"])  # room kept
+    assert len(second["scene"]["walls"]) == len(first["scene"]["walls"])
+    assert len(second["history"]) == 2
+    assert second["scene"]["version"] == first["scene"]["version"] + 1
+
+
+def test_failed_tool_errors_reach_the_user_not_just_the_model(script: list) -> None:
+    script += [
+        {"calls": [{"name": "add_opening", "arguments": {"wall_id": "nope", "kind": "door"}}]},
+        {"reply": "Done."},
+    ]
+    body = _turn(message="Add a door").json()
+    assert body["ops_applied"] == []
+    assert any("no wall matches" in e for e in body["tool_errors"]), body

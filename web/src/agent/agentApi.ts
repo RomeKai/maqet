@@ -85,7 +85,9 @@ function parseAppliedOp(value: unknown): AppliedOpOut {
 }
 
 /** Validates an untrusted turn payload at the boundary. */
-export function parseTurnResponse(payload: unknown): AgentTurnOut {
+export type TurnOutcome = AgentTurnOut & { tool_errors: string[]; tool_warnings: string[] };
+
+export function parseTurnResponse(payload: unknown): TurnOutcome {
   if (!isRecord(payload) || typeof payload.reply !== "string" || !isRecord(payload.scene)) {
     throw new AgentApiError("Malformed agent response");
   }
@@ -110,6 +112,8 @@ export function parseTurnResponse(payload: unknown): AgentTurnOut {
     ops_applied: payload.ops_applied.map(parseAppliedOp),
     professional_flags: stringList(payload.professional_flags),
     history: payload.history as OpRecordIn[],
+    tool_errors: stringList(payload.tool_errors),
+    tool_warnings: stringList(payload.tool_warnings),
   };
 }
 
@@ -178,7 +182,7 @@ export interface SendTurnParams {
 export async function sendTurn(
   params: SendTurnParams,
   { timeoutMs = TURN_TIMEOUT_MS }: SendTurnOptions = {},
-): Promise<AgentTurnOut> {
+): Promise<TurnOutcome> {
   const message = params.message.trim();
   if (message.length === 0) throw new AgentApiError("Cannot send an empty message");
 

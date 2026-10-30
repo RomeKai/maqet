@@ -20,6 +20,7 @@ import { parseTakeoff } from "./deliver/takeoffFormat";
 import type { Takeoff } from "./deliver/takeoffTypes";
 import { sendEdit, sendTurn } from "./agent/agentApi";
 import type { EditCall } from "./agent/editCall";
+import { withToolNotes } from "./agent/toolNotes";
 import { useVariants } from "./agent/VariantTabs";
 import { getAgentStrings } from "./agent/agent.i18n";
 import type { AgentStage } from "./agent/agentApi";
@@ -190,7 +191,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
         }));
         setMessages((m) => [
           ...m,
-          { id: `a-${Date.now()}`, role: "assistant", text: res.reply, toolEvents },
+          { id: `a-${Date.now()}`, role: "assistant", text: withToolNotes(res.reply, res.tool_errors, res.tool_warnings), toolEvents },
         ]);
       } catch (err) {
         setAgentError(err instanceof Error ? err.message : String(err));
