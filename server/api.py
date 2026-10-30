@@ -385,6 +385,13 @@ class OpRecordIn(BaseModel):
     actor: str
 
 
+class ChatTurnIn(BaseModel):
+    """One prior chat message (spoken text only, no tool notes), oldest first."""
+
+    role: Literal["user", "assistant"]
+    text: str = Field(min_length=1, max_length=4000)
+
+
 class AgentTurnIn(BaseModel):
     scene: Scene
     message: str = Field(min_length=1)
@@ -394,6 +401,9 @@ class AgentTurnIn(BaseModel):
     # Persist the result into this variant (Now/A/B/C), see _persist_variant.
     variant: str | None = None
     base_scene: Scene | None = None
+    # Recent chat of the active variant. The server is stateless: the model's
+    # memory of the conversation is exactly this list.
+    conversation: list[ChatTurnIn] = Field(default_factory=list, max_length=40)
 
 
 class AppliedOpOut(BaseModel):
@@ -427,7 +437,13 @@ def post_agent_turn(
     history = [OpRecord(**record.model_dump()) for record in body.history]
     try:
         result = run_turn(
-            body.scene, history, body.stage, body.message, reform_client, selected=body.selected
+            body.scene,
+            history,
+            body.stage,
+            body.message,
+            reform_client,
+            selected=body.selected,
+            conversation=[turn.model_dump() for turn in body.conversation],
         )
     except Exception as exc:
         # Same contract as /transcribe: a turn with no recorded model

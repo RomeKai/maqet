@@ -185,3 +185,29 @@ def test_replay_miss_on_an_agent_turn_is_409_not_500() -> None:
     )
     assert res.status_code == 409, res.text
     assert "no recorded agent response" in res.json()["detail"]
+
+
+def test_conversation_in_the_request_reaches_the_model_input(script: list) -> None:
+    """Bug T: the endpoint forwards the chat so the model remembers the question it asked."""
+    seen: list[Any] = []
+
+    class Spy(ScriptedClient):
+        def respond(self, input: Any, **kwargs: Any) -> dict[str, Any]:
+            seen.append(input)
+            return super().respond(input, **kwargs)
+
+    steps = [{"reply": "Done."}]
+    app.dependency_overrides[get_reform_client] = lambda: Spy(steps)
+    res = _turn(
+        message="wall 3",
+        conversation=[
+            {"role": "user", "text": "add a 3x4 bedroom"},
+            {"role": "assistant", "text": "Which wall?"},
+        ],
+    )
+    assert res.status_code == 200, res.text
+    assert seen[0] == [
+        {"role": "user", "content": "add a 3x4 bedroom"},
+        {"role": "assistant", "content": "Which wall?"},
+        {"role": "user", "content": "wall 3"},
+    ]

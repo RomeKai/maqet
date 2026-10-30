@@ -229,6 +229,26 @@ def _history_snapshot(history: list) -> list[dict[str, Any]]:
     return snapshot
 
 
+CONVERSATION_LIMIT = 12
+
+
+def _turn_input(user_text: str, conversation: list[dict[str, str]] | None) -> Any:
+    """The model input: prior chat turns, then the new message (variable part last).
+
+    With no prior conversation this is the bare string, so existing replay
+    fixtures (keyed on the payload) keep hitting. The server holds no state
+    and never uses previous_response_id across turns.
+    """
+    prior = [
+        {"role": turn["role"], "content": turn["text"]}
+        for turn in (conversation or [])[-CONVERSATION_LIMIT:]
+        if turn.get("role") in ("user", "assistant") and str(turn.get("text", "")).strip()
+    ]
+    if not prior:
+        return user_text
+    return [*prior, {"role": "user", "content": user_text}]
+
+
 def run_turn(
     scene: Scene,
     history: list,
@@ -236,6 +256,7 @@ def run_turn(
     user_text: str,
     client: ReformClient,
     selected: Any = None,
+    conversation: list[dict[str, str]] | None = None,
 ) -> TurnResult:
     """Run one Reform turn: tool rounds until a final text reply (max 6)."""
     try:
@@ -260,7 +281,9 @@ def run_turn(
 
     current = scene
     events: list[dict[str, Any]] = []
-    response = client.respond(user_text, previous_response_id=None, **base_kwargs)
+    response = client.respond(
+        _turn_input(user_text, conversation), previous_response_id=None, **base_kwargs
+    )
     rounds = 0
     while True:
         calls = client.tool_calls(response)
