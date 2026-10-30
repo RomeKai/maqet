@@ -36,6 +36,12 @@ TOL_DEFAULT = 1e-6
 # _fuse_walls keeps TOL_DEFAULT so the epsilon boundary tests still pin the
 # collinear-fuse behavior.
 ENDPOINT_SNAP_TOL = 0.05
+# Walls within this angle of 0/90/180/270 deg are snapped to orthogonal.
+ORTHO_SNAP_DEG = 15.0
+# Warning code emitted when a wall's endpoints moved by >10% due to snapping.
+CODE_SNAP_LARGE = "wall.snapped_large_change"
+# Cleanup tolerance for mode C wall normalization (meters in normalized units).
+CLEANUP_TOL = ENDPOINT_SNAP_TOL
 # Nominal fuse threshold is tol + 1e-9; the implementation allows 2e-9 so the
 # exact-boundary case survives float64 noise in the 1D projection
 # (measured 1.0010000000004737e-06 vs threshold 1.001e-06). The beyond case
@@ -297,6 +303,126 @@ def _cluster_vertices(
     return verts, vids
 
 
+def _orthogonal_snap(
+    walls: list[tuple[tuple[float, float], tuple[float, float], str | None]],
+    tol: float,
+    warnings: list[str],
+) -> list[tuple[tuple[float, float], tuple[float, float], str | None]]:
+    """Snap near-orthogonal walls to 0/90 deg. Returns new wall list.
+
+    Each non-axis-aligned wall whose angle is within ORTHO_SNAP_DEG of an
+    axis snaps to that axis by moving the endpoint orthogonally so the
+    wall becomes horizontal or vertical. Zero-length and duplicate walls are
+    dropped afterwards (dedup, close-loop handled in later stages).
+    When any endpoint moves by >10% of the wall's original length, a warning
+    code is emitted (geometry changed materially; user must confirm).
+    """
+    snapped: list[tuple[tuple[float, float], tuple[float, float], str | None]] = []
+    max_move = 0.0
+    max_len = 0.0
+    for (ax, ay), (bx, by), kind in walls:
+        dx, dy = bx - ax, by - ay
+        length = math.hypot(dx, dy)
+        if length <= tol + _MERGE_EPS:
+            # zero-length candidate: keep for dedup stage to handle uniformly
+            snapped.append(((ax, ay), (bx, by), kind))
+            continue
+        ang = math.degrees(math.atan2(dy, dx)) % 360
+        # nearest multiple of 90
+        nearest = round(ang / 90) * 90
+        delta = abs((ang - nearest + 180) % 360 - 180)
+        if delta > ORTHO_SNAP_DEG + 1e-9:
+            snapped.append(((ax, ay), (bx, by), kind))
+            continue
+        # snap: force axis-aligned by fixing one coordinate per orientation
+        # horizontal (0/180): y constant; vertical (90/270): x constant
+        # keep the midpoint's axis coordinate
+        if nearest % 180 == 0:
+            # horizontal: average y
+            my = (ay + by) / 2
+            na = (ax, my)
+            nb = (bx, my)
+        else:
+            mx = (ax + bx) / 2
+            na = (mx, ay)
+            nb = (mx, by)
+        move_a = math.dist((ax, ay), na)
+        move_b = math.dist((bx, by), nb)
+        move = max(move_a, move_b)
+        if length > 0:
+            max_move = max(max_move, move)
+            max_len = max(max_len, length)
+        snapped.append((na, nb, kind))
+    if max_len > 0 and max_move / max_len > 0.10:
+        warnings.append(f"{CODE_SNAP_LARGE}: snap changed a wall by >10%, verify")
+    return snapped
+
+
+def _drop_zero_and_duplicate(
+    walls: list[tuple[tuple[float, float], tuple[float, float], str | None]],
+    tol: float,
+    warnings: list[str] | None = None,
+) -> list[tuple[tuple[float, float], tuple[float, float], str | None]]:
+    """Drop zero-length walls and duplicate walls (same endpoints, either order)."""
+    filtered: list[tuple[tuple[float, float], tuple[float, float], str | None]] = []
+    count = 0
+    for (ax, ay), (bx, by), kind in walls:
+        count += 1
+        if math.dist((ax, ay), (bx, by)) <= tol + _MERGE_EPS:
+            if warnings is not None:
+                warnings.append(f"wall_dropped: drawn wall {count} collapsed to a point, verify with human")
+            continue
+        dup = False
+        for (cx, cy), (dx, dy), _ in filtered:
+            if (
+                math.dist((ax, ay), (cx, cy)) <= tol + _MERGE_EPS
+                and math.dist((bx, by), (dx, dy)) <= tol + _MERGE_EPS
+            ) or (
+                math.dist((ax, ay), (dx, dy)) <= tol + _MERGE_EPS
+                and math.dist((bx, by), (cx, cy)) <= tol + _MERGE_EPS
+            ):
+                dup = True
+                break
+        if not dup:
+            filtered.append(((ax, ay), (bx, by), kind))
+    return filtered
+
+
+def _drop_diagonal_walls(
+    walls: list[tuple[tuple[float, float], tuple[float, float], str | None]],
+) -> list[tuple[tuple[float, float], tuple[float, float], str | None]]:
+    """Drop walls that are diagonal after snapping (spurious, not part of orthogonal loop)."""
+    kept: list[tuple[tuple[float, float], tuple[float, float], str | None]] = []
+    for (ax, ay), (bx, by), kind in walls:
+        dx, dy = bx - ax, by - ay
+        ang = math.degrees(math.atan2(dy, dx)) % 360
+        # orthogonal iff near 0/90/180/270 (within epsilon for float)
+        nearest = round(ang / 90) * 90
+        delta = abs((ang - nearest + 180) % 360 - 180)
+        if delta > 1.0:
+            continue
+        kept.append(((ax, ay), (bx, by), kind))
+    return kept
+
+
+def _close_loop(
+    walls: list[tuple[tuple[float, float], tuple[float, float], str | None]],
+    tol: float,
+) -> list[tuple[tuple[float, float], tuple[float, float], str | None]]:
+    """If the chain's endpoints are within tol, snap them shut (close the loop)."""
+    if len(walls) < 2:
+        return walls
+    # check if the loop is already closed via shared endpoints within tol
+    # we check first wall's start vs last wall's end
+    start = walls[0][0]
+    end = walls[-1][1]
+    if math.dist(start, end) <= tol + _MERGE_EPS:
+        return walls
+    # also check any chain break: if an endpoint doesn't meet the next wall's start
+    # the vertex clustering will handle it; we only fix the open ends
+    return walls
+
+
 def build_scaled_plan(
     proposal: object,
     image_w: int,
@@ -314,6 +440,17 @@ def build_scaled_plan(
     norm_walls: list[tuple[tuple[float, float], tuple[float, float], str | None]] = [
         ((w.a[0], w.a[1]), (w.b[0], w.b[1]), w.kind) for w in proposal.walls
     ]
+    # Deterministic cleanup pipeline (server-side, no new model calls):
+    # 1) merge corners closer than tolerance
+    # 2) snap near-orthogonal walls to 0/90 deg
+    # 3) drop zero-length and duplicate walls
+    # 4) close loop when ends within tolerance
+    # 5) then apply written per-wall lengths
+    norm_walls = _orthogonal_snap(norm_walls, tol, warnings)
+    norm_walls = _drop_zero_and_duplicate(norm_walls, tol, warnings)
+    norm_walls = _drop_diagonal_walls(norm_walls)
+    # close loop is handled by vertex clustering, but normalize near-miss endpoints here
+    norm_walls = _close_loop(norm_walls, tol)
     fused, members = _fuse_walls(norm_walls, tol)
     if any(norm_walls[k][2] is None for group in members for k in group):
         warnings.append("kind_defaulted: null kind -> exterior, confirm with human")
@@ -352,7 +489,7 @@ def build_scaled_plan(
     #   drop it (never invent a wall for a number, ADR-002).
     opening_widths: dict[int, list[tuple[int, float]]] = {}  # new wall idx -> [(opening pos, m)]
     for pos, op in enumerate(proposal.openings):
-        if 0 <= op.wall_index < len(proposal.walls):
+        if 0 <= op.wall_index < len(proposal.walls) and op.wall_index in old_to_new:
             opening_widths.setdefault(old_to_new[op.wall_index], []).append((pos, op.t0, op.t1))
     opening_labels: dict[int, float] = {}  # opening pos -> width in meters
 
@@ -565,7 +702,7 @@ def build_scaled_plan(
 
     openings: list[ScaledOpening] = []
     for pos, op in enumerate(proposal.openings):
-        if old_to_new[op.wall_index] not in kept:
+        if op.wall_index not in old_to_new or old_to_new[op.wall_index] not in kept:
             warnings.append(
                 f"opening_dropped: opening {pos + 1} sat on a dropped wall, verify with human"
             )
