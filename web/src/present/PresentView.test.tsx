@@ -60,4 +60,14 @@ describe("PresentView", () => {
     expect(html).toContain('data-scale="100" aria-pressed="false"');
     expect(html).toContain("Scale 1:50");
   });
+
+  it("puts the AR card (scale selector, viewer, preliminary label) above the 3D view", () => {
+    const html = renderToString(
+      <PresentView scene={scene} locale="en" selectedWallId={null} onSelectWall={noop} onSceneChange={noop} />,
+    );
+    const arCard = html.indexOf('class="ar-scales"');
+    expect(arCard).toBeGreaterThan(-1);
+    expect(arCard).toBeLessThan(html.indexOf('data-testid="scene-view"'));
+    expect(html.indexOf("Preliminary: not a structural certification")).toBeLessThan(html.indexOf('data-testid="scene-view"'));
+  });
 });

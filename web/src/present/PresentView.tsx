@@ -80,6 +80,11 @@ export function PresentView({ scene, locale, selectedWallId, onSelectWall, onSce
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-background font-sans" data-testid="present-view">
       <div className="space-y-3 p-3">
         <h1 className="text-2xl font-extrabold">{t["present.title"]}</h1>
+        {arError && <Banner tone="danger" title={t["present.ar.error"]} />}
+        {hasPlan && <ScaleSelector value={scaleDenominator} onChange={setScaleDenominator} locale={locale} />}
+        {hasPlan && (
+          <MaquetteViewer src={glbUrl} iosSrc={usdzUrl} locale={locale} elementRef={viewerRef} scaleDenominator={scaleDenominator} />
+        )}
         {hasPlan ? (
           <div className="h-[40dvh] min-h-48 overflow-hidden rounded-2xl border-2 border-foreground bg-card">
             <SceneView scene={scene} selectedWallId={selectedWallId} onSelectWall={onSelectWall} />
@@ -90,11 +95,6 @@ export function PresentView({ scene, locale, selectedWallId, onSelectWall, onSce
 
         <VariantTabs onSceneChange={onSceneChange} locale={locale} />
 
-        {arError && <Banner tone="danger" title={t["present.ar.error"]} />}
-        {hasPlan && <ScaleSelector value={scaleDenominator} onChange={setScaleDenominator} locale={locale} />}
-        {hasPlan && (
-          <MaquetteViewer src={glbUrl} iosSrc={usdzUrl} locale={locale} elementRef={viewerRef} scaleDenominator={scaleDenominator} />
-        )}
         {share === "copied" && <Banner tone="success" title={t["present.shared"]} />}
         {share === "failed" && <Banner tone="warning" title={t["present.shareFailed"]} />}
       </div>
