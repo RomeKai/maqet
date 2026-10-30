@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DEFAULT_LOCALE, getStrings, type Locale, type StringKey } from "./i18n";
 import { IntakeScreen } from "./intake/IntakeScreen";
 import { ScaleBadge } from "./intake/ScaleBadge";
@@ -8,6 +8,8 @@ import { ChatSheet } from "./agent/ChatSheet";
 import { ProBanner } from "./agent/ProBanner";
 import { VariantTabs } from "./agent/VariantTabs";
 import { DeliverView } from "./deliver/DeliverView";
+import { parseTakeoff } from "./deliver/takeoffFormat";
+import type { Takeoff } from "./deliver/takeoffTypes";
 import { sendTurn } from "./agent/agentApi";
 import type { AgentStage } from "./agent/agentApi";
 import type { ChatMessage } from "./agent/agentTypes";
@@ -42,6 +44,50 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: App
   const [intakeScene, setIntakeScene] = useState<Scene | null>(initialScene);
   const [selectedWallId, setSelectedWallId] = useState<string | null>(null);
   const [arSession, setArSession] = useState(false);
+
+  // Deliver takeoff (fetched when the Deliver stage opens)
+  const [takeoff, setTakeoff] = useState<Takeoff | null>(null);
+  const [takeoffLoading, setTakeoffLoading] = useState(false);
+  const [takeoffError, setTakeoffError] = useState<string | null>(null);
+
+  function baseUrl(): string {
+    const v: unknown = (import.meta as unknown as Record<string, unknown>).env
+      ? (import.meta as unknown as { env: Record<string, unknown> }).env.VITE_API_URL
+      : undefined;
+    return typeof v === "string" && v.length > 0 ? v : "/api";
+  }
+
+  useEffect(() => {
+    if (stage !== "stage.deliver" || !intakeScene) return;
+    let cancelled = false;
+    setTakeoffLoading(true);
+    setTakeoffError(null);
+    const payload = { scene: intakeScene };
+    fetch(`${baseUrl()}/export/takeoff`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error((await res.text().catch(() => "")) || `takeoff ${res.status}`);
+        return res.json() as Promise<unknown>;
+      })
+      .then((raw) => {
+        if (cancelled) return;
+        try {
+          setTakeoff(parseTakeoff(raw));
+        } catch (err) {
+          setTakeoffError(err instanceof Error ? err.message : String(err));
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setTakeoffError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        if (!cancelled) setTakeoffLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [stage, intakeScene]);
 
   // Agent wiring
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -163,7 +209,12 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: App
         </main>
       ) : isDeliver ? (
         <main className="viewport viewport-deliver" aria-label={t["app.name"]}>
-          <DeliverView scene={intakeScene} takeoff={null} locale={locale} />
+          {takeoffLoading ? (
+            <p className="deliver-loading">Loading takeoff…</p>
+          ) : takeoffError ? (
+            <p className="deliver-error" role="alert">{takeoffError}</p>
+          ) : null}
+          <DeliverView scene={intakeScene} takeoff={takeoff} locale={locale} />
         </main>
       ) : (
         <main className="viewport" aria-label={t["app.name"]}>

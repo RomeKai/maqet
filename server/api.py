@@ -24,6 +24,7 @@ from server.agent.loop import ReformClient, run_turn
 from server.agent.tools import SelectedRef
 from server.db import load_project, save_project
 from server.export.dxf import ScaleNotConfirmedError, export_dxf
+from server.export.takeoff import Takeoff, compute_takeoff, to_csv
 from server.intake.cleanup import ScaleError, build_scaled_plan, to_scene
 from server.intake.read_plan import ReadPlanError, read_plan
 from server.intake.replay import ReplayMiss, load_sample
@@ -482,6 +483,51 @@ def post_variant_undo(body: UndoIn) -> VariantOut:
     undo_in_branch(project, label)
     save_project(project, db_path=_DB_PATH)
     return _variant_out(project, label)
+
+
+class TakeoffRequest(BaseModel):
+    scene: Scene
+    base_scene: Scene | None = Field(default=None, alias="base_scene")
+
+
+def _takeoff_or_422(payload: dict[str, Any]) -> Takeoff:
+    raw_scene = payload.get("scene")
+    # Bare Scene (no wrapper) is accepted for backwards compat with older clients.
+    if raw_scene is None and payload:
+        # Heuristic: if payload looks like a Scene (has walls/openings/id), treat it as bare.
+        if any(k in payload for k in ("id", "walls", "rooms", "furniture")):
+            raw_scene = payload
+    if raw_scene is None:
+        raise HTTPException(status_code=422, detail="missing Scene: expected {scene: Scene} or a Scene document")
+    # Validate scenes through pydantic so error detail is readable, never a 500.
+    try:
+        scene_obj = Scene.model_validate(raw_scene)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=422, detail=f"invalid Scene: {exc}") from exc
+    base_obj: Scene | None = None
+    raw_base = payload.get("base_scene")
+    if raw_base is not None:
+        try:
+            base_obj = Scene.model_validate(raw_base)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=422, detail=f"invalid base_scene: {exc}") from exc
+    return compute_takeoff(scene_obj, base=base_obj)
+
+
+@app.post("/export/takeoff", response_model=Takeoff)
+def post_export_takeoff(payload: dict[str, Any]) -> Takeoff:
+    return _takeoff_or_422(payload)
+
+
+@app.post("/export/takeoff.csv")
+def post_export_takeoff_csv(payload: dict[str, Any]) -> Response:
+    takeoff = _takeoff_or_422(payload)
+    csv_text = to_csv(takeoff)
+    return Response(
+        content=csv_text,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="takeoff.csv"'},
+    )
 
 
 @app.post("/export/dxf")
