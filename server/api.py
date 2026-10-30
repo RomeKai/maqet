@@ -599,7 +599,12 @@ def _require_branch(project: Project, label: str) -> None:
 
 @app.get("/variants", response_model=VariantsOut)
 def get_variants() -> VariantsOut:
-    return _variants_out(_load_or_seed_project())
+    try:
+        return _variants_out(_load_or_seed_project())
+    except HTTPException as exc:
+        if exc.status_code == 404 and _current is None:  # nothing stored yet: empty list, not an error
+            return VariantsOut(chosen="", variants=[])
+        raise
 
 
 @app.post("/variants/fork", response_model=VariantsOut)

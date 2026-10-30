@@ -169,3 +169,19 @@ def test_failed_tool_errors_reach_the_user_not_just_the_model(script: list) -> N
     body = _turn(message="Add a door").json()
     assert body["ops_applied"] == []
     assert any("no wall matches" in e for e in body["tool_errors"]), body
+
+
+def test_replay_miss_on_an_agent_turn_is_409_not_500() -> None:
+    """E2E-005: an unrecorded turn in MME_MODE=replay answers 409 with a readable detail."""
+    from fastapi.testclient import TestClient as _TC
+
+    from server import api
+
+    c = _TC(api.app)
+    scene = c.post("/intake", data={"kind": "plan", "sample": "croquis_3x8_door_window"}).json()["scene"]
+    res = c.post(
+        "/agent/turn",
+        json={"scene": scene, "message": "a turn nobody recorded", "stage": "reform", "history": []},
+    )
+    assert res.status_code == 409, res.text
+    assert "no recorded agent response" in res.json()["detail"]

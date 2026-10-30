@@ -93,3 +93,10 @@ def test_new_session_base_resets_stale_branches(db: Path) -> None:
     )
     assert res.status_code == 200, res.text
     assert _variant("A")["op_count"] == 1  # old session ops were dropped
+
+
+def test_get_variants_on_a_fresh_db_is_an_empty_list(db: Path) -> None:
+    """E2E-001: no scene stored yet must not be a 404 (console noise on first load)."""
+    res = client.get("/variants")
+    assert res.status_code == 200, res.text
+    assert res.json() == {"chosen": "", "variants": []}

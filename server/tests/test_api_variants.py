@@ -49,9 +49,10 @@ def test_list_seeds_branch_a_from_the_current_scene(db: Path) -> None:
     assert body["variants"][0]["scene"]["id"] == _scene().id
 
 
-def test_list_without_any_scene_is_404(db: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_list_without_any_scene_is_an_empty_list(db: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(api, "_current", None)
-    assert client.get("/variants").status_code == 404
+    res = client.get("/variants")  # E2E-001: empty list, not a 404
+    assert res.status_code == 200 and res.json()["variants"] == []
 
 
 def test_fork_persists_a_new_branch(db: Path) -> None:
