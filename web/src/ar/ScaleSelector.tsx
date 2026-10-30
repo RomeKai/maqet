@@ -2,7 +2,7 @@ import type { Locale } from "../i18n";
 import { getArStrings } from "./ar.i18n";
 
 /** Maquette scale denominators offered on Present (real-size walk-in is P1). */
-export const MAQUETTE_SCALES = [100, 50, 20] as const;
+export const MAQUETTE_SCALES = [100, 50, 25, 20] as const;
 export type MaquetteScale = (typeof MAQUETTE_SCALES)[number];
 export const DEFAULT_SCALE_DENOMINATOR: MaquetteScale = 50;
 

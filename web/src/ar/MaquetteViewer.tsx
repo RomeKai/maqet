@@ -42,6 +42,7 @@ export function ViewerBody({ phase, src, iosSrc, canActivateAR, locale, modelRef
           ar
           ar-modes={AR_MODES}
           ar-placement="floor"
+          ar-scale="fixed"
           camera-controls
           shadow-intensity="1"
         >

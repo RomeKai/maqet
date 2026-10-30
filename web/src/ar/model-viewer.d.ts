@@ -7,6 +7,7 @@ interface ModelViewerAttributes extends DetailedHTMLProps<HTMLAttributes<HTMLEle
   alt?: string;
   ar?: boolean;
   "ar-modes"?: string;
+  "ar-scale"?: "fixed" | "auto";
   "ar-placement"?: "floor" | "wall";
   "camera-controls"?: boolean;
   "shadow-intensity"?: string;

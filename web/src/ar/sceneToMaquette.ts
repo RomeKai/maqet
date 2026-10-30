@@ -10,7 +10,8 @@ export const MAQUETTE_NAME = "maqet-maquette (preliminary)";
 
 // Walls and floors share one material each (fewer draw calls on phones); concept pieces use the
 // mobile-ui violet so they never pass for real products.
-const WALL_COLOR = "#ece8e1";
+const WALL_COLOR = "#f6f4f0"; // paper (mobile-ui --bg): reads on a dark table and under AR lighting
+const PLATE_COLOR = "#cfc8bb";
 const FLOOR_COLOR = "#e8e2d8";
 const FURNITURE_COLOR = "#c9b79c";
 const CONCEPT_COLOR = "#7a5ac8";
@@ -26,6 +27,10 @@ function furnitureMesh(item: Furniture, material: THREE.Material): THREE.Mesh {
   if (concept) mesh.userData.concept = true;
   return mesh;
 }
+
+/** Base plate: margin around the footprint and thickness, in metres before scaling. */
+const PLATE_MARGIN_M = 0.4;
+const PLATE_THICKNESS_M = 0.1;
 
 /** Moves the content so the origin is the floor centre: min y = 0 and the footprint centred on x and z. */
 function centreOnFloor(group: THREE.Group): void {
@@ -82,6 +87,22 @@ export function sceneToMaquette(scene: Scene, scale: number = DEFAULT_MAQUETTE_S
   }
 
   centreOnFloor(group);
+  addFloorPlate(group);
   group.scale.setScalar(scale);
   return group;
+}
+
+/** A slab slightly larger than the footprint, so the maquette is visible and stable on a table. The whole model is lifted onto it. */
+function addFloorPlate(group: THREE.Group): void {
+  const box = new THREE.Box3().setFromObject(group);
+  if (box.isEmpty()) return;
+  const size = box.getSize(new THREE.Vector3());
+  const plate = new THREE.Mesh(
+    new THREE.BoxGeometry(size.x + 2 * PLATE_MARGIN_M, PLATE_THICKNESS_M, size.z + 2 * PLATE_MARGIN_M),
+    new THREE.MeshStandardMaterial({ color: PLATE_COLOR }),
+  );
+  plate.name = "floor-plate";
+  for (const child of group.children) child.position.y += PLATE_THICKNESS_M;
+  plate.position.y = PLATE_THICKNESS_M / 2;
+  group.add(plate);
 }
