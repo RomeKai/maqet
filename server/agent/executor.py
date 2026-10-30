@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field, ValidationError
 from server.agent import stages as stage_table
 from server.agent import tools as tool_contracts
 from server.agent import edit_tools
+from server.agent.wall_labels import resolve_in_walls
 from server.agent.room_walls import enclosing_walls
 from server.scene import ops
 from server.scene.models import Opening, Room, Scene, Wall
@@ -237,10 +238,9 @@ def _resolve_wall_id(scene: Scene, a: tool_contracts.RemoveWallInput) -> str | N
     """Explicit id (case-insensitive) -> selected -> between/and fragment match."""
     ref = a.wall_id or a.wall
     if ref is not None:
-        return _match_id(scene.walls, "id", ref)[0].id if _match_id(scene.walls, "id", ref) else None
+        return resolve_in_walls(scene.walls, ref)
     if a.selected is not None and a.selected.kind.casefold() == "wall":
-        found = _match_id(scene.walls, "id", a.selected.id)
-        return found[0].id if found else None
+        return resolve_in_walls(scene.walls, a.selected.id)
     if a.between is not None and a.and_ is not None:
         frags = [a.between.strip().casefold(), a.and_.strip().casefold()]
         hits = [w for w in scene.walls if all(f in w.id.casefold() for f in frags)]
@@ -305,10 +305,10 @@ def _handle_add_opening(
     ref = a.wall_id or a.wall
     if ref is None and a.selected is not None and a.selected.kind.casefold() == "wall":
         ref = a.selected.id
-    found = _match_id(scene.walls, "id", ref) if ref else []
-    if not found:
+    wall_id = resolve_in_walls(scene.walls, ref)
+    if wall_id is None:
         return _fail(scene, "anchor.unknown", f"no wall matches {ref!r}; Scene unchanged")
-    wall = found[0]
+    wall = next(w for w in scene.walls if w.id == wall_id)
     length = _wall_length(wall)
     width = a.width_m if a.width_m is not None else (
         DOOR_WIDTH_M if a.kind == "door" else _DEFAULT_WINDOW_WIDTH_M

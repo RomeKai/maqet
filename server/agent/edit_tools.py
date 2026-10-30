@@ -12,6 +12,7 @@ from dataclasses import replace
 from typing import Callable
 
 from server.agent import tools as tool_contracts
+from server.agent.wall_labels import resolve_in_walls
 from server.scene import ops
 from server.scene.models import Room, Scene, Wall
 from server.scene.rules import INTERIOR_WALL_THICKNESS_M, WINDOW_SILL_M
@@ -34,6 +35,9 @@ def _pick(items: list, ref: str | None, selected, kind: str):
         raise EditError("anchor.unknown", f"say which {kind}; Scene unchanged")
     want = ref.strip().casefold()
     hits = [i for i in items if i.id.casefold() == want]
+    if kind == "wall" and not hits:  # human label: "wall 3", "3", "muro 3"
+        wid = resolve_in_walls(items, ref)
+        hits = [i for i in items if i.id == wid] if wid else []
     if kind == "room" and not hits:
         hits = [i for i in items if i.name.casefold() == want]
     if not hits:

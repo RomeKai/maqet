@@ -31,6 +31,7 @@ from typing import Any, Protocol
 from pydantic import BaseModel, Field
 
 from server.agent import stages as stage_table
+from server.agent.wall_labels import wall_label
 from server.agent import tools as tool_contracts
 from server.agent.executor import execute
 from server.scene.models import Scene
@@ -125,7 +126,7 @@ def _wall_length_m(wall: Any) -> float:
 def scene_summary(scene: Scene) -> str:
     """Compact Scene digest: ids and names only, never polygons."""
     rooms = ", ".join(f"{r.id}={r.name}({r.function or 'room'})" for r in scene.rooms)
-    walls = ", ".join(f"{w.id}({w.kind}, {_wall_length_m(w):.2f} m)" for w in scene.walls)
+    walls = ", ".join(f"{wall_label(scene, w.id)} [{w.kind}, id {w.id}]" for w in scene.walls)
     openings = ", ".join(
         f"{o.id}({o.kind} on {o.wall_id}, offset {o.offset_m:.2f} m, width {o.width_m:.2f} m)"
         for o in scene.openings
