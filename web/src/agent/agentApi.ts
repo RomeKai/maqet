@@ -170,6 +170,9 @@ export interface SendTurnParams {
   stage: AgentStage;
   history?: OpRecordIn[];
   selected?: SelectedRef | null;
+  /** Variant the result is persisted into, with the Now baseline. */
+  variant?: string | null;
+  baseScene?: Scene | null;
 }
 
 export async function sendTurn(
@@ -185,6 +188,7 @@ export async function sendTurn(
     stage: params.stage,
     history: params.history ?? [],
     selected: params.selected ?? null,
+    ...(params.variant ? { variant: params.variant, base_scene: params.baseScene ?? null } : {}),
   };
 
   const controller = new AbortController();
@@ -235,6 +239,8 @@ export interface SendEditParams {
   tool: string;
   args: Record<string, unknown>;
   history?: OpRecordIn[];
+  variant?: string | null;
+  baseScene?: Scene | null;
 }
 
 /** One deterministic edit (no model): same scene/history contract as a turn; tool "undo" reverts it. */
@@ -247,7 +253,13 @@ export async function sendEdit(
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...params, history: params.history ?? [] }),
+      body: JSON.stringify({
+        scene: params.scene,
+        tool: params.tool,
+        args: params.args,
+        history: params.history ?? [],
+        ...(params.variant ? { variant: params.variant, base_scene: params.baseScene ?? null } : {}),
+      }),
     },
     timeoutMs,
   );

@@ -1,14 +1,22 @@
 import { useCallback, useEffect, useState } from "react";
 import { Plus } from "lucide-react";
-import type { Scene, VariantsOut } from "../scene/types";
+import type { OpRecordIn, Scene, VariantsOut } from "../scene/types";
 import { getStrings, type Locale } from "../i18n";
 import { Segmented } from "../ui";
 import { chooseVariant, fetchVariants, forkVariant, undoVariant } from "./agentApi";
 import { getAgentStrings } from "./agent.i18n";
 import { floorAreaM2 } from "./floorArea";
 
-/** "now" = the current scene, no option picked. */
+/** "now" = the read-only baseline: the home as it was when Reform started. */
 export const NOW = "now";
+
+/** The variant edits apply to, or null while Now (read-only) is showing. */
+export function activeVariant(selected: string, chosen: string | undefined): string | null {
+  const label = selected === "" ? (chosen ?? null) : selected;
+  return label === NOW ? null : label;
+}
+
+type VariantWithOps = { label: string; ops?: OpRecordIn[] };
 
 export interface VariantsState {
   data: VariantsOut | null;
@@ -16,17 +24,23 @@ export interface VariantsState {
   busy: boolean;
   /** Selected tab: NOW or a variant label. */
   selected: string;
+  /** Variant that agent turns and edits are persisted into; null on Now (read-only). */
+  active: string | null;
+  reload: () => Promise<void>;
   fork: () => Promise<void>;
   choose: (label: string) => Promise<void>;
   undo: () => Promise<void>;
 }
 
 /** Variants API state shared by the tabs and the 3D card's Undo button. */
-export function useVariants(onSceneChange: (scene: Scene) => void): VariantsState {
+export function useVariants(
+  onSceneChange: (scene: Scene, ops: OpRecordIn[]) => void,
+  getBase: () => Scene | null = () => null,
+): VariantsState {
   const [data, setData] = useState<VariantsOut | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [selected, setSelected] = useState<string>(NOW);
+  const [selected, setSelected] = useState<string>("");
 
   const load = useCallback(async () => {
     try {
@@ -55,14 +69,16 @@ export function useVariants(onSceneChange: (scene: Scene) => void): VariantsStat
   function applyChosen(raw: VariantsOut): void {
     setData(raw);
     const chosen = raw.variants.find((v) => v.label === raw.chosen);
-    if (chosen) onSceneChange(chosen.scene);
+    if (chosen) onSceneChange(chosen.scene, (chosen as VariantWithOps).ops ?? []);
   }
 
   return {
     data,
     error,
     busy,
-    selected,
+    selected: selected === "" ? (data?.chosen ?? NOW) : selected,
+    active: activeVariant(selected, data?.chosen),
+    reload: load,
     fork: () =>
       run(async () => {
         if (!data) return;
@@ -74,7 +90,11 @@ export function useVariants(onSceneChange: (scene: Scene) => void): VariantsStat
     choose: (label: string) =>
       run(async () => {
         setSelected(label);
-        if (label === NOW) return; // keep the current scene as is
+        if (label === NOW) {
+          const base = getBase();
+          if (base) onSceneChange(base, []);
+          return;
+        }
         applyChosen((await chooseVariant(label)) as VariantsOut);
       }),
     undo: () =>
@@ -116,6 +136,7 @@ export function VariantTabs({ state, locale }: VariantTabsProps): React.JSX.Elem
   }
 
   const variant = data.variants.find((v) => v.label === selected);
+  const readOnly = selected === NOW;
   const caption = variant
     ? a["variants.optionCaption"].replace("{label}", variant.label).replace("{area}", formatArea(floorAreaM2(variant.scene), locale))
     : a["variants.nowCaption"];
@@ -148,6 +169,7 @@ export function VariantTabs({ state, locale }: VariantTabsProps): React.JSX.Elem
         {caption}
       </p>
       {error ? <p className="text-[15px] font-semibold text-danger">{error}</p> : null}
+      {readOnly ? <p className="text-center text-[14px] text-muted-foreground">{a["variants.nowReadOnly"]}</p> : null}
     </div>
   );
 }

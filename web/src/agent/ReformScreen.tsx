@@ -7,7 +7,7 @@ import { getAgentStrings } from "./agent.i18n";
 import type { ChatMessage } from "./agentTypes";
 import { ChatSheet } from "./ChatSheet";
 import { floorAreaM2 } from "./floorArea";
-import { VariantTabs, formatArea, useVariants } from "./VariantTabs";
+import { VariantTabs, formatArea, type VariantsState } from "./VariantTabs";
 import { EditSheet } from "./EditSheet";
 import type { EditCall } from "./editCall";
 
@@ -23,6 +23,7 @@ interface ReformScreenProps {
   pending: boolean;
   agentError: string | null;
   onNext: () => void;
+  variants: VariantsState;
   /** Apply one deterministic edit; resolves with an error message or null. */
   onEdit: (call: EditCall) => Promise<string | null>;
 }
@@ -31,7 +32,7 @@ interface ReformScreenProps {
 export function ReformScreen(props: ReformScreenProps): React.JSX.Element {
   const { scene, locale } = props;
   const t = getAgentStrings(locale);
-  const variants = useVariants(props.onSceneChange);
+  const variants = props.variants;
   const area = scene ? floorAreaM2(scene) : null;
   const [editing, setEditing] = useState<{ wallId: string | null } | null>(null);
   const [editBusy, setEditBusy] = useState(false);

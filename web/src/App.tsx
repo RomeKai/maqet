@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULT_LOCALE, getStrings, type Locale, type StringKey } from "./i18n";
 import { IntakeScreen } from "./intake/IntakeScreen";
 import { captureStepFromScene, shouldAutoExpandMaquette, type CaptureStepKey } from "./intake/captureSteps";
@@ -20,6 +20,8 @@ import { parseTakeoff } from "./deliver/takeoffFormat";
 import type { Takeoff } from "./deliver/takeoffTypes";
 import { sendEdit, sendTurn } from "./agent/agentApi";
 import type { EditCall } from "./agent/editCall";
+import { useVariants } from "./agent/VariantTabs";
+import { getAgentStrings } from "./agent/agent.i18n";
 import type { AgentStage } from "./agent/agentApi";
 import type { ChatMessage } from "./agent/agentTypes";
 import type { OpRecordIn, Scene } from "./scene/types";
@@ -135,9 +137,29 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
 
   const agentStage = STAGE_TO_AGENT[stage] ?? null;
 
+  // Now baseline: the Scene when Reform started (read-only; A/B/C hold the edits).
+  const baseSceneRef = useRef<Scene | null>(null);
+  useEffect(() => {
+    if (stage !== "stage.reform") baseSceneRef.current = null;
+    else if (baseSceneRef.current === null && intakeScene) baseSceneRef.current = intakeScene;
+  }, [stage, intakeScene]);
+  const variants = useVariants(
+    (scene, ops) => {
+      setIntakeScene(scene);
+      setHistory(ops);
+      setProfessionalFlags(scene.professional_flags ?? []);
+    },
+    () => baseSceneRef.current,
+  );
+  const readOnlyMessage = getAgentStrings(locale)["variants.nowReadOnly"];
+
   const handleSend = useCallback(
     async (text: string) => {
       if (!intakeScene || !agentStage) return;
+      if (stage === "stage.reform" && variants.active === null) {
+        setAgentError(readOnlyMessage);
+        return;
+      }
       const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: "user", text };
       setMessages((m) => [...m, userMsg]);
       setPending(true);
@@ -150,10 +172,13 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
           stage: agentStage,
           history,
           selected,
+          variant: stage === "stage.reform" ? variants.active : null,
+          baseScene: baseSceneRef.current,
         });
         setIntakeScene(res.scene);
         setHistory(res.history);
         setProfessionalFlags(res.professional_flags);
+        void variants.reload();
         // Map ops_applied -> ToolEvent (ok:true, no errors) for chips
         const toolEvents = res.ops_applied.map((op) => ({
           name: op.name,
@@ -173,14 +198,23 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
         setPending(false);
       }
     },
-    [intakeScene, agentStage, history, selectedWallId],
+    [intakeScene, agentStage, history, selectedWallId, stage, variants, readOnlyMessage],
   );
 
   const handleEdit = useCallback(
     async (call: EditCall): Promise<string | null> => {
       if (!intakeScene) return "No scene";
+      if (variants.active === null) return readOnlyMessage;
       try {
-        const res = await sendEdit({ scene: intakeScene, tool: call.tool, args: call.args, history });
+        const res = await sendEdit({
+          scene: intakeScene,
+          tool: call.tool,
+          args: call.args,
+          history,
+          variant: variants.active,
+          baseScene: baseSceneRef.current,
+        });
+        void variants.reload();
         setIntakeScene(res.scene);
         setHistory(res.history);
         setProfessionalFlags(res.professional_flags);
@@ -189,7 +223,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
         return err instanceof Error ? err.message : String(err);
       }
     },
-    [intakeScene, history],
+    [intakeScene, history, variants, readOnlyMessage],
   );
 
   const handleAudio = useCallback(
@@ -289,6 +323,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
           agentError={agentError}
           onNext={() => setStage(STAGES[stageIndex + 1] ?? "stage.deliver")}
           onEdit={handleEdit}
+          variants={variants}
         />
       ) : isDeliver ? (
         <main className="flex min-h-0 flex-1 flex-col" aria-label={t["app.name"]}>

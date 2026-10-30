@@ -1,7 +1,7 @@
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ReformScreen } from "./ReformScreen";
-import { VariantTabs, NOW, type VariantsState } from "./VariantTabs";
+import { VariantTabs, NOW, activeVariant, type VariantsState } from "./VariantTabs";
 import { getAgentStrings } from "./agent.i18n";
 import type { Scene } from "../scene/types";
 
@@ -23,6 +23,7 @@ describe("ReformScreen", () => {
       agentError={null}
       onNext={noop}
       onEdit={async () => null}
+      variants={{ data: null, error: null, busy: false, selected: "A", active: "A", reload: async () => {}, fork: async () => {}, choose: async () => {}, undo: async () => {} }}
     />,
   );
   it("offers the Edit measures button", () => {
@@ -40,6 +41,19 @@ describe("ReformScreen", () => {
   });
 });
 
+describe("activeVariant", () => {
+  it("is null on Now (read-only) and the label otherwise", () => {
+    expect(activeVariant(NOW, "A")).toBeNull();
+    expect(activeVariant("B", "A")).toBe("B");
+    expect(activeVariant("", "A")).toBe("A");
+  });
+  it("shows the read-only hint on Now", () => {
+    const sc = { id: "s", walls: [], rooms: [] } as unknown as Scene;
+    const st = { data: { chosen: "A", variants: [{ label: "A", scene: sc }] } as never, error: null, busy: false, selected: NOW, active: null, reload: async () => {}, fork: async () => {}, choose: async () => {}, undo: async () => {} } as VariantsState;
+    expect(renderToString(<VariantTabs state={st} locale="en" />)).toContain("read-only");
+  });
+});
+
 describe("VariantTabs", () => {
   const scene = { id: "s", walls: [], rooms: [{ id: "r", name: "x", polygon: [[0, 0], [5, 0], [5, 5], [0, 5]] }] } as unknown as Scene;
   const state = (selected: string): VariantsState => ({
@@ -47,6 +61,8 @@ describe("VariantTabs", () => {
     error: null,
     busy: false,
     selected,
+    active: selected === NOW ? null : selected,
+    reload: async () => {},
     fork: async () => {},
     choose: async () => {},
     undo: async () => {},

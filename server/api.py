@@ -40,6 +40,7 @@ from server.scene.models import Scene
 from server.scene.ops import OpRecord
 from server.scene.validation import ValidationReport, validate_scene
 from server.scene.variants import (
+    Branch,
     Project,
     choose,
     create_variant,
@@ -390,6 +391,9 @@ class AgentTurnIn(BaseModel):
     stage: Literal["reform", "design", "present"]
     history: list[OpRecordIn] = []
     selected: SelectedRef | None = None
+    # Persist the result into this variant (Now/A/B/C), see _persist_variant.
+    variant: str | None = None
+    base_scene: Scene | None = None
 
 
 class AppliedOpOut(BaseModel):
@@ -445,6 +449,7 @@ def post_agent_turn(
             code = ":".join(raw.split(":")[:2])  # drop the ':wall_id' detail
             if code not in flags:
                 flags.append(code)
+    _persist_variant(body.variant, body.base_scene, history)
     logger.info("agent turn stage=%s ops=%d", body.stage, len(applied))
     return AgentTurnOut(
         scene=result.scene,
@@ -455,6 +460,37 @@ def post_agent_turn(
     )
 
 
+def _persist_variant(
+    variant: str | None, base_scene: Scene | None, history: list[OpRecord]
+) -> None:
+    """Store an applied turn/edit in the active variant's op history.
+
+    Now is the read-only baseline (``base_scene``, the Scene when Reform
+    started); A/B/C each own their ops, so edits stay on their variant and
+    survive switching (bug A). A different baseline means a new session: stale
+    branches that carry ops are dropped, empty forks are kept.
+    """
+    if variant is None or base_scene is None:
+        return
+    try:
+        project = load_project(db_path=_DB_PATH)
+    except KeyError:
+        project = Project(base=base_scene)
+    if project.base.model_dump() != base_scene.model_dump():
+        if any(branch.ops for branch in project.branches.values()):
+            project = Project(base=base_scene)
+        else:
+            project = Project(
+                base=base_scene, branches=project.branches, chosen=project.chosen
+            )
+    if variant not in project.branches:
+        project.branches[variant] = Branch()
+    project.branches[variant].ops = list(history)
+    project._cache.clear()
+    project.chosen = variant
+    save_project(project, db_path=_DB_PATH)
+
+
 _UI_EDIT_TOOLS = frozenset({*edit_tools.COMPUTE, "undo"})
 
 
@@ -463,6 +499,8 @@ class AgentEditIn(BaseModel):
     tool: str
     args: dict[str, Any] = {}
     history: list[OpRecordIn] = []
+    variant: str | None = None
+    base_scene: Scene | None = None
 
 
 @app.post("/agent/edit", response_model=AgentTurnOut)
@@ -480,6 +518,7 @@ def post_agent_edit(body: AgentEditIn) -> AgentTurnOut:
         raise HTTPException(
             status_code=422, detail="; ".join(e.message for e in res.errors)
         )
+    _persist_variant(body.variant, body.base_scene, history)
     flags = list(new_scene.professional_flags)
     for raw in res.flags:
         code = ":".join(raw.split(":")[:2])
@@ -499,6 +538,7 @@ class VariantOut(BaseModel):
     parent: str | None
     fork_at_version: int
     op_count: int
+    ops: list[OpRecordIn] = []
     scene: Scene
 
 
@@ -531,6 +571,7 @@ def _variant_out(project: Project, label: str) -> VariantOut:
         parent=branch.parent,
         fork_at_version=branch.fork_at_version,
         op_count=len(branch.ops),
+        ops=[OpRecordIn(**asdict(record)) for record in branch.ops],
         scene=materialize(project, label),
     )
 
