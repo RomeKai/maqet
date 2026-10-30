@@ -84,6 +84,7 @@ export function UploadStep({
   const busy = phase !== "idle";
   const [kind, setKind] = useState<IntakeKind>(fixedKind ?? "plan");
   const [failure, setFailure] = useState<UploadErrorKind | null>(null);
+  const [failureDetail, setFailureDetail] = useState<string | null>(null);
   const lastAttempt = useRef<{ file: File } | { sample: true } | null>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
 
@@ -137,8 +138,9 @@ export function UploadStep({
         onProposal?.(result.proposal);
         onScene?.(result.scene, result);
       },
-      onFailure: (errKind, message) => {
+      onFailure: (errKind, message, detail) => {
         setFailure(errKind);
+        setFailureDetail(detail);
         onError(message);
       },
     });
@@ -165,6 +167,11 @@ export function UploadStep({
           }
         >
           {t[`intake.err.${failure}.body` as const]}
+          {failureDetail !== null && (
+            <small className="mt-1 block break-words font-mono text-xs opacity-70" data-testid="upload-detail">
+              {failureDetail}
+            </small>
+          )}
         </Banner>
       )}
       {fixedKind === undefined && (

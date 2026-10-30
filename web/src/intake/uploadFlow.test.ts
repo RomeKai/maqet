@@ -33,7 +33,7 @@ describe("runUpload (camera and gallery share it)", () => {
       throw new Error("Server returned 409 on POST /intake: no recorded vision response");
     });
     await runUpload(file, "plan", d);
-    expect(d.onFailure).toHaveBeenCalledWith("offline", expect.stringContaining("409"));
+    expect(d.onFailure).toHaveBeenCalledWith("offline", expect.stringContaining("409"), expect.any(String));
     expect(d.onPhoto).not.toHaveBeenCalled();
     expect(d.onPhase).toHaveBeenLastCalledWith("idle");
   });
@@ -42,7 +42,7 @@ describe("runUpload (camera and gallery share it)", () => {
     const d = deps(async () => result);
     d.downscale.mockRejectedValueOnce(new Error("No se pudo leer la imagen"));
     await runUpload(file, "plan", d);
-    expect(d.onFailure).toHaveBeenCalledWith("photo", expect.any(String));
+    expect(d.onFailure).toHaveBeenCalledWith("process", expect.any(String), expect.any(String));
   });
 });
 
@@ -54,5 +54,19 @@ describe("camera and gallery reach the same upload with a downscaled file", () =
       expect(d.downscale).toHaveBeenCalledTimes(1);
       expect(d.post).toHaveBeenCalledWith(image.blob, "sketch");
     }
+  });
+
+  it("a decode failure says the photo could not be processed, never server unreachable", async () => {
+    const d = deps(async () => result);
+    d.downscale.mockRejectedValue(new TypeError("Failed to fetch image bitmap"));
+    await runUpload(file, "plan", d);
+    expect(d.post).not.toHaveBeenCalled();
+    expect(d.onFailure).toHaveBeenCalledWith("process", expect.any(String), expect.stringContaining("TypeError"));
+  });
+
+  it("a network failure carries name and message as detail", async () => {
+    const d = deps(async () => { throw new TypeError("Failed to fetch"); });
+    await runUpload(file, "plan", d);
+    expect(d.onFailure).toHaveBeenCalledWith("server", expect.any(String), "TypeError: Failed to fetch");
   });
 });

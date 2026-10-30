@@ -1,4 +1,4 @@
-export type UploadErrorKind = "server" | "photo" | "replay" | "offline";
+export type UploadErrorKind = "server" | "photo" | "replay" | "offline" | "process";
 
 /**
  * Bucket a raw upload failure into one of the three user-facing messages.

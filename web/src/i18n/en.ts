@@ -148,6 +148,8 @@ export const en: Record<keyof typeof esAR, string> = {
   "intake.retry": "Try again",
   "intake.err.server.title": "Can't reach the server",
   "intake.err.server.body": "Check your connection. Your photo is still on this phone.",
+  "intake.err.process.title": "Couldn't process the photo",
+  "intake.err.process.body": "This phone could not prepare the image. Try again, or pick it from the gallery.",
   "intake.err.photo.title": "Couldn't read the photo",
   "intake.err.photo.body": "Take it again in good light, flat, with the lengths written large.",
   "intake.err.offline.title": "Server is in offline replay mode",

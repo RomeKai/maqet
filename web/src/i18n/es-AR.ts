@@ -147,6 +147,8 @@ export const esAR = {
   "intake.retry": "Reintentar",
   "intake.err.server.title": "No llego al servidor",
   "intake.err.server.body": "Revisá tu conexión. La foto sigue en este teléfono.",
+  "intake.err.process.title": "No pudimos procesar la foto",
+  "intake.err.process.body": "El teléfono no pudo preparar la imagen. Probá de nuevo o elegila de la galería.",
   "intake.err.photo.title": "No pude leer la foto",
   "intake.err.photo.body": "Sacala de nuevo con buena luz, plana, y con los largos escritos grandes.",
   "intake.err.offline.title": "El servidor está en modo replay",
