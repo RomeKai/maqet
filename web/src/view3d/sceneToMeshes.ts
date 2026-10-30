@@ -75,9 +75,87 @@ export interface FloorMesh {
   normal: WorldPoint;
 }
 
+/** Door leaf or window pane, set into its wall (colors come from openingTheme). */
+export interface OpeningMesh {
+  kind: "opening";
+  id: string;
+  openingId: string;
+  wallId: string;
+  openingKind: "door" | "window";
+  /** Box center in meters, Z-up. */
+  center: WorldPoint;
+  /** Box size in meters: [width along wall, thickness, height]. */
+  size: readonly [number, number, number];
+  rotationZ: number;
+}
+
 export interface SceneMeshes {
   walls: WallSegment[];
   floors: FloorMesh[];
+  openings: OpeningMesh[];
+}
+
+const DOOR_LEAF_THICKNESS_M = 0.05;
+const WINDOW_GLASS_THICKNESS_M = 0.03;
+
+/** Door leaves and window panes for every opening that fits on its wall. */
+export function openingMeshes(scene: Scene): OpeningMesh[] {
+  const out: OpeningMesh[] = [];
+  for (const wall of scene.walls ?? []) {
+    const length = wallRunLengthM(wall);
+    if (!(length > EPS_M) || !(wall.thickness_m > 0)) continue;
+    const dx = (wall.b[0] - wall.a[0]) / length;
+    const dy = (wall.b[1] - wall.a[1]) / length;
+    const rotationZ = Math.atan2(dy, dx);
+    for (const o of scene.openings ?? []) {
+      if (o.wall_id !== wall.id) continue;
+      const t0 = Math.max(0, o.offset_m);
+      const t1 = Math.min(length, o.offset_m + o.width_m);
+      if (t1 - t0 <= EPS_M || !Number.isFinite(o.height_m) || !(o.height_m > 0)) continue;
+      const sill = o.sill_m ?? 0;
+      const mid = (t0 + t1) / 2;
+      const thickness = Math.min(
+        o.kind === "door" ? DOOR_LEAF_THICKNESS_M : WINDOW_GLASS_THICKNESS_M,
+        wall.thickness_m,
+      );
+      out.push({
+        kind: "opening",
+        id: `${wall.id}:opening:${o.id}`,
+        openingId: o.id,
+        wallId: wall.id,
+        openingKind: o.kind,
+        center: [wall.a[0] + dx * mid, wall.a[1] + dy * mid, sill + o.height_m / 2],
+        size: [t1 - t0, thickness, o.height_m],
+        rotationZ,
+      });
+    }
+  }
+  return out;
+}
+
+/** Numbered badge anchor per wall: number = 1-based scene index (the label the agent uses). */
+export interface WallBadge {
+  wallId: string;
+  number: number;
+  /** Z-up point just above the wall top, at the wall midpoint. */
+  position: WorldPoint;
+}
+
+export function wallBadges(scene: Scene): WallBadge[] {
+  return (scene.walls ?? []).flatMap((wall, index): WallBadge[] => {
+    if (!(wallRunLengthM(wall) > EPS_M)) return [];
+    return [
+      {
+        wallId: wall.id,
+        number: index + 1,
+        position: [
+          (wall.a[0] + wall.b[0]) / 2,
+          (wall.a[1] + wall.b[1]) / 2,
+          wallHeightM(wall, scene) + 0.35,
+        ],
+      },
+    ];
+  });
 }
 
 /** Effective wall height: wall override, else scene ceiling, else 2.6 m. */
@@ -268,7 +346,7 @@ export function sceneToMeshes(scene: Scene): SceneMeshes {
     const floor = floorMesh(room);
     if (floor !== null) floors.push(floor);
   }
-  return { walls, floors };
+  return { walls, floors, openings: openingMeshes(scene) };
 }
 
 /** Axis-aligned bounding box in meters, Z-up. Null when the scene is empty. */

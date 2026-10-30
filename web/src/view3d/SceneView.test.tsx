@@ -14,6 +14,11 @@ import type { Scene } from "../scene/types";
 describe("SceneView fallback (no WebGL under test)", () => {
   const emptyScene: Scene = { id: "empty" };
 
+  it("flags numbered wall badges only when asked (Reform/Design)", () => {
+    expect(renderToString(<SceneView scene={emptyScene} wallNumbers />)).toContain('data-wall-numbers="yes"');
+    expect(renderToString(<SceneView scene={emptyScene} />)).toContain('data-wall-numbers="no"');
+  });
+
   it("renders its wrapper without WebGL on an empty scene", () => {
     const html = renderToString(<SceneView scene={emptyScene} />);
     expect(html).toContain('data-testid="scene-view"');

@@ -143,8 +143,8 @@ describe("sceneToMeshes", () => {
   });
 
   it("empty scene maps to empty meshes", () => {
-    expect(sceneToMeshes(scene())).toEqual({ walls: [], floors: [] });
-    expect(sceneToMeshes({ id: "bare" })).toEqual({ walls: [], floors: [] });
+    expect(sceneToMeshes(scene())).toEqual({ walls: [], floors: [], openings: [] });
+    expect(sceneToMeshes({ id: "bare" })).toEqual({ walls: [], floors: [], openings: [] });
   });
 
   it("invalid opening (offset beyond wall) is ignored", () => {

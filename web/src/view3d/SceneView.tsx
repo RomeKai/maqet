@@ -3,7 +3,9 @@ import { useEffect, useLayoutEffect, useMemo } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { Scene } from "../scene/types";
+import { OPENING_THEME } from "./openingTheme";
 import {
+  wallBadges,
   cameraForBoundingBox,
   planToThree,
   sceneBoundingBox,
@@ -14,6 +16,8 @@ interface SceneViewProps {
   scene: Scene;
   selectedWallId?: string | null;
   onSelectWall?: (wallId: string) => void;
+  /** Numbered wall badges (Reform/Design): the number is the label the agent uses. */
+  wallNumbers?: boolean;
 }
 
 /**
@@ -34,6 +38,7 @@ export function SceneMeshesView({
   scene,
   selectedWallId = null,
   onSelectWall,
+  wallNumbers = false,
 }: SceneViewProps): React.JSX.Element {
   const meshes = useMemo(() => sceneToMeshes(scene), [scene]);
   const floorGeometries = useMemo(
@@ -78,6 +83,24 @@ export function SceneMeshesView({
           />
         </mesh>
       ))}
+      {meshes.openings.map((opening) => {
+        const theme = OPENING_THEME[opening.openingKind];
+        return (
+          <mesh
+            key={opening.id}
+            position={planToThree([opening.center[0], opening.center[1]], opening.center[2])}
+            rotation={[0, opening.rotationZ, 0]}
+          >
+            <boxGeometry args={[opening.size[0], opening.size[2], opening.size[1]]} />
+            <meshStandardMaterial
+              color={theme.color}
+              transparent={theme.opacity < 1}
+              opacity={theme.opacity}
+            />
+          </mesh>
+        );
+      })}
+      {wallNumbers ? <WallBadges scene={scene} /> : null}
       {meshes.floors.map((floor, i) => (
         <mesh
           key={floor.id}
@@ -86,6 +109,47 @@ export function SceneMeshesView({
         >
           <meshStandardMaterial color="#e8e2d8" side={THREE.DoubleSide} />
         </mesh>
+      ))}
+    </group>
+  );
+}
+
+/** Number sprite texture (client only: needs a canvas). */
+function badgeTexture(n: number): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 128;
+  const ctx = canvas.getContext("2d");
+  if (ctx !== null) {
+    ctx.fillStyle = "#1f2124";
+    ctx.beginPath();
+    ctx.arc(64, 64, 60, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 72px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(n), 64, 70);
+  }
+  return new THREE.CanvasTexture(canvas);
+}
+
+/** Numbered circles on each wall, like the Check step plan; same numbers the agent uses. */
+function WallBadges({ scene }: { scene: Scene }): React.JSX.Element {
+  const badges = useMemo(
+    () => wallBadges(scene).map((b) => ({ ...b, texture: badgeTexture(b.number) })),
+    [scene],
+  );
+  useEffect(() => () => badges.forEach((b) => b.texture.dispose()), [badges]);
+  return (
+    <group>
+      {badges.map((b) => (
+        <sprite
+          key={b.wallId}
+          position={planToThree([b.position[0], b.position[1]], b.position[2])}
+          scale={[0.55, 0.55, 0.55]}
+        >
+          <spriteMaterial map={b.texture} depthTest={false} transparent />
+        </sprite>
       ))}
     </group>
   );
@@ -200,6 +264,7 @@ export function SceneView({
   scene,
   selectedWallId = null,
   onSelectWall,
+  wallNumbers = false,
 }: SceneViewProps): React.JSX.Element {
   return (
     <div
@@ -207,6 +272,7 @@ export function SceneView({
       data-testid="scene-view"
       data-empty={scene.walls?.length ? "no" : "yes"}
       data-selected-wall={selectedWallId ?? ""}
+      data-wall-numbers={wallNumbers ? "yes" : "no"}
     >
       <Canvas
         dpr={[1, 1.5]}
@@ -224,6 +290,7 @@ export function SceneView({
           scene={scene}
           selectedWallId={selectedWallId}
           onSelectWall={onSelectWall}
+          wallNumbers={wallNumbers}
         />
       </Canvas>
     </div>

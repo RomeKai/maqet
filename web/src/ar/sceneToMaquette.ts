@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { Furniture, Scene } from "../scene/types";
+import { OPENING_THEME } from "../view3d/openingTheme";
 import { planToThree, sceneToMeshes } from "../view3d/sceneToMeshes";
 
 /** Table-top maquette scale: 1 unit = 1 m at scale 1, so 1:50 is 0.02. */
@@ -60,7 +61,7 @@ export function sceneToMaquette(scene: Scene, scale: number = DEFAULT_MAQUETTE_S
   const furnitureMaterial = new THREE.MeshStandardMaterial({ color: FURNITURE_COLOR });
   const conceptMaterial = new THREE.MeshStandardMaterial({ color: CONCEPT_COLOR });
 
-  const { walls, floors } = sceneToMeshes(scene);
+  const { walls, floors, openings } = sceneToMeshes(scene);
   const group = new THREE.Group();
   group.name = MAQUETTE_NAME;
   group.userData = { preliminary: true, scale };
@@ -71,6 +72,21 @@ export function sceneToMaquette(scene: Scene, scale: number = DEFAULT_MAQUETTE_S
     mesh.name = `wall:${wall.id}`;
     mesh.position.set(...planToThree([wall.center[0], wall.center[1]], wall.center[2]));
     mesh.rotation.y = wall.rotationZ;
+    group.add(mesh);
+  }
+
+  for (const opening of openings) {
+    const theme = OPENING_THEME[opening.openingKind];
+    const material = new THREE.MeshStandardMaterial({
+      color: theme.color,
+      transparent: theme.opacity < 1,
+      opacity: theme.opacity,
+    });
+    const [width, thickness, height] = opening.size;
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, thickness), material);
+    mesh.name = `opening:${opening.openingKind}:${opening.openingId}`;
+    mesh.position.set(...planToThree([opening.center[0], opening.center[1]], opening.center[2]));
+    mesh.rotation.y = opening.rotationZ;
     group.add(mesh);
   }
 

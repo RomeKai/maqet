@@ -338,7 +338,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
       ) : (
         <main className="viewport" aria-label={t["app.name"]}>
           {intakeScene !== null && wallsCount > 0 ? (
-            <SceneView scene={intakeScene} selectedWallId={selectedWallId} onSelectWall={setSelectedWallId} />
+            <SceneView scene={intakeScene} selectedWallId={selectedWallId} onSelectWall={setSelectedWallId} wallNumbers={isAgentStage} />
           ) : (
             <div className="viewport-placeholder">
               <p className="viewport-hint">{t["sheet.hint"]}</p>
