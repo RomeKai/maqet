@@ -184,3 +184,54 @@ rm -f NIGHT_REPORT.md HANDOFF.md
 | `uncommitted changes` en el prep | Commiteá: la misión no ve lo que no está en `main` |
 | Cambiaste de harness a mitad de una tarea | Completá `HANDOFF.md`; el agente nuevo lo lee primero |
 | Mucho gasto sin avance | `/context-budget`, `/save-session` y sesión nueva. Pedidos más chicos y con archivos explícitos |
+## Record the Reform demo
+
+Base scene: samples/plans/croquis_3x8_door_window.truth.json (3x8 m, door + window).
+Script: samples/demo/reform_script.json (4 turns, es-AR, stage reform).
+Replays offline via server/tests/test_reform_demo.py (MME_MODE=replay).
+
+### How mme.client records
+
+All Meta calls go through mme.client (server/agent/loop.py, server/intake/read_plan.py) with a stable
+prompt_cache_key + tag. When MME_MODE is not replay the harness records each response to
+samples/replay/; in MME_MODE=replay a missing fixture raises ReplayMiss (mapped to 409 by
+server/api.py). The pattern is the same as the intake replay fixtures in samples/replay/intake-*.json
+driven by server/intake/replay.py.
+
+### OPS: record the 4 turns live once
+
+Run from the repo root in the OPS terminal (with .env loaded, MME_MODE unset so the harness records):
+
+```bash
+# 1. Ensure the base scene and script are on the current branch
+ls samples/plans/croquis_3x8_door_window.truth.json samples/demo/reform_script.json
+
+# 2. Run the recorder (one invocation records all 4 turns)
+python -c "
+import json, pathlib
+from server.scene.models import Scene
+from server.agent.loop import run_turn
+from mme.client import client
+
+truth = pathlib.Path('samples/plans/croquis_3x8_door_window.truth.json').read_text()
+scene = Scene.model_validate_json(truth)
+script = json.loads(pathlib.Path('samples/demo/reform_script.json').read_text())
+history = []
+for turn in script['turns']:
+    result = run_turn(scene, history, script['stage'], turn['user_text'], client())
+    scene = result.scene
+    print(turn['user_text'], '->', result.reply[:80])
+print('done, version', scene.version)
+"
+
+# 3. Verify the harness wrote a replay fixture (filename depends on harness version;
+#    look for a new file under samples/replay/ not present before)
+ls samples/replay/
+
+# 4. Confirm the demo runs offline
+MME_MODE=replay python -m pytest server/tests/test_reform_demo.py -q
+```
+
+Commit samples/replay/ after recording. If the harness writes to a different path,
+move the file to samples/replay/ and keep the intake-like naming (e.g. reform-demo-*.json).
+

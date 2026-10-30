@@ -1,0 +1,96 @@
+{
+  "base_scene": "samples/plans/croquis_3x8_door_window.truth.json",
+  "stage": "reform",
+  "description": "Demo 3x8 single room -> north bedroom -> connecting door -> bedroom window -> status check. All text es-AR.",
+  "turns": [
+    {
+      "user_text": "Agregá un dormitorio de 3x4 del lado norte",
+      "hint": "New bedroom north of existing room, explicit polygon to avoid free-side ambiguity. 3x4=12m2 passes habitable checks.",
+      "calls": [
+        {
+          "name": "add_room",
+          "arguments": {
+            "function": "bedroom",
+            "name": "Dormitorio norte",
+            "polygon": [
+              [
+                0,
+                8
+              ],
+              [
+                3,
+                8
+              ],
+              [
+                3,
+                12
+              ],
+              [
+                0,
+                12
+              ]
+            ],
+            "level": 1
+          }
+        }
+      ],
+      "reply": "Listo — agregué el dormitorio de 3x4 al norte del ambiente existente. Esto es preliminar, no es una certificación estructural."
+    },
+    {
+      "user_text": "Poné una puerta de 0,90 m entre los dos ambientes",
+      "hint": "Door on shared north wall w2 (3m). Width 0.90 meets minimum 0.80.",
+      "calls": [
+        {
+          "name": "add_opening",
+          "arguments": {
+            "wall_id": "w2",
+            "kind": "door",
+            "width_m": 0.9,
+            "height_m": 2.1,
+            "at_ratio": 0.5
+          }
+        }
+      ],
+      "reply": "Puerta de 0,90 m colocada en el muro norte del ambiente original. Esto es preliminar."
+    },
+    {
+      "user_text": "Agregá una ventana al dormitorio nuevo",
+      "hint": "Create north exterior wall then place window on it. Narrow 0.9m window triggers ventilation warning (0.99m2 / 12m2 = 0.082 < 0.10).",
+      "calls": [
+        {
+          "name": "add_wall",
+          "arguments": {
+            "a": [
+              0,
+              12
+            ],
+            "b": [
+              3,
+              12
+            ],
+            "thickness_m": 0.2,
+            "kind": "exterior"
+          }
+        },
+        {
+          "name": "add_opening",
+          "arguments": {
+            "wall_id": "w5",
+            "kind": "window",
+            "width_m": 0.9,
+            "height_m": 1.1,
+            "sill_m": 1.0,
+            "at_ratio": 0.5
+          }
+        }
+      ],
+      "reply": "Ventana de 0,90 m agregada al muro norte del dormitorio. Ojo: con esa ventana la ventilación queda justa — esto es preliminar, no es una certificación estructural."
+    },
+    {
+      "user_text": "¿Qué falta?",
+      "hint": "Read-only turn: no tool calls. Agent summarizes warnings/preliminary status.",
+      "calls": [],
+      "reply": "Preliminar: el dormitorio nuevo quedó con ventilación por debajo del mínimo (ventana/chapa chica), revisá iluminación y encadenados. Cualquier muro portante o segundo piso requiere un profesional matriculado."
+    }
+  ]
+}
