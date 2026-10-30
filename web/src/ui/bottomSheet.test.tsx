@@ -15,3 +15,15 @@ describe("BottomSheet", () => {
     expect(html).toContain("overflow-y-auto");
   });
 });
+
+import { backdropShouldClose } from "./BottomSheet";
+
+describe("backdrop click-through (sheet opened by a pointerup)", () => {
+  it("ignores the trailing click of the tap that opened the sheet", () => {
+    // pointerdown happened on the canvas, before the sheet existed.
+    expect(backdropShouldClose(false)).toBe(false);
+  });
+  it("closes on a real tap that started on the backdrop", () => {
+    expect(backdropShouldClose(true)).toBe(true);
+  });
+});

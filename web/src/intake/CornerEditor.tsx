@@ -785,6 +785,30 @@ export function CornerEditor({
               </g>
             );
           })}
+          {openingToolKind === null && openings.map((o) => {
+            const wall = walls.find((w) => w.id === o.wall_id);
+            if (wall === undefined) return null;
+            const len = Math.hypot(wall.b[0] - wall.a[0], wall.b[1] - wall.a[1]);
+            if (len <= 0) return null;
+            const ux = (wall.b[0] - wall.a[0]) / len;
+            const uy = (wall.b[1] - wall.a[1]) / len;
+            const s0 = toDisplay(wall.a[0] + ux * o.offset_m, wall.a[1] + uy * o.offset_m);
+            const s1 = toDisplay(wall.a[0] + ux * (o.offset_m + o.width_m), wall.a[1] + uy * (o.offset_m + o.width_m));
+            return (
+              <line
+                key={`hit-${o.id}`}
+                x1={s0.x} y1={s0.y} x2={s1.x} y2={s1.y}
+                className="opening-hit"
+                data-opening-id={o.id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedOpening(o.id);
+                  setSelectedWall(wall.id);
+                  if (placing === null) setOpeningSheetId(o.id);
+                }}
+              />
+            );
+          })}
         </svg>
         {handles.map((h, i) => {
           const dp = toDisplay(h.point[0], h.point[1]);
