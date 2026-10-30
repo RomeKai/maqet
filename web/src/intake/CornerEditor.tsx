@@ -10,10 +10,15 @@ import { getStrings, type Locale } from "../i18n";
 import type { IntakeProposal } from "./api";
 import {
   formToPlacement,
+  openPlacemenFromSnappedTap,
   placementToOpening,
-  tapsToPlacement,
+  snapPointToWallPx,
   validateAgainstWall,
 } from "./opening";
+import { StepHeader } from "./StepHeader";
+import { WarningsChip } from "./WarningsChip";
+import { WallLengthSheet } from "./WallLengthSheet";
+import { captureStepFromScene } from "./captureSteps";
 
 export type CornerTool = "select" | "addWall" | "door" | "window";
 
@@ -267,6 +272,9 @@ export function CornerEditor({
 
   const walls = useMemo(() => scene.walls ?? [], [scene.walls]);
   const openings = useMemo(() => scene.openings ?? [], [scene.openings]);
+  const step = useMemo(() => captureStepFromScene(scene), [scene]);
+  const [highlightWallId, setHighlightWallId] = useState<string | null>(null);
+  const [wallSheetId, setWallSheetId] = useState<string | null>(null);
 
   const canvasW = imageWidth > 0 ? imageWidth : WALL_LEN_M * 2;
   const canvasH = imageHeight > 0 ? imageHeight : WALL_LEN_M * 2;
@@ -365,36 +373,30 @@ export function CornerEditor({
       emit({ type: "addWall", wall });
       return;
     }
-    // Opening placement taps: projected onto selected wall's segment.
-    if (placing !== null && selectedWall !== null) {
-      const wall = walls.find((w) => w.id === placing.wallId);
-      if (wall === undefined) {
+    // Opening placement: snap to nearest wall within 24 screen px.
+    if (placing !== null) {
+      const p = toSceneCoords(clientX, clientY);
+      const raw: [number, number] = [p.x, p.y];
+      const snap = snapPointToWallPx(raw, walls, toDisplay, 24);
+      if (snap === null) {
         setOpeningError(t["intake.opening.outsideWall"]);
         return;
       }
-      const p = toSceneCoords(clientX, clientY);
-      const point: [number, number] = [p.x, p.y];
-      if (placing.firstTap === null) {
-        // Validate first tap is on wall
-        const res = tapsToPlacement(wall, placing.kind, point, [point[0] + 0.001, point[1]]);
-        void res;
-        // We show preview; validation happens on second tap. But reject if first is far.
-        // Lightweight: use validateAgainstWall with t check — instead just store.
-        setPlacing({ ...placing, firstTap: point });
+      const snappedWall = snap.wall;
+      // adopt wall under tap if placing wall mismatched
+      const activePlacing = placing.wallId !== snappedWall.id ? { ...placing, wallId: snappedWall.id } : placing;
+      if (activePlacing.firstTap === null) {
+        setPlacing({ ...activePlacing, firstTap: snap.point });
         setTapPreview(null);
+        setOpeningError(null);
         return;
       }
-      // Second tap -> try to emit
-      const result = tapsToPlacement(wall, placing.kind, placing.firstTap, point);
+      const result = openPlacemenFromSnappedTap(snappedWall as Wall, activePlacing.kind, activePlacing.firstTap, snap.point);
       if ("rejected" in result) {
-        if (result.rejected.reason === "outside-wall") {
-          setOpeningError(t["intake.opening.outsideWall"]);
-        } else {
-          setOpeningError(t["intake.opening.outsideWall"]);
-        }
+        setOpeningError(t["intake.opening.outsideWall"]);
         return;
       }
-      const validation = validateAgainstWall(wall, result.placement.offset_m, result.placement.width_m);
+      const validation = validateAgainstWall(snappedWall as Wall, result.placement.offset_m, result.placement.width_m);
       if (validation !== null) {
         setOpeningError(t["intake.opening.outsideWall"]);
         return;
@@ -485,27 +487,25 @@ export function CornerEditor({
   const proposalDims = useMemo(() => proposal?.dimensions ?? [], [proposal]);
   const proposalOpenings = useMemo(() => proposal?.openings ?? [], [proposal]);
 
+  const instruction = placing
+    ? (placing.firstTap === null ? t["intake.opening.tapPrompt"] : `${t["intake.opening.tapPrompt"]} (1/2)`)
+    : pendingStart !== null
+      ? t["intake.tapSecond"]
+      : step === "photo"
+        ? t["intake.upload.hint"]
+        : step === "walls"
+          ? t["intake.scale.hint"]
+          : step === "openings"
+            ? t["intake.opening.tapPrompt"]
+            : t["intake.scale.hint"];
+
   return (
     <div className="intake-editor">
-      <div className="intake-toolbar" role="toolbar" aria-label={t["intake.editor"]}>
-        {toolButtons.map((b) => (
-          <button
-            key={b.tool}
-            type="button"
-            className={tool === b.tool ? "chip chip-active" : "chip"}
-            aria-pressed={tool === b.tool}
-            onClick={() => {
-              setTool(b.tool);
-              if (b.tool === "door" || b.tool === "window") handleMarkOpening(b.tool);
-            }}
-          >
-            {b.label}
-          </button>
-        ))}
-        <button type="button" className="chip" onClick={onUndo} disabled={!canUndo}>
-          {t["intake.undo"]}
-        </button>
-      </div>
+      <StepHeader locale={locale} step={step} error={openingError} instruction={instruction} />
+      <WarningsChip locale={locale} warnings={(scene as unknown as { warnings?: string[] }).warnings ?? []} onSelectWarning={(i) => {
+        const w = walls[i];
+        if (w) { setSelectedWall(w.id); setHighlightWallId(w.id); }
+      }} />
 
       <div className="intake-canvas">
         {imageUrl !== null && (
@@ -579,12 +579,14 @@ export function CornerEditor({
             const a = toDisplay(...previewEndpoint(w, "a", preview));
             const b = toDisplay(...previewEndpoint(w, "b", preview));
             const dragging = preview !== null && draggingWallIds.has(w.id);
+            const isHighlight = highlightWallId === w.id;
             const cls = [
               "wall",
               w.kind === "interior" ? "wall-interior" : "wall-exterior",
               selectedWall === w.id ? "wall-selected" : "",
               isWallEstimated(w) ? "wall-estimated" : "",
               dragging ? "wall-dragging" : "",
+              isHighlight ? "wall-highlight" : "",
             ].filter(Boolean).join(" ");
             return (
               <g key={w.id}>
@@ -598,17 +600,17 @@ export function CornerEditor({
                     e.stopPropagation();
                     setSelectedWall(w.id);
                     setSelectedOpening(null);
+                    setWallSheetId(w.id);
                   }}
                 />
-                {selectedWall === w.id && (
-                  <text
-                    x={(a.x + b.x) / 2}
-                    y={(a.y + b.y) / 2}
-                    className="wall-label"
-                  >
-                    {`W${wallNumber(walls, w.id)} · ${formatLengthM(wallDisplayLengthM(w))}`}
-                  </text>
-                )}
+                <text
+                  x={(a.x + b.x) / 2}
+                  y={(a.y + b.y) / 2}
+                  className={wallLabelClass}
+                  onClick={(e) => { e.stopPropagation(); setSelectedWall(w.id); setWallSheetId(w.id); }}
+                >
+                  {`W${wallNumber(walls, w.id)} · ${formatLengthM(wallDisplayLengthM(w))}`}
+                </text>
               </g>
             );
           })}
@@ -831,13 +833,40 @@ export function CornerEditor({
         </div>
       )}
 
-      {pendingStart !== null && (
-        <p className="intake-hint" role="status">
-          {t["intake.tapSecond"]}
-        </p>
-      )}
+      {wallSheetId && (() => {
+        const w = walls.find((x) => x.id === wallSheetId);
+        if (!w) return null;
+        return (
+          <WallLengthSheet
+            locale={locale}
+            wall={w}
+            onSave={(op) => onChange(applySceneOp(scene, op), op)}
+            onClose={() => setWallSheetId(null)}
+          />
+        );
+      })()}
 
-      <p className="preliminary">{t["notice.preliminary"]}</p>
+      <div className="intake-segmented" role="toolbar" aria-label={t["intake.editor"]}>
+        {toolButtons.map((b) => (
+          <button
+            key={b.tool}
+            type="button"
+            className={tool === b.tool ? "chip chip-active" : "chip"}
+            aria-pressed={tool === b.tool}
+            onClick={() => {
+              setTool(b.tool);
+              if (b.tool === "door" || b.tool === "window") handleMarkOpening(b.tool);
+            }}
+          >
+            {b.label}
+          </button>
+        ))}
+        <button type="button" className="chip" onClick={onUndo} disabled={!canUndo}>
+          {t["intake.undo"]}
+        </button>
+      </div>
+
+<p className="preliminary">{t["notice.preliminary"]}</p>
     </div>
   );
 }

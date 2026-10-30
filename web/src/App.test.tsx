@@ -26,9 +26,19 @@ describe("App stages", () => {
       ],
     };
     const withScene = renderToString(<App initialScene={scene} />);
-    expect(withScene).toContain('data-testid="scene-view"');
+    // Phone-first: in Capture the 3D lives in MaquetteSheet collapsed (canvas hidden at SSR).
+    // Assert the sheet is present; geometry itself is covered by sceneToMeshes.test.ts.
+    expect(withScene).toContain('maquette-sheet');
     expect(withScene).toContain('data-empty="no"');
     expect(withScene).toContain(t["badge.measured"]);
+
+    const withSceneCheck: Scene = {
+      ...scene,
+      rooms: [{ id: "r1", polygon: [[0,0],[4,0],[4,4],[0,4]], name: "Room" }] as unknown as Scene["rooms"],
+      openings: [{ id: "o1", wall_id: "w1", kind: "door", offset_m: 1, width_m: 0.9, height_m: 2.05 }] as unknown as Scene["openings"],
+    };
+    const withCheck = renderToString(<App initialScene={withSceneCheck} />);
+    expect(withCheck).toContain('data-testid="scene-view"');
 
     const withoutScene = renderToString(<App />);
     expect(withoutScene).not.toContain('data-testid="scene-view"');

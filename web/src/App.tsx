@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { DEFAULT_LOCALE, getStrings, type Locale, type StringKey } from "./i18n";
 import { IntakeScreen } from "./intake/IntakeScreen";
+import { shouldAutoExpandMaquette, captureStepFromScene } from "./intake/captureSteps";
 import { ScaleBadge } from "./intake/ScaleBadge";
 import { SceneView } from "./view3d/SceneView";
 import { MaquetteSheet } from "./view3d/MaquetteSheet";
@@ -120,6 +121,8 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: App
 
   const otherLocale: Locale = locale === "es-AR" ? "en" : "es-AR";
   const wallsCount = intakeScene?.walls?.length ?? 0;
+  const captureStep = captureStepFromScene(intakeScene ?? undefined);
+  const maquetteExpanded = shouldAutoExpandMaquette(captureStep);
   const isAgentStage = agentStage !== null;
   const isReform = stage === "stage.reform";
   const isDeliver = stage === "stage.deliver";
@@ -158,7 +161,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null }: App
             />
           </div>
           {intakeScene !== null && wallsCount > 0 && (
-            <MaquetteSheet scene={intakeScene} locale={locale} selectedWallId={selectedWallId} onSelectWall={setSelectedWallId} />
+            <MaquetteSheet key={captureStep} scene={intakeScene} locale={locale} selectedWallId={selectedWallId} onSelectWall={setSelectedWallId} initialExpanded={maquetteExpanded} />
           )}
         </main>
       ) : isDeliver ? (

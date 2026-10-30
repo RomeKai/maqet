@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Scene } from "../scene/types";
 import { getStrings, type Locale } from "../i18n";
 import { SceneView } from "./SceneView";
@@ -40,6 +40,7 @@ export function MaquetteSheet({
 }: MaquetteSheetProps): React.JSX.Element {
   const t = getStrings(locale);
   const [expanded, setExpanded] = useState(initialExpanded);
+  useEffect(() => { setExpanded(initialExpanded); }, [initialExpanded]);
   const startY = useRef<number | null>(null);
   // Pointer-up already handled the gesture: swallow the click that follows
   // it (pointer and click both fire; keyboard clicks only fire click).
