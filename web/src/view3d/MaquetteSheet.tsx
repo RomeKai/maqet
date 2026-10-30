@@ -76,10 +76,15 @@ export function MaquetteSheet({
         aria-label={expanded ? t["maquette.collapse"] : t["maquette.expand"]}
         onPointerDown={(e) => {
           startY.current = e.clientY;
+          (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
         }}
-        onPointerUp={(e) => onPointerUp(e.clientY)}
-        onPointerCancel={() => {
+        onPointerUp={(e) => {
+          (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+          onPointerUp(e.clientY);
+        }}
+        onPointerCancel={(e) => {
           startY.current = null;
+          (e.currentTarget as HTMLElement).releasePointerCapture?.((e as unknown as { pointerId: number }).pointerId);
         }}
         onClick={onActivate}
       >

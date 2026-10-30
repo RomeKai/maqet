@@ -16,6 +16,7 @@
 }
 
 .maquette-sheet {
+  z-index: 1;
   flex: none;
   background: var(--surface);
   border-top: 1px solid var(--hairline);
@@ -67,6 +68,11 @@
 
 .maquette-sheet[data-state="expanded"] .maquette-canvas .scene-view {
   height: 100%;
+}
+
+.maquette-sheet[data-state="collapsed"] {
+  max-height: 48px;
+  overflow: hidden;
 }
 
 .maquette-sheet[data-state="collapsed"] .maquette-canvas {

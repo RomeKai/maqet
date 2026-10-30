@@ -66,4 +66,30 @@ describe("MaquetteSheet", () => {
     const html = renderToString(<MaquetteSheet scene={{ id: "empty" }} locale="en" />);
     expect(html).toContain('data-empty="yes"');
   });
+
+  // 3D MaquetteSheet toggle — must not cover toolbar nor eat plan taps; collapsed = handle only
+  it("collapsed is handle only (single button, no canvas, no 3D mount)", () => {
+    const html = renderToString(<MaquetteSheet scene={scene} locale="en" initialExpanded={false} />);
+    expect(html).toContain('data-state="collapsed"');
+    expect(html).toContain("maquette-handle");
+    expect(html).not.toContain("maquette-canvas");
+    expect(html).not.toContain('data-testid="scene-view"');
+    expect((html.match(/<button/g) ?? []).length).toBe(1);
+  });
+
+  it("sheet is in-flow (not overlay) with stacking so it never covers toolbar, and does not steal plan taps", async () => {
+    // @ts-ignore node types not in web tsconfig; vitest runs on node and has them
+    const { readFile } = await import("node:fs/promises");
+    const css = await readFile(new URL("./maquette.css", import.meta.url), "utf8");
+    // Must be a flex sibling, not a fixed/absolute overlay that would cover the toolbar
+    expect(css).not.toMatch(/\.maquette-sheet\s*\{[^}]*position:\s*fixed/);
+    expect(css).not.toMatch(/\.maquette-sheet\s*\{[^}]*position:\s*absolute/);
+    // Stacking context so toolbar stays interactive
+    expect(css).toMatch(/\.maquette-sheet\s*\{[^}]*z-index:\s*1/);
+    // Collapsed is handle only — bounded height so plan editor owns the rest
+    expect(css).toMatch(/\.maquette-sheet\[data-state="collapsed"\][^}]*max-height/);
+    // Handle drag uses pointer capture so a slide off the 48px handle does not swallow the gesture
+    const tsx = await readFile(new URL("./MaquetteSheet.tsx", import.meta.url), "utf8");
+    expect(tsx).toContain("setPointerCapture");
+  });
 });
