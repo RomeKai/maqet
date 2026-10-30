@@ -22,8 +22,12 @@ instance methods).
 from __future__ import annotations
 
 import copy
+import logging
 import math
+import queue
 import re
+import threading
+import time
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -36,7 +40,14 @@ from server.agent import tools as tool_contracts
 from server.agent.executor import execute
 from server.scene.models import Scene
 
-MAX_TOOL_ROUNDS = 6
+logger = logging.getLogger(__name__)
+
+# Each model call at tier "max" reasons for ~5k tokens (tens of seconds, and
+# mme.client waits up to 300 s per call), so a turn is bounded twice: by rounds
+# and by a wall-clock budget, and returns a partial reply instead of letting the
+# client time out (bug V).
+MAX_TOOL_ROUNDS = 4
+TURN_BUDGET_S = 120.0
 PROMPT_CACHE_KEY = "reform-v1"
 TAG = "reform"
 TIER = "max"
@@ -249,6 +260,53 @@ def _turn_input(user_text: str, conversation: list[dict[str, str]] | None) -> An
     return [*prior, {"role": "user", "content": user_text}]
 
 
+class _Deadline(Exception):
+    """The per-turn wall-clock budget ran out while waiting for the model."""
+
+
+def _respond(client: Any, deadline: float, input: Any, **kwargs: Any) -> dict[str, Any]:
+    """client.respond, but give up when the turn budget is spent.
+
+    The call runs in a daemon thread; if it outlives the budget the turn
+    answers with what it has and the stray call finishes (and is cached) alone.
+    """
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise _Deadline
+    box: queue.Queue[tuple[bool, Any]] = queue.Queue(maxsize=1)
+
+    def work() -> None:
+        try:
+            box.put((True, client.respond(input, **kwargs)))
+        except BaseException as exc:  # noqa: BLE001 - re-raised in the caller
+            box.put((False, exc))
+
+    threading.Thread(target=work, daemon=True).start()
+    try:
+        ok, value = box.get(timeout=remaining)
+    except queue.Empty:
+        raise _Deadline from None
+    if not ok:
+        raise value
+    return value
+
+
+def _partial_reply(user_text: str, events: list[dict[str, Any]], reason: str) -> str:
+    """Graceful reply for a stopped turn: what was done, what to do next."""
+    done = [e["name"] for e in events if e["ok"]]
+    failed = [e["name"] for e in events if not e["ok"]]
+    es = _is_spanish(user_text)
+    if es:
+        head = "No pude terminar este pedido a tiempo" if reason == "time" else "Frené este pedido antes de terminarlo"
+        did = f" Ya apliqué: {', '.join(done)}." if done else " Todavía no cambié nada."
+        bad = f" No funcionó: {', '.join(failed)}." if failed else ""
+        return f"{head}.{did}{bad} Pedime el siguiente paso en una frase concreta (por ejemplo: «agregá una ventana en el muro 3»). Esto es preliminar."
+    head = "I couldn't finish this in time" if reason == "time" else "I stopped this request before finishing"
+    did = f" Applied so far: {', '.join(done)}." if done else " Nothing has changed yet."
+    bad = f" Did not work: {', '.join(failed)}." if failed else ""
+    return f"{head}.{did}{bad} Ask me for the next step in one concrete sentence (for example: \"add a window on wall 3\"). This is preliminary."
+
+
 def run_turn(
     scene: Scene,
     history: list,
@@ -281,26 +339,31 @@ def run_turn(
 
     current = scene
     events: list[dict[str, Any]] = []
-    response = client.respond(
-        _turn_input(user_text, conversation), previous_response_id=None, **base_kwargs
-    )
+    started = time.monotonic()
+    deadline = started + TURN_BUDGET_S
     rounds = 0
+
+    def finish(reply: str, outcome: str) -> TurnResult:
+        logger.info(
+            "reform turn outcome=%s rounds=%d ops=%d seconds=%.1f",
+            outcome, rounds, sum(1 for e in events if e["ok"]), time.monotonic() - started,
+        )
+        return TurnResult(
+            scene=current, history=_history_snapshot(history), reply=reply, tool_events=events
+        )
+
+    try:
+        response = _respond(
+            client, deadline, _turn_input(user_text, conversation), previous_response_id=None, **base_kwargs
+        )
+    except _Deadline:
+        return finish(_partial_reply(user_text, events, "time"), "timeout")
     while True:
         calls = client.tool_calls(response)
         if not calls:
-            return TurnResult(
-                scene=current,
-                history=_history_snapshot(history),
-                reply=client.output_text(response),
-                tool_events=events,
-            )
+            return finish(client.output_text(response), "reply")
         if rounds >= MAX_TOOL_ROUNDS:
-            return TurnResult(
-                scene=current,
-                history=_history_snapshot(history),
-                reply=_stop_reply(user_text),
-                tool_events=events,
-            )
+            return finish(_stop_reply(user_text) if not events else _partial_reply(user_text, events, "rounds"), "rounds")
         rounds += 1
         outputs = []
         for call in calls:
@@ -326,9 +389,10 @@ def run_turn(
                 }
             )
         response_id = response.get("id") if isinstance(response, dict) else None
-        response = client.respond(
-            outputs, previous_response_id=response_id, **base_kwargs
-        )
+        try:
+            response = _respond(client, deadline, outputs, previous_response_id=response_id, **base_kwargs)
+        except _Deadline:
+            return finish(_partial_reply(user_text, events, "time"), "timeout")
 
 
 __all__ = [

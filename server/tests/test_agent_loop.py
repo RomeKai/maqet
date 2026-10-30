@@ -247,11 +247,11 @@ def test_out_of_stage_refused() -> None:
 @pytest.mark.parametrize(
     ("user_text", "fragments"),
     [
-        ("Add seven more rooms please", ("too many steps", "preliminary")),
-        ("Agregá siete cuartos más por favor", ("demasiados pasos", "preliminar")),
+        ("Add seven more rooms please", ("stopped this request", "preliminary")),
+        ("Agregá siete cuartos más por favor", ("frené este pedido", "preliminar")),
     ],
 )
-def test_six_round_stop(user_text: str, fragments: tuple[str, str]) -> None:
+def test_round_cap_stop(user_text: str, fragments: tuple[str, str]) -> None:
     script = [
         {"calls": [{"name": "add_room",
                     "arguments": _bedroom_args(f"Cuarto {i}", 10.0 * (i + 1))}]}
@@ -262,8 +262,9 @@ def test_six_round_stop(user_text: str, fragments: tuple[str, str]) -> None:
         scene=_base_scene(), history=[], stage="reform",
         user_text=user_text, client=client,
     )
-    assert len(result.tool_events) == 6
-    assert len(client.calls) == 7
+    # Cap is 4 rounds (bug V): 4 executed changes, the 5th model call is the last.
+    assert len(result.tool_events) == 4
+    assert len(client.calls) == 5
     for fragment in fragments:
         assert fragment in result.reply.casefold()
 
@@ -413,8 +414,8 @@ def test_undo_empty_history_refused() -> None:
     assert result.reply == "Nothing to undo yet. This is preliminary."
 
 
-def test_six_round_stop_applies_changes_before_stopping() -> None:
-    """The 6-round stop keeps the 6 executed changes; the 7th never runs."""
+def test_round_cap_stop_applies_changes_before_stopping() -> None:
+    """The round-cap stop keeps the 4 executed changes; the 5th never runs."""
     script = [
         {"calls": [{"name": "add_room",
                     "arguments": _bedroom_args(f"Cuarto {i}", 10.0 * (i + 1))}]}
@@ -425,9 +426,10 @@ def test_six_round_stop_applies_changes_before_stopping() -> None:
         scene=_base_scene(), history=[], stage="reform",
         user_text="Add seven more rooms please", client=client,
     )
-    assert len(result.tool_events) == 6
-    assert len(client.calls) == 7  # no 8th call fetching a 7th round
-    assert len(result.scene.rooms) == 1 + 6
+    assert len(result.tool_events) == 4
+    assert len(client.calls) == 5  # no 6th call fetching a 5th round
+    assert len(result.scene.rooms) == 1 + 4
+    assert "add_room" in result.reply  # the partial reply says what was applied
 
 
 def test_unknown_stage_raises_value_error() -> None:
@@ -543,3 +545,44 @@ def test_function_tools_use_flat_responses_shape() -> None:
         assert tool["type"] == "function"
         assert isinstance(tool["name"], str) and tool["name"]
         assert "parameters" in tool and "function" not in tool
+
+
+def test_a_model_that_keeps_calling_a_failing_tool_stops_gracefully() -> None:
+    """Bug V: failing calls ("north wall of the new bedroom") must not loop forever."""
+    bad = {"calls": [{"name": "add_opening", "arguments": {"kind": "window", "wall": "north wall of the bedroom"}}]}
+    client = ScriptedClient([bad] * 10)
+    result = run_turn(
+        scene=_base_scene(), history=[], stage="reform",
+        user_text="make the room brighter", client=client,
+    )
+    assert len(client.calls) <= 5
+    assert all(not e["ok"] for e in result.tool_events)
+    assert "Nothing has changed yet" in result.reply
+    assert "Did not work" in result.reply
+
+
+def test_a_slow_model_returns_a_partial_reply_within_the_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+    import time as _time
+
+    from server.agent import loop
+
+    monkeypatch.setattr(loop, "TURN_BUDGET_S", 0.3)
+    first = {"calls": [{"name": "add_room", "arguments": _bedroom_args("Dorm", 5.0)}]}
+
+    class Slow(ScriptedClient):
+        def respond(self, input, **kwargs):  # type: ignore[no-untyped-def]
+            if self.calls:  # second call hangs well past the budget
+                self.calls.append({"input": input, "kwargs": kwargs})
+                _time.sleep(2.0)
+            return super().respond(input, **kwargs) if not self.calls else {"id": "late", "output": []}
+
+    client = Slow([first])
+    started = _time.monotonic()
+    result = run_turn(
+        scene=_base_scene(), history=[], stage="reform",
+        user_text="add a room and make it brighter", client=client,
+    )
+    assert _time.monotonic() - started < 1.5
+    assert "couldn't finish this in time" in result.reply
+    assert "add_room" in result.reply  # the op that did apply is reported
+    assert len(result.scene.rooms) == 2
