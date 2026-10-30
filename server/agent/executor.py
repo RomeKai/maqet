@@ -30,12 +30,14 @@ from server.scene import geom
 from server.scene.rules import (
     DOOR_WIDTH_M,
     PRO_FLAG_SECOND_FLOOR,
+    WINDOW_HEIGHT_M,
+    WINDOW_SILL_M,
     PRO_FLAG_SOIL,
 )
 
 _DEFAULT_WINDOW_WIDTH_M = 1.20
 _DEFAULT_DOOR_HEIGHT_M = 2.10
-_DEFAULT_WINDOW_HEIGHT_M = 1.10
+_DEFAULT_WINDOW_HEIGHT_M = WINDOW_HEIGHT_M
 
 
 class ToolError(BaseModel):
@@ -362,7 +364,8 @@ def _handle_add_opening(
     oid = a.opening_id or _unique_id("o", [o.id for o in scene.openings])
     opening = Opening(
         id=oid, wall_id=wall.id, kind=a.kind,
-        offset_m=offset, width_m=width, height_m=height, sill_m=a.sill_m,
+        offset_m=offset, width_m=width, height_m=height,
+        sill_m=a.sill_m if a.sill_m is not None else (WINDOW_SILL_M if a.kind == "window" else None),
     )
     new_scene, res = ops.add_opening(scene, opening)
     if not res.ok:

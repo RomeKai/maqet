@@ -28,6 +28,13 @@ MIN_HABITABLE_ROOM_SIDE_M = 2.0  # rule of thumb, unverified
 MIN_WINDOW_TO_FLOOR_RATIO = 0.10  # rule of thumb, unverified
 MIN_VENT_OPENABLE_RATIO = 0.50  # rule of thumb, unverified (half of window area openable)
 
+# --- Window geometry -----------------------------------------------------------
+# Common Argentine practice: window sill (antepecho) about 0.90 m above the
+# finished floor, window about 1.20 m tall, so the head sits near 2.10 m,
+# aligned with the door head (2.10 m). Rule of thumb: verify per project.
+WINDOW_SILL_M = 0.90  # rule of thumb, unverified (antepecho)
+WINDOW_HEIGHT_M = 1.20  # rule of thumb, unverified
+
 # --- Minimum ceiling height --------------------------------------------------
 # Commonly cited 2.60 m for habitable rooms; the strict figure depends on the
 # municipality (CABA Ley 6100 mod. Ley 6438, a verificar).

@@ -171,3 +171,39 @@ def test_history_replay_reproduces_edit() -> None:
     assert res.ok
     rebuilt = ops.replay(base, history)
     assert [w.model_dump() for w in rebuilt.walls] == [w.model_dump() for w in new.walls]
+
+
+# --- windows get a sill and head height from rules.py (bug G) -------------------
+
+
+def test_new_window_has_default_sill_and_height() -> None:
+    from server.scene.rules import WINDOW_HEIGHT_M, WINDOW_SILL_M
+
+    scene, history = _with_bedroom()
+    new, res = execute(scene, history, "reform", "add_opening",
+                       {"wall_id": "w1", "kind": "window", "at_ratio": 0.5})
+    assert res.ok, res.errors
+    window = next(o for o in new.openings if o.kind == "window")
+    assert window.sill_m == WINDOW_SILL_M == 0.90
+    assert window.height_m == WINDOW_HEIGHT_M == 1.20
+    assert window.sill_m + window.height_m <= new.ceiling_height_m
+
+
+def test_door_keeps_sill_zero() -> None:
+    scene, history = _with_bedroom()
+    new, res = execute(scene, history, "reform", "add_opening",
+                       {"wall_id": "w1", "kind": "door", "at_ratio": 0.2})
+    assert res.ok, res.errors
+    door = next(o for o in new.openings if o.id == res.changed_ids[0])
+    assert not door.sill_m
+
+
+def test_set_opening_size_gives_a_window_without_sill_the_default() -> None:
+    from server.scene.models import Opening
+
+    scene, history = _with_bedroom()
+    legacy = Opening(id="vv", wall_id="w1", kind="window", offset_m=1.0, width_m=1.0, height_m=1.0)
+    scene = scene.model_copy(update={"openings": [*scene.openings, legacy]})
+    new, res = execute(scene, history, "reform", "set_opening_size", {"opening": "vv", "width_m": 1.4})
+    assert res.ok, res.errors
+    assert next(o for o in new.openings if o.id == "vv").sill_m == 0.90

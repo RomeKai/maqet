@@ -14,7 +14,7 @@ from typing import Callable
 from server.agent import tools as tool_contracts
 from server.scene import ops
 from server.scene.models import Room, Scene, Wall
-from server.scene.rules import INTERIOR_WALL_THICKNESS_M
+from server.scene.rules import INTERIOR_WALL_THICKNESS_M, WINDOW_SILL_M
 
 _EPS = 1e-6
 Point = tuple[float, float]
@@ -113,6 +113,8 @@ def _set_opening_size(scene: Scene, a: tool_contracts.SetOpeningSizeInput):
         for k, v in (("width_m", a.width_m), ("height_m", a.height_m), ("sill_m", a.sill_m))
         if v is not None
     }
+    if op.kind == "window" and op.sill_m is None and "sill_m" not in update:
+        update["sill_m"] = WINDOW_SILL_M  # legacy windows drawn at floor level
     openings = [o.model_copy(update=update) if o.id == op.id else o for o in scene.openings]
     return list(scene.walls), openings, list(scene.rooms)
 
