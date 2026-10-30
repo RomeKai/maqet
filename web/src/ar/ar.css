@@ -19,17 +19,17 @@
   justify-content: center;
   min-height: 160px;
   padding: 16px;
-  border: 1px dashed var(--muted);
+  border: 1px dashed var(--lg-muted);
   border-radius: 14px;
   color: var(--ink);
 }
 
 .ar-fallback p {
   margin: 4px 0 0;
-  color: var(--muted);
+  color: var(--lg-muted);
 }
 
 .ar-caption {
-  color: var(--muted);
+  color: var(--lg-muted);
   font-size: 0.8125rem;
 }

@@ -2,12 +2,12 @@
   --bg: #f6f4f0;
   --surface: #ffffff;
   --ink: #1e2124;
-  --muted: #6b6f73;
+  --lg-muted: #6b6f73;
   --hairline: #d9d5ce;
-  --accent: #c2643a;
+  --lg-accent: #c2643a;
   --accent-2: #2f5d62;
   --concept: #7a5ac8;
-  --radius: 14px;
+  --lg-radius: 14px;
 }
 
 * {
@@ -117,7 +117,7 @@ body {
 
 .viewport-placeholder {
   border: 2px dashed var(--accent-2);
-  border-radius: var(--radius);
+  border-radius: var(--lg-radius);
   padding: 24px;
   background: rgba(255, 255, 255, 0.6);
   max-width: 320px;
@@ -126,14 +126,14 @@ body {
 
 .viewport-hint {
   margin: 0;
-  color: var(--muted);
+  color: var(--lg-muted);
   font-size: 14px;
 }
 
 .sheet {
   background: var(--surface);
   border-top: 1px solid var(--hairline);
-  border-radius: var(--radius) var(--radius) 0 0;
+  border-radius: var(--lg-radius) var(--lg-radius) 0 0;
   box-shadow: 0 -4px 16px rgba(30, 33, 36, 0.08);
   padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
   min-height: 120px;
@@ -166,7 +166,7 @@ body {
 .receipt {
   margin: 4px 0 8px;
   font-size: 13px;
-  color: var(--muted);
+  color: var(--lg-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -193,7 +193,7 @@ body {
   min-height: 44px;
   border: none;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--lg-accent);
   font-size: 20px;
 }
 
@@ -274,7 +274,7 @@ body {
 }
 
 .ar-overlay-dot-close {
-  fill: var(--accent);
+  fill: var(--lg-accent);
 }
 
 .ar-overlay-edge {
@@ -307,7 +307,7 @@ body {
   right: 12px;
   margin: 0;
   padding: 10px 12px;
-  border-radius: var(--radius);
+  border-radius: var(--lg-radius);
   background: rgba(20, 22, 24, 0.72);
   color: #ffffff;
   font-size: 15px;
@@ -326,7 +326,7 @@ body {
   gap: 8px;
   justify-content: center;
   padding: 10px;
-  border-radius: var(--radius);
+  border-radius: var(--lg-radius);
   background: rgba(20, 22, 24, 0.72);
   pointer-events: auto;
 }
@@ -362,7 +362,7 @@ body {
 
 .preliminary {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--lg-muted);
 }
 
 .locale-switch {
@@ -391,7 +391,7 @@ body {
 
 .intake-step {
   font-size: 13px;
-  color: var(--muted);
+  color: var(--lg-muted);
 }
 
 .intake-upload {
@@ -412,7 +412,7 @@ body {
 .intake-hint {
   margin: 0;
   font-size: 14px;
-  color: var(--muted);
+  color: var(--lg-muted);
 }
 
 .intake-title {
@@ -424,7 +424,7 @@ body {
   min-height: 48px;
   border: none;
   border-radius: 12px;
-  background: var(--accent);
+  background: var(--lg-accent);
   color: #fff;
   font-size: 16px;
   font-weight: 600;
@@ -475,7 +475,7 @@ body {
 
 .intake-canvas {
   position: relative;
-  border-radius: var(--radius);
+  border-radius: var(--lg-radius);
   overflow: hidden;
   border: 1px solid var(--hairline);
   background: #eef0f2;
@@ -513,7 +513,7 @@ body {
 }
 
 .intake-svg .wall-selected {
-  stroke: var(--accent);
+  stroke: var(--lg-accent);
 }
 
 /* Estimated walls: amber dashed until the human confirms the measure. */
@@ -524,12 +524,12 @@ body {
 
 /* In-flight shared-corner drag: walls moving together glow terracotta. */
 .intake-svg .wall-dragging {
-  stroke: var(--accent);
+  stroke: var(--lg-accent);
   stroke-width: 4;
 }
 
 .intake-svg .handle {
-  fill: var(--accent);
+  fill: var(--lg-accent);
   stroke: #fff;
   stroke-width: 2px;
   cursor: grab;
@@ -544,7 +544,7 @@ body {
   margin: -22px 0 0 -22px;
   border-radius: 50%;
   border: 2px solid #fff;
-  background: var(--accent);
+  background: var(--lg-accent);
   opacity: 0.9;
   touch-action: none;
   padding: 0;
@@ -564,7 +564,7 @@ body {
 }
 
 .intake-svg .opening-door {
-  stroke: var(--accent);
+  stroke: var(--lg-accent);
   stroke-width: 4;
   stroke-linecap: butt;
 }
@@ -578,7 +578,7 @@ body {
 
 .intake-svg .opening-door-arc {
   fill: none;
-  stroke: var(--accent);
+  stroke: var(--lg-accent);
   stroke-width: 1.5;
   stroke-linecap: butt;
   stroke-dasharray: 6 3;
@@ -592,7 +592,7 @@ body {
 }
 
 .intake-svg .opening-selected {
-  stroke: var(--accent);
+  stroke: var(--lg-accent);
 }
 
 .intake-svg .wall-label {
@@ -612,7 +612,7 @@ body {
 /* Read-model openings: same hues as confirmed openings, dashed so the
    technician sees they are not in the Scene yet. */
 .intake-svg .proposal-opening-door {
-  stroke: var(--accent);
+  stroke: var(--lg-accent);
   stroke-width: 3;
   stroke-linecap: butt;
   stroke-dasharray: 6 3;
@@ -674,8 +674,8 @@ body {
 }
 
 .wall-row-active {
-  border-color: var(--accent);
-  outline: 2px solid var(--accent);
+  border-color: var(--lg-accent);
+  outline: 2px solid var(--lg-accent);
 }
 
 .wall-row-estimated {
@@ -730,7 +730,7 @@ body {
     --bg: #15171a;
     --surface: #1e2124;
     --ink: #f6f4f0;
-    --muted: #a8adb2;
+    --lg-muted: #a8adb2;
     --hairline: #3a3e42;
   }
 
@@ -753,6 +753,6 @@ body {
   .chip-active {
     background: var(--surface);
     color: var(--ink);
-    border-color: var(--accent);
+    border-color: var(--lg-accent);
   }
 }

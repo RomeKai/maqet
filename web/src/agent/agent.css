@@ -24,7 +24,7 @@
 
 .agent-empty,
 .agent-caption {
-  color: var(--muted);
+  color: var(--lg-muted);
   font-size: 0.8125rem;
 }
 
@@ -66,7 +66,7 @@
   line-height: 1.5;
   background: #fff;
   color: var(--ink);
-  border: 1px solid var(--muted);
+  border: 1px solid var(--lg-muted);
 }
 
 .agent-chip-ok {
@@ -74,20 +74,20 @@
 }
 
 .agent-chip-warn {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--lg-accent);
+  color: var(--lg-accent);
 }
 
 .agent-chip-pro {
-  border-color: var(--accent);
-  background: var(--accent);
+  border-color: var(--lg-accent);
+  background: var(--lg-accent);
   color: #fff;
   font-weight: 600;
 }
 
 .agent-pending {
   margin: 0;
-  color: var(--muted);
+  color: var(--lg-muted);
   font-size: 0.8125rem;
 }
 
@@ -101,7 +101,7 @@
   min-width: 0;
   min-height: 44px;
   padding: 0 12px;
-  border: 1px solid var(--muted);
+  border: 1px solid var(--lg-muted);
   border-radius: 12px;
   font: inherit;
   font-size: 1rem; /* 16px: stops iOS zooming on focus */
@@ -115,7 +115,7 @@
   padding: 0 16px;
   border: 0;
   border-radius: 12px;
-  background: var(--accent);
+  background: var(--lg-accent);
   color: #fff;
   font: inherit;
   font-weight: 600;
@@ -142,12 +142,12 @@
 }
 
 .agent-ptt[data-ptt-state="recording"] .agent-ptt-button {
-  background: var(--accent);
+  background: var(--lg-accent);
 }
 
 .agent-ptt-message {
   margin: 0;
-  color: var(--muted);
+  color: var(--lg-muted);
   font-size: 0.8125rem;
 }
 

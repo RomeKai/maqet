@@ -20,7 +20,7 @@
   flex: none;
   background: var(--surface);
   border-top: 1px solid var(--hairline);
-  border-radius: var(--radius) var(--radius) 0 0;
+  border-radius: var(--lg-radius) var(--lg-radius) 0 0;
   box-shadow: 0 -4px 16px rgba(30, 33, 36, 0.08);
 }
 
