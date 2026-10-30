@@ -54,6 +54,8 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
   // support on mount; the test seam overrides detection.
   const [arAvailable, setArAvailable] = useState<boolean>(arSupported ?? false);
   const [kindChips, setKindChips] = useState<IntakeKind>("plan");
+  /** Mode A finished in this visit: show the hand-off card instead of the upload step. */
+  const [arCaptured, setArCaptured] = useState(false);
 
   useEffect(() => {
     if (arSupported !== undefined) {
@@ -116,7 +118,24 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
     <div className="flex min-h-0 flex-1 flex-col gap-3 p-3 font-sans">
       {!hideScaleBadge && <ScaleBadge locale={locale} scaleConfirmed={scaleConfirmed} />}
 
-      {photo === null && !measuringAR && (
+      {photo === null && !measuringAR && arCaptured && (
+        <section className="ar-captured" aria-label={t["measure.ar.captured.title"]}>
+          <h2 className="intake-title">{t["measure.ar.captured.title"]}</h2>
+          <p className="intake-hint">
+            {t["measure.ar.captured.body"].replace("{n}", String((scene.walls ?? []).length))}
+          </p>
+          <div className="intake-scale-foot">
+            <button type="button" className="btn-primary" onClick={() => onLooksRight?.()}>
+              {t["intake.looksRight"]}
+            </button>
+            <button type="button" className="chip" onClick={() => { setArCaptured(false); setMeasuringAR(true); }}>
+              {t["measure.ar.captured.again"]}
+            </button>
+          </div>
+        </section>
+      )}
+
+      {photo === null && !measuringAR && !arCaptured && (
         <>
           <div className="flex gap-2" role="radiogroup" aria-label={t["intake.step.capture"]}>
             {(["plan", "sketch"] as const).map((value) => (
@@ -215,6 +234,7 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
             setScene(next);
             onSceneChange?.({ ...next });
             setMeasuringAR(false);
+            setArCaptured((next.walls ?? []).length > 0);
           }}
           onCancel={() => setMeasuringAR(false)}
           onSessionChange={onArSessionChange}

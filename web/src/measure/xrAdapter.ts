@@ -75,6 +75,12 @@ export interface XrTapCallbacks {
    */
   onSurfaceChange?: (found: boolean) => void;
   /**
+   * Camera tracking, reported on transitions only: false when the frame has
+   * no viewer pose (tracking lost: dark room, fast motion, covered camera),
+   * true when it comes back. Optional like the other HUD feedback seams.
+   */
+  onTrackingChange?: (tracking: boolean) => void;
+  /**
    * Debug frame counter, reported ONLY when `isArDebugEnabled()` is true
    * (`?arDebug=1`): the adapter's session rAF loop calls it throttled
    * (~2/s, see AR_DEBUG_REPORT_INTERVAL_MS) so the HUD can prove the first
@@ -383,6 +389,7 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
       // Updated on found<->lost edges only so React state changes once per
       // event, not once per XR frame.
       let surfaceFound = false;
+      let tracking = true;
       // Frame counter behind `onDebugFrame` (arDebug only, throttled to
       // ~2 reports/s): proves the first frame FLOWED, not just that the
       // loop was registered. Same reporting shape as onSurfaceChange
@@ -451,6 +458,11 @@ export class WebXrHitTestAdapter implements XrHitTestAdapter {
           }
         }
         const view = frame.getViewerPose(refSpace)?.views[0];
+        const nowTracking = view !== undefined;
+        if (nowTracking !== tracking) {
+          tracking = nowTracking;
+          callbacks.onTrackingChange?.(nowTracking);
+        }
         if (view !== undefined) {
           const raw = hit?.transform.position;
           callbacks.onOverlayFrame?.({

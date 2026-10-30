@@ -697,3 +697,28 @@ body {
   display: inline-flex;
   align-items: center;
 }
+
+.measure-review {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+
+.measure-review input[type="number"] {
+  min-height: 48px;
+  width: 96px;
+  margin-right: 8px;
+  font-size: 16px;
+}
+
+.measure-review-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.measure-review .flagged {
+  border-left: 4px solid var(--accent, #c2410c);
+  padding-left: 8px;
+}

@@ -1,4 +1,4 @@
-import type { Opening, Scene, Wall } from "./types";
+import type { Opening, Room, Scene, Wall } from "./types";
 
 /**
  * Minimal Scene op history for intake (web).
@@ -17,6 +17,7 @@ export type SceneOp =
   | { type: "setWallLength"; wallId: string; lengthM: number; provenance: WallProvenance }
   | { type: "setWallHeight"; wallId: string; heightM: number }
   | { type: "confirmScale" }
+  | { type: "addRoom"; room: Room }
   /** Several ops applied as one history step (e.g. dragging a shared corner). */
   | { type: "batch"; ops: SceneOp[] };
 
@@ -128,6 +129,13 @@ export function applySceneOp(scene: Scene, op: SceneOp): Scene {
         ),
       };
     }
+
+    case "addRoom":
+      return {
+        ...scene,
+        version,
+        rooms: [...(scene.rooms ?? []).filter((r) => r.id !== op.room.id), op.room],
+      };
 
     case "confirmScale":
       return { ...scene, version, scale_confirmed: true };

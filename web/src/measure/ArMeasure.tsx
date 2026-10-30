@@ -15,7 +15,7 @@ import {
   type CaptureEvent,
   type CaptureResult,
   stepKey,
-  toSceneOps,
+  toHandoffOps,
   type CaptureState,
 } from "./captureSession";
 import {
@@ -34,6 +34,7 @@ import {
   type XrStartStep,
   type XrTapCallbacks,
 } from "./xrAdapter";
+import { classifyArError, arErrorKey } from "./arErrors";
 import { ArOverlay, type OverlayFrameRef } from "./ArOverlay";
 
 /** A start step or the recorded session-config outcome. */
@@ -214,6 +215,8 @@ interface ArHudProps {
   capture?: CaptureState;
   pillError?: string | null;
   measureLocale?: "en" | "es-AR";
+  /** Camera tracking lost: the pill tells the user to move slowly. */
+  trackingLost?: boolean;
   /** Live ray height on the ceiling step (written via overlay frame, no setState/frame). */
   previewCeilM?: number | null;
   onCeilingConfirm?: (heightM: number) => void;
@@ -257,6 +260,7 @@ export function ArHud({
   pillError,
   measureLocale,
   previewCeilM = null,
+  trackingLost = false,
   onCeilingConfirm = noopArHudActionNumber,
   onWallHeight,
   previewM = null,
@@ -287,7 +291,7 @@ export function ArHud({
     const sk = stepKey(capture);
     const wallN = capture.walls.length + 1;
     const stepLabelWalls = stepKeyLabel(ml, sk, wallN);
-    const pill = pillError ?? stepLabelWalls;
+    const pill = trackingLost ? t["measure.ar.err.tracking"] : (pillError ?? stepLabelWalls);
     const canUndo = capture.past.length > 0;
     const canStartOver = capture.walls.length > 0 || capture.pendingStart !== null;
     const modeUnlocked = capture.closed || capture.finished;
@@ -468,6 +472,7 @@ export function ArMeasure({
   const [startStep, setStartStep] = useState<ArTraceStep | null>(null);
   const startStepRef = useRef<ArTraceStep | null>(null);
   const [surfaceFound, setSurfaceFound] = useState(false);
+  const [trackingLost, setTrackingLost] = useState(false);
   const [debugFrames, setDebugFrames] = useState<number | null>(null);
   const overlayFrameRef = useRef<OverlayFrame | null>(null);
   const hudRef = useRef<HTMLDivElement | null>(null);
@@ -476,6 +481,7 @@ export function ArMeasure({
   const prodAdapterRef = useRef<XrHitTestAdapter | null>(null);
   const startGuardRef = useRef(createStartGuard());
   const sceneRef = useRef<Scene>(scene);
+  const doneSceneRef = useRef<Scene | null>(null);
   sceneRef.current = scene;
 
   useEffect(() => {
@@ -571,9 +577,11 @@ export function ArMeasure({
         if (adapter === undefined) prodAdapterRef.current = null;
         startGuardRef.current.reset();
         setSurfaceFound(false);
+        setTrackingLost(false);
         setSupport("ar-ready");
       },
       onSurfaceChange: (found) => setSurfaceFound(found),
+      onTrackingChange: (ok) => setTrackingLost(!ok),
       onDebugFrame: isArDebugEnabled() ? setDebugFrames : undefined,
       onOverlayFrame: (frame) => { overlayFrameRef.current = frame; },
     };
@@ -612,17 +620,29 @@ export function ArMeasure({
   }
   function handleDone(): void {
     const doneState = send({ type: "done" }).state;
-    const { ops } = toSceneOps(doneState);
     let next = sceneRef.current;
+    for (const op of toHandoffOps(doneState)) {
+      next = applySceneOp(next, op);
+      onChange(next, op);
+    }
+    doneSceneRef.current = next;
+    // End the XR session first, then show the review on a normal page.
+    (adapter ?? prodAdapterRef.current)?.end();
+    onSessionChangeRef.current?.(false);
+    setReviewCapture(doneState);
+    setShowReview(true);
+  }
+
+  /** Review finished (edits applied or skipped): hand the Scene to the editor. */
+  function finishReview(ops: SceneOp[]): void {
+    let next = doneSceneRef.current ?? sceneRef.current;
     for (const op of ops) {
       next = applySceneOp(next, op);
       onChange(next, op);
     }
-    setReviewCapture(doneState);
-    setShowReview(true);
+    doneSceneRef.current = next;
+    setShowReview(false);
     onDone(next);
-    (adapter ?? prodAdapterRef.current)?.end();
-    onSessionChangeRef.current?.(false);
   }
 
   useEffect(() => {
@@ -631,6 +651,17 @@ export function ArMeasure({
       onSessionChangeRef.current?.(false);
     };
   }, [adapter]);
+
+  if (showReview && reviewCapture !== null) {
+    return (
+      <MeasureReview
+        capture={reviewCapture}
+        locale={ml}
+        onApply={finishReview}
+        onSkip={() => finishReview([])}
+      />
+    );
+  }
 
   const hudShell = <ArHud locale={locale} hudRef={hudRef} shell />;
 
@@ -661,7 +692,8 @@ export function ArMeasure({
         {hudShell}
         <div className="ar-measure" role="dialog" aria-label={t["measure.ar.title"]}>
           <h2 className="intake-title">{t["measure.ar.title"]}</h2>
-          <p className="intake-error" role="alert">{startError ?? t["measure.ar.fallback"]}</p>
+          <p className="intake-error" role="alert">{t[arErrorKey(classifyArError(startError ?? ""))]}</p>
+          {startError !== null && <p className="intake-hint ar-error-detail">{startError}</p>}
           <p className="intake-hint">{t["measure.ar.fallback"]}</p>
           <div className="intake-scale-foot">
             <button type="button" className="btn-primary" onClick={handleStart}>{t["intake.capture.ar"]}</button>
@@ -723,6 +755,7 @@ export function ArMeasure({
         pillError={hudError}
         measureLocale={ml}
         previewCeilM={previewCeilM}
+        trackingLost={trackingLost}
         onCeilingConfirm={handleCeilingConfirm}
         onWallHeight={handleWallHeight}
         surfaceFound={surfaceFound}
@@ -742,12 +775,6 @@ export function ArMeasure({
           </button>
           <button type="button" className="chip" onClick={() => setShowStartOverConfirm(false)}>{tMeasure(ml, "confirm.startOver.cancel")}</button>
         </div>
-      )}
-      {showReview && reviewCapture && (
-        <MeasureReview capture={reviewCapture} locale={ml} onApply={(ops) => { let s = sceneRef.current; for (const op of ops) { s = applySceneOp(s, op); onChange(s, op); } setShowReview(false); }} />
-      )}
-      {reviewCapture && !showReview && (
-        <button type="button" className="chip" onClick={() => setShowReview(true)}>{tMeasure(ml, "review.title")}</button>
       )}
     </>
   );

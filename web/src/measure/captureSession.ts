@@ -572,3 +572,27 @@ export function toSceneOps(state: CaptureState): SceneOpsResult {
   }
   return { ops, flaggedWallIds, flaggedOpeningIds };
 }
+
+/**
+ * Everything Mode A hands to the shared Scene on Done: the walls and openings
+ * from `toSceneOps`, plus (like Mode C) a room on the closed polygon and a
+ * confirmed scale, because every wall is `measured_ar`. Mode A and Mode C then
+ * share the editor, the 3D view, add_room placement and the Reform path.
+ */
+export function toHandoffOps(state: CaptureState): SceneOp[] {
+  const { ops } = toSceneOps(state);
+  if (ops.length === 0) return [];
+  const out: SceneOp[] = [...ops];
+  const wallOps = ops.filter((o) => o.type === "addWall");
+  if (state.closed && wallOps.length >= 3) {
+    const polygon: [number, number][] = wallOps.map((o) =>
+      o.type === "addWall" ? [o.wall.a[0], o.wall.a[1]] : [0, 0],
+    );
+    out.push({
+      type: "addRoom",
+      room: { id: "room-1", name: "Room 1", polygon },
+    });
+  }
+  out.push({ type: "confirmScale" });
+  return out;
+}
