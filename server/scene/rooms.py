@@ -490,7 +490,10 @@ def recompute_rooms(
 def _footprint(f: Furniture) -> tuple[float, float, float, float]:
     w, d, _h = f.size_m
     cx, cy = f.position
-    return (cx - w / 2.0, cy - d / 2.0, cx + w / 2.0, cy + d / 2.0)
+    t = math.radians(f.rotation_deg)
+    hx = (abs(w * math.cos(t)) + abs(d * math.sin(t))) / 2.0
+    hy = (abs(w * math.sin(t)) + abs(d * math.cos(t))) / 2.0
+    return (cx - hx, cy - hy, cx + hx, cy + hy)
 
 
 def check_furniture(scene) -> tuple[tuple[str, ...], tuple[str, ...]]:

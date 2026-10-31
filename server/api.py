@@ -516,7 +516,8 @@ def _persist_variant(
     save_project(project, db_path=_DB_PATH)
 
 
-_UI_EDIT_TOOLS = frozenset({*edit_tools.COMPUTE, "undo"})
+_DESIGN_UI_TOOLS = frozenset({"place_furniture", "move_item", "rotate_item", "remove_item"})
+_UI_EDIT_TOOLS = frozenset({*edit_tools.COMPUTE, *_DESIGN_UI_TOOLS, "undo"})
 
 
 class AgentEditIn(BaseModel):
@@ -538,7 +539,8 @@ def post_agent_edit(body: AgentEditIn) -> AgentTurnOut:
     if body.tool not in _UI_EDIT_TOOLS:
         raise HTTPException(status_code=422, detail=f"tool {body.tool!r} is not an edit tool")
     history = [OpRecord(**record.model_dump()) for record in body.history]
-    new_scene, res = execute(body.scene, history, "reform", body.tool, body.args)
+    stage = "design" if body.tool in _DESIGN_UI_TOOLS else "reform"
+    new_scene, res = execute(body.scene, history, stage, body.tool, body.args)
     if not res.ok:
         raise HTTPException(
             status_code=422, detail="; ".join(e.message for e in res.errors)

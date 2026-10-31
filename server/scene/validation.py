@@ -400,7 +400,10 @@ class _FurnitureBox:
 def _furniture_box(f) -> _FurnitureBox:
     w, d, _h = f.size_m
     cx, cy = f.position
-    return _FurnitureBox(cx - w / 2, cy - d / 2, cx + w / 2, cy + d / 2)
+    t = math.radians(f.rotation_deg)
+    hx = (abs(w * math.cos(t)) + abs(d * math.sin(t))) / 2
+    hy = (abs(w * math.sin(t)) + abs(d * math.cos(t))) / 2
+    return _FurnitureBox(cx - hx, cy - hy, cx + hx, cy + hy)
 
 
 def _door_clearance_ok(scene: Scene, room, opening, wall) -> bool:
