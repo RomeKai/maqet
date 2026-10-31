@@ -6,6 +6,7 @@ import { getAgentStrings } from "../agent/agent.i18n";
 import { SUGGESTIONS } from "../agent/suggestions";
 import { getDesignStrings } from "./design.i18n";
 import { DesignScreen } from "./DesignScreen";
+import { EMPTY_REAL_LIFE } from "./RealLifeCard";
 
 const noop = (): void => {};
 const scene = {
@@ -16,7 +17,7 @@ const scene = {
 
 function html(locale: "en" | "es-AR"): string {
   return renderToString(
-    <DesignScreen scene={scene} locale={locale} selectedWallId={null} onSelectWall={noop} messages={[]} onSend={noop} onAudio={noop} pending={false} agentError={null} onNext={noop} onEdit={async () => ({ error: null, warnings: [] })} />,
+    <DesignScreen scene={scene} locale={locale} selectedWallId={null} onSelectWall={noop} messages={[]} onSend={noop} onAudio={noop} pending={false} agentError={null} onNext={noop} onEdit={async () => ({ error: null, warnings: [] })} realLife={EMPTY_REAL_LIFE} onRealLife={noop} />,
   );
 }
 

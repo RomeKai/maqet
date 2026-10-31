@@ -758,3 +758,26 @@ def post_render_room(body: RenderRoomIn, image_client: Any = Depends(get_image_c
         if type(exc).__name__ == "ReplayMiss":
             raise HTTPException(status_code=409, detail="no recorded render in replay mode") from exc
         raise
+
+
+class RealLifeIn(BaseModel):
+    scene: Scene
+    room_id: str
+    style: str
+
+
+@app.post("/render/real-life")
+def post_render_real_life(body: RealLifeIn, image_client: Any = Depends(get_image_client)) -> dict[str, Any]:
+    """'In real life' image in a chosen style. Explicit tap only; one image, $0.01."""
+    from server.render.real_life import STYLES, render_real_life
+
+    if body.style not in STYLES:
+        raise HTTPException(status_code=422, detail=f"unknown style {body.style!r}; use one of {sorted(STYLES)}")
+    try:
+        return render_real_life(body.scene, body.room_id, body.style, image_client)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"unknown room {body.room_id!r}") from exc
+    except Exception as exc:
+        if type(exc).__name__ == "ReplayMiss":
+            raise HTTPException(status_code=409, detail="no recorded render in replay mode") from exc
+        raise

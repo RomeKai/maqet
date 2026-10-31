@@ -18,6 +18,7 @@ import {
 } from "../agent/editCall";
 import { FINISHES, FURNITURE, finishLabel, furnitureLabel } from "./catalog";
 import { getDesignStrings } from "./design.i18n";
+import { RealLifeCard, type RealLifeState, type StyleId } from "./RealLifeCard";
 
 export interface DesignEditResult {
   error: string | null;
@@ -36,8 +37,8 @@ interface DesignScreenProps {
   agentError: string | null;
   onNext: () => void;
   onEdit: (call: EditCall) => Promise<DesignEditResult>;
-  /** Explicit tap only: resolves with an image data URL or an error. Costs credits. */
-  onRender?: (roomId: string) => Promise<{ image: string | null; error: string | null }>;
+  realLife: RealLifeState;
+  onRealLife: (roomId: string, style: StyleId) => void;
 }
 
 type Tab = "furniture" | "finishes" | "items";
@@ -57,8 +58,6 @@ export function DesignScreen(props: DesignScreenProps): React.JSX.Element {
   const [itemId, setItemId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [notes, setNotes] = useState<string[]>([]);
-  const [rendering, setRendering] = useState(false);
-  const [image, setImage] = useState<string | null>(null);
   const activeRoom = rooms.find((r) => r.id === roomId)?.id ?? rooms[0]?.id ?? "";
   const items = scene?.furniture ?? [];
   const item = items.find((f) => f.id === itemId) ?? items[items.length - 1] ?? null;
@@ -68,15 +67,6 @@ export function DesignScreen(props: DesignScreenProps): React.JSX.Element {
     const res = await props.onEdit(call);
     setBusy(false);
     setNotes(res.error !== null ? [res.error] : res.warnings);
-  }
-
-  async function render(): Promise<void> {
-    if (!props.onRender) return;
-    setRendering(true);
-    const res = await props.onRender(activeRoom);
-    setRendering(false);
-    setImage(res.image);
-    if (res.error !== null) setNotes([res.error]);
   }
 
   const nudge = (dx: number, dy: number, label: string, icon: React.ReactNode): React.JSX.Element => (
@@ -221,19 +211,7 @@ export function DesignScreen(props: DesignScreenProps): React.JSX.Element {
                   {notes[0]}
                 </p>
               ) : null}
-              {props.onRender ? (
-                <div className="space-y-2">
-                  <button type="button" className={`${btn} w-full`} disabled={rendering || activeRoom === ""} onClick={() => void render()}>
-                    {rendering ? t["design.rendering"] : t["design.render"]}
-                  </button>
-                  {image !== null ? (
-                    <figure>
-                      <img src={image} alt={t["design.renderLabel"]} className="w-full rounded-xl border-2 border-foreground" />
-                      <figcaption className="text-sm font-bold">{t["design.renderLabel"]}</figcaption>
-                    </figure>
-                  ) : null}
-                </div>
-              ) : null}
+              <RealLifeCard scene={scene} locale={locale} state={props.realLife} onGenerate={props.onRealLife} />
               <p className="text-sm">{t["design.prelim"]}</p>
             </>
           )}

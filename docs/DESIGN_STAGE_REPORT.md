@@ -9,12 +9,22 @@ Branch `day/design` (from main 494ab75). Nothing pushed or merged. All runs in M
 | 3 Surface materials (`set_surface_material`, catalog finishes, takeoff) | done | 4fb4996 |
 | 4 Fit check (door swing, passage < 1.00 m) | done | 9377064 |
 | 2 Furniture + finishes in 3D, AR maquette, Design screen | done | d6d6c57, 82c29d5 |
-| 5 Render this room (server + button, fake-client tests) | done | see git log |
+| 5 Render this room (server + button, fake-client tests) | done | d1ee550 (button later replaced by In real life) |
+| 6 In real life (style picker, master prompt, Design + Present) | done | see git log |
 
 Gates at the last commit: pytest 539 passed; vitest 93 files / 707 passed; `tsc --noEmit` clean; `npm run build` ok.
 
 ## Render cost
 One Muse Image call per tap, $0.01 (mme.client.image_generate, n=1). Never automatic. Not exercised live; tested with a fake client only.
+
+## In real life
+- Image input: Muse Image does have `POST /v1/images/edits` (an `image` input, $0.01 per image, from Meta's Muse Image blog). `mme.client` has no method for it, and the human chose text-only, so it is not used and mme was not touched.
+- Text-only path: `server/render/real_life.py` builds one deterministic master prompt in code (stable prefix first): the rest of the house with sizes, the chosen room with size and ceiling, each opening with wall orientation, size and distance from the wall end, each furniture item with type, size, position and facing, floor and wall finishes, a fixed eye-level camera from the door toward the window wall, then the chosen style (minimalist, modern, cozy, rustic, industrial).
+- Limitation: layout is approximate. The model gets numbers in words, not geometry.
+- Cost: one image per tap, n=1, $0.01. Never automatic; the button is disabled while pending and the cost note is shown.
+- No concept label on the image (human decision); the global preliminary footer stays.
+- Surfaces: Design sheet and Present ("See it in real life"), same image state. There is no family share page in this repo (only the copy-link button), so nothing there uses the image yet.
+- Replaced the earlier concept render button in the Design sheet; `POST /render/room` stays on the server.
 
 ## Known gaps
 - No `design*` screen exists in captur-ref; DesignScreen follows ReformScreen (v0 `agent.tsx`) patterns.

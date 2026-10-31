@@ -16,6 +16,7 @@ import { transcribeClip } from "./agent/transcribe";
 import { ProBanner } from "./agent/ProBanner";
 import { ReformScreen } from "./agent/ReformScreen";
 import { DesignScreen, type DesignEditResult } from "./design/DesignScreen";
+import { EMPTY_REAL_LIFE, type RealLifeState, type StyleId } from "./design/RealLifeCard";
 import { chatKey, toConversation } from "./agent/conversation";
 import { DeliverView } from "./deliver/DeliverView";
 import { parseTakeoff } from "./deliver/takeoffFormat";
@@ -257,23 +258,25 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
     [intakeScene, history],
   );
 
-  const handleRender = useCallback(
-    async (roomId: string): Promise<{ image: string | null; error: string | null }> => {
-      if (!intakeScene) return { image: null, error: "No scene" };
+  const [realLife, setRealLife] = useState<RealLifeState>(EMPTY_REAL_LIFE);
+  const handleRealLife = useCallback(
+    async (roomId: string, style: StyleId): Promise<void> => {
+      if (!intakeScene || realLife.pending) return;
+      setRealLife((s) => ({ ...s, pending: true, error: null }));
       try {
-        const res = await fetch(`${baseUrl()}/render/room`, {
+        const res = await fetch(`${baseUrl()}/render/real-life`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ scene: intakeScene, room_id: roomId }),
+          body: JSON.stringify({ scene: intakeScene, room_id: roomId, style }),
         });
-        if (!res.ok) return { image: null, error: (await res.text().catch(() => "")) || `render ${res.status}` };
+        if (!res.ok) throw new Error((await res.text().catch(() => "")) || `render ${res.status}`);
         const body = (await res.json()) as { image_b64: string };
-        return { image: `data:image/png;base64,${body.image_b64}`, error: null };
+        setRealLife({ image: `data:image/png;base64,${body.image_b64}`, pending: false, error: null });
       } catch (err) {
-        return { image: null, error: err instanceof Error ? err.message : String(err) };
+        setRealLife((s) => ({ ...s, pending: false, error: err instanceof Error ? err.message : String(err) }));
       }
     },
-    [intakeScene],
+    [intakeScene, realLife.pending],
   );
 
   const handleAudio = useCallback(
@@ -359,6 +362,8 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
           selectedWallId={selectedWallId}
           onSelectWall={setSelectedWallId}
           onSceneChange={handleIntakeScene}
+          realLife={realLife}
+          onRealLife={(r, st) => void handleRealLife(r, st)}
         />
       ) : isReform ? (
         <ReformScreen
@@ -389,7 +394,8 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
           agentError={agentError}
           onNext={() => setStage(STAGES[stageIndex + 1] ?? "stage.deliver")}
           onEdit={handleDesignEdit}
-          onRender={handleRender}
+          realLife={realLife}
+          onRealLife={(r, st) => void handleRealLife(r, st)}
         />
       ) : isDeliver ? (
         <main className="flex min-h-0 flex-1 flex-col" aria-label={t["app.name"]}>
