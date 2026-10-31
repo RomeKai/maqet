@@ -5,7 +5,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { Scene } from "../scene/types";
 import { OPENING_THEME } from "./openingTheme";
 import {
-  wallBadges,
+  wallBadgeLayout,
   cameraForBoundingBox,
   planToThree,
   sceneBoundingBox,
@@ -186,9 +186,10 @@ function badgeTexture(n: number): THREE.CanvasTexture {
 
 /** Numbered circles on each wall, like the Check step plan; same numbers the agent uses. */
 function WallBadges({ scene }: { scene: Scene }): React.JSX.Element {
+  const layout = useMemo(() => wallBadgeLayout(scene), [scene]);
   const badges = useMemo(
-    () => wallBadges(scene).map((b) => ({ ...b, texture: badgeTexture(b.number) })),
-    [scene],
+    () => layout.badges.map((b) => ({ ...b, texture: badgeTexture(b.number) })),
+    [layout],
   );
   useEffect(() => () => badges.forEach((b) => b.texture.dispose()), [badges]);
   return (
@@ -197,7 +198,7 @@ function WallBadges({ scene }: { scene: Scene }): React.JSX.Element {
         <sprite
           key={b.wallId}
           position={planToThree([b.position[0], b.position[1]], b.position[2])}
-          scale={[0.55, 0.55, 0.55]}
+          scale={[layout.size, layout.size, layout.size]}
         >
           <spriteMaterial map={b.texture} depthTest={false} transparent />
         </sprite>

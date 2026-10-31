@@ -223,6 +223,36 @@ export function wallBadges(scene: Scene): WallBadge[] {
   });
 }
 
+export interface BadgeLayout {
+  /** Sprite edge in meters: scaled to the scene, capped so it never dominates. */
+  size: number;
+  badges: WallBadge[];
+}
+
+const BADGE_MIN_M = 0.12;
+const BADGE_MAX_M = 0.45;
+const BADGE_SCENE_FRACTION = 0.09;
+
+/** Badge size follows the scene size (0.5 m2 room: small), and badges that would overlap are stacked upward. */
+export function wallBadgeLayout(scene: Scene): BadgeLayout {
+  const box = sceneBoundingBox(scene);
+  const extent = box === null ? 0 : Math.max(box.max[0] - box.min[0], box.max[1] - box.min[1]);
+  const size = Math.min(BADGE_MAX_M, Math.max(BADGE_MIN_M, extent * BADGE_SCENE_FRACTION));
+  const placed: WallBadge[] = [];
+  for (const b of wallBadges(scene)) {
+    let z = b.position[2] - 0.35 + size * 0.6;
+    const clash = (): boolean =>
+      placed.some(
+        (o) =>
+          Math.hypot(o.position[0] - b.position[0], o.position[1] - b.position[1]) < size * 1.15 &&
+          Math.abs(o.position[2] - z) < size * 1.15,
+      );
+    while (clash()) z += size * 1.2;
+    placed.push({ ...b, position: [b.position[0], b.position[1], z] });
+  }
+  return { size, badges: placed };
+}
+
 /** Effective wall height: wall override, else scene ceiling, else 2.6 m. */
 export function wallHeightM(wall: Wall, scene: Scene): number {
   const h = wall.height_m ?? scene.ceiling_height_m ?? DEFAULT_CEILING_HEIGHT_M;
