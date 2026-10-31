@@ -84,3 +84,73 @@ export function ceilingHeightFromCenterRay(
   if (!Number.isFinite(heightM) || heightM <= 0) return null;
   return heightM;
 }
+
+/**
+ * Point where the center ray meets the floor plane y = floorY (null when the
+ * ray is missing, level or points up). Used so the reticle and the next corner
+ * always live on the floor, never on the wall or ceiling the camera sees.
+ */
+export function floorPointFromRay(
+  ray: { eye: Vec3; dir: Vec3 } | null,
+  floorY: number,
+): Vec3 | null {
+  if (ray === null || !Number.isFinite(floorY)) return null;
+  if (!(ray.dir[1] < -1e-6)) return null;
+  const t = (floorY - ray.eye[1]) / ray.dir[1];
+  if (!(t > 0)) return null;
+  const p: Vec3 = [ray.eye[0] + t * ray.dir[0], floorY, ray.eye[2] + t * ray.dir[2]];
+  return p.every(Number.isFinite) ? p : null;
+}
+
+/**
+ * The captured wall the center ray crosses, with the crossing point. No
+ * hit-test needed (bare walls rarely give one). The crossing must lie on the
+ * wall segment (small slack) and between the floor and the wall top.
+ */
+export function wallPointFromRay(
+  walls: readonly { id: string; start: CapturedCorner; end: CapturedCorner; heightM: number | null }[],
+  floorY: number,
+  ray: { eye: Vec3; dir: Vec3 } | null,
+): { wallId: string; point: Vec3 } | null {
+  if (ray === null || !Number.isFinite(floorY)) return null;
+  const SLACK_M = 0.15;
+  let best: { wallId: string; point: Vec3; t: number } | null = null;
+  for (const w of walls) {
+    const dx = w.end.x - w.start.x;
+    const dz = w.end.z - w.start.z;
+    const len = Math.hypot(dx, dz);
+    if (!(len > 1e-9)) continue;
+    const nx = -dz / len;
+    const nz = dx / len;
+    const denom = nx * ray.dir[0] + nz * ray.dir[2];
+    if (Math.abs(denom) < 1e-9) continue;
+    const t = (nx * (w.start.x - ray.eye[0]) + nz * (w.start.z - ray.eye[2])) / denom;
+    if (!(t > 0)) continue;
+    const x = ray.eye[0] + t * ray.dir[0];
+    const y = ray.eye[1] + t * ray.dir[1];
+    const z = ray.eye[2] + t * ray.dir[2];
+    const along = ((x - w.start.x) * dx + (z - w.start.z) * dz) / len;
+    if (along < -SLACK_M || along > len + SLACK_M) continue;
+    const height = w.heightM ?? 2.6;
+    if (y < floorY - SLACK_M || y > floorY + height + SLACK_M) continue;
+    if (best === null || t < best.t) best = { wallId: w.id, point: [x, y, z], t };
+  }
+  return best === null ? null : { wallId: best.wallId, point: best.point };
+}
+
+/** A hit-test pose further than this from the floor plane is a wall/ceiling hit. */
+export const FLOOR_TAP_TOLERANCE_M = 0.15;
+
+/**
+ * The floor point for a base tap: the hit-test pose when it is on the floor
+ * plane, otherwise the center ray's floor intersection. Never a point at wall
+ * or ceiling height (the cause of corners and dashed bands floating mid-air).
+ */
+export function resolveFloorTap(
+  hit: Vec3 | null,
+  floorY: number,
+  ray: { eye: Vec3; dir: Vec3 } | null,
+): Vec3 | null {
+  if (hit !== null && Math.abs(hit[1] - floorY) <= FLOOR_TAP_TOLERANCE_M) return hit;
+  return floorPointFromRay(ray, floorY) ?? null;
+}

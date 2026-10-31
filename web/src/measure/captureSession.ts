@@ -46,6 +46,14 @@ export interface CapturedWall {
   heightOverridden?: boolean;
 }
 
+/**
+ * AR opening defaults (mirror server/scene/rules.py WINDOW_SILL_M / WINDOW_HEIGHT_M;
+ * door 2.0 m high with no sill). The two taps give only the extent along the wall.
+ */
+export const AR_WINDOW_SILL_M = 0.9;
+export const AR_WINDOW_HEIGHT_M = 1.2;
+export const AR_DOOR_HEIGHT_M = 2.0;
+
 /** Walls flow only: door/window unlock after closing or "Finish walls" (W3). */
 export type CaptureMode = "walls" | "door" | "window";
 
@@ -109,7 +117,7 @@ export type CaptureEvent =
   | { type: "setWallHeight"; wallId: string; heightM: number }
   | { type: "finishWalls" }
   | { type: "modeChange"; mode: CaptureMode }
-  | { type: "openingTap"; point: Vec3 }
+  | { type: "openingTap"; point: Vec3; defaults?: boolean }
   | { type: "openingManual"; wallId: string; kind: "door" | "window"; offsetM: number; widthM: number; heightM: number; sillM: number | null }
   | { type: "undo" }
   | { type: "startOver" }
@@ -319,6 +327,7 @@ export function captureReducer(
       // W3: door/window unlock only after closing or "Finish walls".
       if (
         (event.mode === "door" || event.mode === "window") &&
+        state.walls.length === 0 &&
         !state.closed &&
         !state.finished
       ) {
@@ -351,7 +360,7 @@ export function captureReducer(
       if (state.floorY === null) return rejected(state, "floor-first");
       if (state.done) return { state, error: null };
       if (state.mode !== "door" && state.mode !== "window") return { state, error: null };
-      if (!state.closed && !state.finished) return rejected(state, "mode-locked");
+      if (state.walls.length === 0) return rejected(state, "mode-locked");
       // Build wall lookup for projection (pure geometry in openingMath helpers inline)
       const kind = state.mode;
       if (state.pendingOpening === null) {
@@ -380,7 +389,10 @@ export function captureReducer(
       let sill_m: number | null;
       const y1 = pending.first[1], y2 = event.point[1];
       const lowY = Math.min(y1, y2), highY = Math.max(y1, y2);
-      if (kind === "door") {
+      if (event.defaults === true) {
+        height_m = kind === "door" ? AR_DOOR_HEIGHT_M : AR_WINDOW_HEIGHT_M;
+        sill_m = kind === "door" ? null : AR_WINDOW_SILL_M;
+      } else if (kind === "door") {
         height_m = highY - floorY;
         sill_m = null;
       } else {
@@ -595,4 +607,9 @@ export function toHandoffOps(state: CaptureState): SceneOp[] {
   }
   out.push({ type: "confirmScale" });
   return out;
+}
+
+/** Which opening tap is next while the Door / Window tool is active. */
+export function openingStepKey(state: CaptureState): "opening.first" | "opening.second" {
+  return state.pendingOpening === null ? "opening.first" : "opening.second";
 }

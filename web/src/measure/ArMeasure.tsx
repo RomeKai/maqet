@@ -15,12 +15,15 @@ import {
   type CaptureEvent,
   type CaptureResult,
   stepKey,
+  openingStepKey,
   toHandoffOps,
   type CaptureState,
 } from "./captureSession";
 import {
   ceilingHeightFromCenterRay,
   centerRayFromViewInverse,
+  resolveFloorTap,
+  wallPointFromRay,
 } from "./ceilingRay";
 import { tMeasure, stepKeyLabel, modeLabel } from "./measure.i18n";
 import {
@@ -222,6 +225,8 @@ interface ArHudProps {
   onCeilingConfirm?: (heightM: number) => void;
   /** Per-wall override: type a height for one wall (sloped/uneven ceilings). */
   onWallHeight?: (wallId: string, heightM: number) => void;
+  /** Confirm the height currently under the crosshair (DOM button: always registers). */
+  onCeilingRay?: () => void;
   // Legacy props (kept for compat, ignored when capture provided)
   previewM?: number | null;
   targetLengthM?: number | null;
@@ -263,6 +268,7 @@ export function ArHud({
   trackingLost = false,
   onCeilingConfirm = noopArHudActionNumber,
   onWallHeight,
+  onCeilingRay,
   previewM = null,
   targetLengthM = null,
   stepLabel = "",
@@ -290,14 +296,18 @@ export function ArHud({
     const ml = (measureLocale ?? locale) as "en" | "es-AR";
     const sk = stepKey(capture);
     const wallN = capture.walls.length + 1;
-    const stepLabelWalls = stepKeyLabel(ml, sk, wallN);
+    const openingTool = capture.mode === "door" || capture.mode === "window";
+    const stepLabelWalls = openingTool
+      ? tMeasure(ml, `step.${openingStepKey(capture)}`, { kind: modeLabel(ml, capture.mode).toLowerCase() })
+      : stepKeyLabel(ml, sk, wallN);
     const pill = trackingLost ? t["measure.ar.err.tracking"] : (pillError ?? stepLabelWalls);
     const canUndo = capture.past.length > 0;
     const canStartOver = capture.walls.length > 0 || capture.pendingStart !== null;
-    const modeUnlocked = capture.closed || capture.finished;
+    const modeUnlocked = capture.walls.length > 0 || capture.closed || capture.finished;
     const isWalls = capture.mode === "walls";
-    const ceilingStep = sk === "ceiling";
+    const ceilingStep = sk === "ceiling" && !openingTool;
     const lastWall = capture.walls[capture.walls.length - 1];
+    const lang = ml === "en" ? "en" : "es-AR";
     return (
       <div ref={hudRef} className="ar-hud" role="dialog" aria-label={t["measure.ar.title"]}>
         {overlayFrameRef !== undefined && overlayCorners !== undefined && (
@@ -309,14 +319,21 @@ export function ArHud({
             pendingStart={capture.pendingStart}
             pendingEnd={capture.pendingEnd}
             floorY={capture.floorY}
+            openings={capture.openings}
+            pendingOpening={capture.pendingOpening}
+            openingTool={openingTool}
           />
         )}
+        {(ceilingStep || openingTool) && <div className="ar-hud-crosshair" aria-hidden="true" />}
         <p className="ar-hud-pill" role="status">
           {pill}
-          {ceilingStep && previewCeilM !== null ? ` · ${formatMeasureM(ml === "en" ? "en" : "es-AR", previewCeilM)}` : ""}
+          {ceilingStep && previewCeilM !== null ? ` · ${formatMeasureM(lang, previewCeilM)}` : ""}
         </p>
         {ceilingStep && (
-          <div className="ar-hud-ceiling" role="group" aria-label={tMeasure(ml, "ceiling.typeLabel")}>
+          <div className="ar-hud-ceiling" data-xr-ui role="group" aria-label={tMeasure(ml, "ceiling.typeLabel")}>
+            <button type="button" className="chip chip-primary ar-hud-setheight" onClick={() => onCeilingRay?.()}>
+              {tMeasure(ml, "ceiling.setHere")}
+            </button>
             <form
               className="ar-hud-ceiling-form"
               onSubmit={(e) => {
@@ -346,11 +363,11 @@ export function ArHud({
           </div>
         )}
         {!ceilingStep && isWalls && !capture.done && !capture.finished && lastWall !== undefined && (
-          <details className="ar-hud-wallheight">
+          <details className="ar-hud-wallheight" data-xr-ui>
             <summary className="chip">
               {tMeasure(ml, "wallHeight.summary", {
                 n: capture.walls.length,
-                h: formatMeasureM(ml === "en" ? "en" : "es-AR", lastWall.heightM ?? 0),
+                h: formatMeasureM(lang, lastWall.heightM ?? 0),
               })}
             </summary>
             <form
@@ -371,34 +388,37 @@ export function ArHud({
           </details>
         )}
         {debugFrames !== null && <p className="ar-hud-debug" role="status">{`frames: ${debugFrames}`}</p>}
-        <div className="ar-hud-bar">
-          <span className="ar-hud-bar-modes" role="group" aria-label={t["measure.ar.title"]}>
+        <div className="ar-hud-bar" data-xr-ui>
+          <div className="ar-hud-row ar-hud-bar-modes" role="group" aria-label={t["measure.ar.title"]}>
             {(["walls", "door", "window"] as const).map((m) => {
               const disabled = (m === "door" || m === "window") && !modeUnlocked;
-              const active = (m === "walls" && isWalls) || capture.mode === m;
+              const active = capture.mode === m;
               return (
                 <button
                   key={m}
                   type="button"
                   className={`chip${active ? " chip-active" : ""}`}
                   disabled={disabled}
+                  aria-pressed={active}
                   onClick={() => onModeChange?.(m)}
                 >
                   {modeLabel(ml, m as never)}
                 </button>
               );
             })}
-          </span>
-          <button type="button" className="chip" onClick={() => onUndo?.()} disabled={!canUndo}>
-            {tMeasure(ml, "action.undo")}
-          </button>
-          <button type="button" className="chip" onClick={() => onStartOver?.()} disabled={!canStartOver}>
-            {tMeasure(ml, "action.startOver")}
-          </button>
-          <button type="button" className="chip chip-primary" onClick={() => onDone?.()}>
-            {tMeasure(ml, "action.done")}
-          </button>
-          <button type="button" className="chip" onClick={onCancel}>{t["measure.ar.cancel"]}</button>
+          </div>
+          <div className="ar-hud-row">
+            <button type="button" className="chip" onClick={() => onUndo?.()} disabled={!canUndo}>
+              {tMeasure(ml, "action.undo")}
+            </button>
+            <button type="button" className="chip" onClick={() => onStartOver?.()} disabled={!canStartOver}>
+              {tMeasure(ml, "action.startOver")}
+            </button>
+            <button type="button" className="chip chip-primary" onClick={() => onDone?.()}>
+              {tMeasure(ml, "action.done")}
+            </button>
+            <button type="button" className="chip" onClick={onCancel}>{t["measure.ar.cancel"]}</button>
+          </div>
         </div>
       </div>
     );
@@ -497,44 +517,90 @@ export function ArMeasure({
     if (error === "bad-height") return tMeasure(ml, "pill.badHeight");
     if (error === "mode-locked") return tMeasure(ml, "pill.modeLocked");
     if (error === "floor-first") return tMeasure(ml, "pill.floorFirst");
+    if (error === "opening-no-wall") return tMeasure(ml, "pill.aimWall");
+    if (error === "opening-outside") return tMeasure(ml, "pill.openingOutside");
+    if (error === "opening-degenerate") return tMeasure(ml, "pill.openingDegenerate");
     return tMeasure(ml, "pill.badTap");
   }, [ml]);
 
-  const handleTapAtomic = useCallback((point: Vec3, horizontal: boolean) => {
+  /** Center-screen camera ray from the latest overlay frame (null before the first frame). */
+  const currentRay = useCallback(
+    () => centerRayFromViewInverse(overlayFrameRef.current?.view.viewInverse ?? null),
+    [],
+  );
+
+  /** Ceiling height under the crosshair, from the camera ray against the pending wall plane. */
+  const rayCeilingHeight = useCallback((): number | null => {
     const st = captureRef.current;
-    // Openings mode: route to openingTap
+    return ceilingHeightFromCenterRay(st.pendingStart, st.pendingEnd, st.floorY, currentRay());
+  }, [currentRay]);
+
+  /** Confirm the height shown under the crosshair (the "Set height here" button and a world tap). */
+  const confirmRayHeight = useCallback((): void => {
+    const st = captureRef.current;
+    if (stepKey(st) !== "ceiling") return;
+    const h = rayCeilingHeight();
+    if (h === null) {
+      setHudError(tMeasure(ml, "pill.aimCeiling"));
+      return;
+    }
+    const result = send({ type: "ceilingConfirm", heightM: h });
+    setHudError(result.error === "bad-height" ? tMeasure(ml, "pill.aimCeiling") : pillFor(result.error));
+  }, [rayCeilingHeight, send, pillFor, ml]);
+
+  /**
+   * One entry for every in-session tap, with or without a hit-test pose. The tap never depends on a
+   * hit-test: the height uses the camera ray, openings use the ray against the captured walls, and
+   * floor corners fall back to the ray's floor intersection when the pose is on a wall or ceiling.
+   */
+  // Chrome also fires an XR "select" for a finger on a DOM-overlay control. Cancelling
+  // beforexrselect on the HUD controls keeps Undo / Done / typing from becoming a world tap.
+  useEffect(() => {
+    const onBeforeSelect = (event: Event): void => {
+      const target = event.target as Element | null;
+      if (target !== null && typeof target.closest === "function" && target.closest("[data-xr-ui]") !== null) {
+        event.preventDefault();
+      }
+    };
+    document.addEventListener("beforexrselect", onBeforeSelect);
+    return () => document.removeEventListener("beforexrselect", onBeforeSelect);
+  }, []);
+
+  const handleWorldTap = useCallback((hit: Vec3 | null, horizontal: boolean) => {
+    const st = captureRef.current;
     if (st.mode === "door" || st.mode === "window") {
-      setHudError(pillFor(send({ type: "openingTap", point }).error));
+      if (st.floorY === null) return;
+      const onWall = wallPointFromRay(st.walls, st.floorY, currentRay());
+      if (onWall === null) {
+        setHudError(tMeasure(ml, "pill.aimWall"));
+        return;
+      }
+      setHudError(pillFor(send({ type: "openingTap", point: onWall.point, defaults: true }).error));
       return;
     }
     if (st.floorY === null) {
-      const r1 = send({ type: "floorHit", point, horizontal });
+      if (hit === null) return;
+      const r1 = send({ type: "floorHit", point: hit, horizontal });
       if (stepKey(r1.state) === "floor") {
         setHudError(tMeasure(ml, "pill.floorFirst"));
         return;
       }
       // Treat the same tap as the first base once the floor datum exists.
-      setHudError(pillFor(send({ type: "baseTap", point }).error));
+      setHudError(pillFor(send({ type: "baseTap", point: hit }).error));
       return;
     }
     const sk = stepKey(st);
     if (sk === "base" || sk === "end") {
-      setHudError(pillFor(send({ type: "baseTap", point }).error));
-    } else if (sk === "ceiling") {
-      // No hit-test needed: the tap confirms the ray height live-previewed on the quad.
-      const h = ceilingHeightFromCenterRay(
-        st.pendingStart,
-        st.pendingEnd,
-        st.floorY,
-        centerRayFromViewInverse(overlayFrameRef.current?.view.viewInverse ?? null),
-      );
-      if (h === null) {
-        setHudError(tMeasure(ml, "pill.badTap"));
+      const floorPoint = resolveFloorTap(hit, st.floorY, currentRay());
+      if (floorPoint === null) {
+        setHudError(tMeasure(ml, "pill.aimFloor"));
         return;
       }
-      setHudError(pillFor(send({ type: "ceilingConfirm", heightM: h }).error));
+      setHudError(pillFor(send({ type: "baseTap", point: floorPoint }).error));
+    } else if (sk === "ceiling") {
+      confirmRayHeight();
     }
-  }, [send, pillFor, ml]);
+  }, [send, pillFor, ml, currentRay, confirmRayHeight]);
 
   /** Per-wall override typed by the user. */
   const handleWallHeight = useCallback((wallId: string, heightM: number) => {
@@ -551,21 +617,10 @@ export function ArMeasure({
     if (!startGuardRef.current.tryStart()) return;
     const notify = onSessionChangeRef.current;
     const callbacks: XrTapCallbacks = {
-      onTapCorner: (corner, horizontal) => handleTapAtomic(corner, horizontal ?? false),
+      onTapCorner: (corner, horizontal) => handleWorldTap(corner, horizontal ?? false),
       // No hit-test pose (aiming at the wall/ceiling junction): the tap
       // confirms the ceiling from the camera ray instead of the hit pose.
-      onTapEmpty: () => {
-        const st = captureRef.current;
-        if (stepKey(st) !== "ceiling" || st.mode !== "walls") return;
-        handleCeilingConfirm(
-          ceilingHeightFromCenterRay(
-            st.pendingStart,
-            st.pendingEnd,
-            st.floorY,
-            centerRayFromViewInverse(overlayFrameRef.current?.view.viewInverse ?? null),
-          ) ?? NaN,
-        );
-      },
+      onTapEmpty: () => handleWorldTap(null, false),
       onHit: (point, horizontal) => {
         // Floor datum may come from continuous hits before the first tap.
         if (captureRef.current.floorY === null && horizontal) {
@@ -757,6 +812,7 @@ export function ArMeasure({
         previewCeilM={previewCeilM}
         trackingLost={trackingLost}
         onCeilingConfirm={handleCeilingConfirm}
+        onCeilingRay={confirmRayHeight}
         onWallHeight={handleWallHeight}
         surfaceFound={surfaceFound}
         debugFrames={debugFrames}

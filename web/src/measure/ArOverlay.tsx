@@ -6,10 +6,10 @@ import {
   shouldCloseRoom,
   type Vec3,
 } from "./cornerMath";
-import { centerRayFromViewInverse, ceilingHeightFromCenterRay } from "./ceilingRay";
+import { centerRayFromViewInverse, ceilingHeightFromCenterRay, floorPointFromRay } from "./ceilingRay";
 import { projectToScreen } from "./projectToScreen";
 import type { OverlayFrame } from "./xrAdapter";
-import type { CapturedWall, CapturedCorner } from "./captureSession";
+import type { CapturedWall, CapturedCorner, CapturedOpening, PendingOpening } from "./captureSession";
 
 /**
  * One projected dot: a planted corner, or the live reticle. x/y are
@@ -77,7 +77,30 @@ export interface OverlayLayout {
   rubberQuad: OverlayQuad | null;
   /** True when the world reticle is within CLOSE_ROOM_M of the first corner. */
   closeLoop: boolean;
+  /** Live camera-ray ceiling height (m) while the height step is pending. */
+  ceilingPreviewM: number | null;
+  /** Captured doors / windows projected onto their walls. */
+  openingQuads: OverlayOpeningQuad[];
+  /** First edge of an opening waiting for its second tap. */
+  openingMarker: OverlayDot | null;
 }
+
+export interface OverlayOpeningQuad {
+  points: string;
+  kind: "door" | "window";
+  visible: boolean;
+}
+
+/** Extra capture context for the walls layout (all optional: old callers still work). */
+export interface OverlayExtras {
+  openings?: readonly CapturedOpening[];
+  pendingOpening?: PendingOpening | null;
+  /** Active Door / Window tool: the floor reticle and band are hidden. */
+  openingTool?: boolean;
+}
+
+/** A hit-test reticle this far from the floor plane is a wall or ceiling hit, not the floor. */
+const FLOOR_HIT_TOLERANCE_M = 0.15;
 
 const HIDDEN_DOT: OverlayDot = { x: 0, y: 0, visible: false };
 
@@ -167,6 +190,9 @@ export function computeOverlayLayout(
     quads: [],
     rubberQuad: null,
     closeLoop: false,
+    ceilingPreviewM: null,
+    openingQuads: [],
+    openingMarker: null,
   };
   if (frame === null) return empty;
   const view = {
@@ -219,7 +245,15 @@ export function computeOverlayLayout(
     frame.reticle !== null &&
     corners.length > 0 &&
     shouldCloseRoom(corners[0] as Vec3, frame.reticle);
-  return { reticle, corners: dots, edges, band, quads: [], rubberQuad: null, closeLoop };
+  return { ...empty, reticle, corners: dots, edges, band, closeLoop };
+}
+
+/** Point on a wall at `along` meters from its start and height y. */
+function wallPoint(w: CapturedWall, along: number, y: number): Vec3 {
+  const dx = w.end.x - w.start.x;
+  const dz = w.end.z - w.start.z;
+  const len = Math.hypot(dx, dz) || 1;
+  return [w.start.x + (dx / len) * along, y, w.start.z + (dz / len) * along];
 }
 
 /**
@@ -235,6 +269,7 @@ export function computeWallsOverlayLayout(
   pendingEnd: CapturedCorner | null,
   floorY: number | null,
   locale: Locale,
+  extras: OverlayExtras = {},
 ): OverlayLayout {
   const base = computeOverlayLayout(
     frame,
@@ -307,16 +342,34 @@ export function computeWallsOverlayLayout(
     }
   }
 
-  // Band: from last planted corner (or pendingEnd) to reticle.
+  // The reticle always lives on the FLOOR plane at the floor corner's y. A hit-test pose on a
+  // wall or the ceiling (what the camera sees after the height step) is replaced by the
+  // center ray's intersection with the floor, so the next corner and the band start on the floor.
+  const ray = centerRayFromViewInverse(frame.view.viewInverse);
+  let floorReticle: Vec3 | null = null;
+  if (floorY !== null) {
+    floorReticle =
+      frame.reticle !== null && Math.abs(frame.reticle[1] - floorY) <= FLOOR_HIT_TOLERANCE_M
+        ? ([frame.reticle[0], floorY, frame.reticle[2]] as Vec3)
+        : floorPointFromRay(ray, floorY);
+  } else {
+    floorReticle = frame.reticle;
+  }
+  const heightPending = pendingStart !== null && pendingEnd !== null;
+  const showFloorAids = !heightPending && extras.openingTool !== true;
+  const reticleDot =
+    floorReticle !== null && showFloorAids ? projectToScreen(floorReticle, view, viewport) : null;
+
   let band: OverlayBand | null = null;
-  if (dots.length > 0 && base.reticle !== null && base.reticle.visible) {
+  if (dots.length > 0 && reticleDot !== null && reticleDot.visible && floorReticle !== null) {
     const lastDot = dots[dots.length - 1] ?? HIDDEN_DOT;
     if (lastDot.visible) {
       const lastWorld = cornerWorlds[cornerWorlds.length - 1] as Vec3;
+      const len = floorPlaneDistanceM(lastWorld, floorReticle);
       band = {
-        x1: lastDot.x, y1: lastDot.y, x2: base.reticle.x, y2: base.reticle.y,
-        lengthM: floorPlaneDistanceM(lastWorld, frame.reticle as Vec3),
-        label: formatMeasureM(locale, floorPlaneDistanceM(lastWorld, frame.reticle as Vec3)),
+        x1: lastDot.x, y1: lastDot.y, x2: reticleDot.x, y2: reticleDot.y,
+        lengthM: len,
+        label: formatMeasureM(locale, len),
       };
     }
   }
@@ -324,9 +377,55 @@ export function computeWallsOverlayLayout(
   const firstCorner: Vec3 | null =
     walls[0] ? [walls[0].start.x, 0, walls[0].start.z] : pendingStart ? [pendingStart.x, 0, pendingStart.z] : null;
   const closeLoop =
-    frame.reticle !== null && firstCorner !== null && shouldCloseRoom(firstCorner, frame.reticle);
+    floorReticle !== null && showFloorAids && firstCorner !== null && shouldCloseRoom(firstCorner, floorReticle);
 
-  return { reticle: base.reticle, corners: dots, edges, band, quads, rubberQuad, closeLoop };
+  // Live ceiling height from the camera ray (height step only).
+  const ceilingPreviewM =
+    floorY !== null && heightPending
+      ? ceilingHeightFromCenterRay(pendingStart, pendingEnd, floorY, ray)
+      : null;
+
+  // Captured openings drawn on their wall quads (door terracotta, window light blue via CSS).
+  const openingQuads: OverlayOpeningQuad[] = [];
+  if (floorY !== null) {
+    for (const o of extras.openings ?? []) {
+      const w = walls.find((x) => x.id === o.wall_id);
+      if (w === undefined) {
+        openingQuads.push({ points: "", kind: o.kind, visible: false });
+        continue;
+      }
+      const y0 = floorY + (o.sill_m ?? 0);
+      const y1 = y0 + o.height_m;
+      const pts = [
+        wallPoint(w, o.offset_m, y0),
+        wallPoint(w, o.offset_m + o.width_m, y0),
+        wallPoint(w, o.offset_m + o.width_m, y1),
+        wallPoint(w, o.offset_m, y1),
+      ].map((p) => projectToScreen(p, view, viewport));
+      openingQuads.push(
+        pts.every((p) => p.visible)
+          ? { points: pts.map((p) => `${p.x},${p.y}`).join(" "), kind: o.kind, visible: true }
+          : { points: "", kind: o.kind, visible: false },
+      );
+    }
+  }
+  let openingMarker: OverlayDot | null = null;
+  if (extras.pendingOpening) {
+    openingMarker = projectToScreen(extras.pendingOpening.first, view, viewport);
+  }
+
+  return {
+    reticle: reticleDot,
+    corners: dots,
+    edges,
+    band,
+    quads,
+    rubberQuad,
+    closeLoop,
+    ceilingPreviewM,
+    openingQuads,
+    openingMarker,
+  };
 }
 
 /** Live frame written by the adapter's onOverlayFrame (plain assignment, no setState). */
@@ -343,6 +442,9 @@ interface ArOverlayProps {
   pendingStart?: CapturedCorner | null;
   pendingEnd?: CapturedCorner | null;
   floorY?: number | null;
+  openings?: readonly CapturedOpening[];
+  pendingOpening?: PendingOpening | null;
+  openingTool?: boolean;
 }
 
 /**
@@ -353,7 +455,7 @@ interface ArOverlayProps {
  * rubber-band quad while the ceiling tap is pending, reticle ring, corner
  * dots, rubber band, and close-loop highlight.
  */
-export function ArOverlay({ frameRef, corners, locale, walls, pendingStart, pendingEnd, floorY }: ArOverlayProps) {
+export function ArOverlay({ frameRef, corners, locale, walls, pendingStart, pendingEnd, floorY, openings, pendingOpening, openingTool }: ArOverlayProps) {
   const reticleRef = useRef<SVGCircleElement | null>(null);
   const cornerRefs = useRef<Array<SVGCircleElement | null>>([]);
   const edgeRefs = useRef<Array<SVGLineElement | null>>([]);
@@ -362,17 +464,51 @@ export function ArOverlay({ frameRef, corners, locale, walls, pendingStart, pend
   const rubberQuadRef = useRef<SVGPolygonElement | null>(null);
   const bandRef = useRef<SVGLineElement | null>(null);
   const bandLabelRef = useRef<SVGTextElement | null>(null);
-  const latest = useRef({ frameRef, corners, locale, walls, pendingStart, pendingEnd, floorY });
-  latest.current = { frameRef, corners, locale, walls, pendingStart, pendingEnd, floorY };
+  const openingQuadRefs = useRef<Array<SVGPolygonElement | null>>([]);
+  const markerRef = useRef<SVGCircleElement | null>(null);
+  const liveHeightRef = useRef<SVGTextElement | null>(null);
+  const latest = useRef({ frameRef, corners, locale, walls, pendingStart, pendingEnd, floorY, openings, pendingOpening, openingTool });
+  latest.current = { frameRef, corners, locale, walls, pendingStart, pendingEnd, floorY, openings, pendingOpening, openingTool };
 
   useEffect(() => {
     let raf = 0;
     const tick = (): void => {
       raf = requestAnimationFrame(tick);
-      const { frameRef: ref, corners: taps, locale: loc, walls: ws, pendingStart: ps, pendingEnd: pe, floorY: fy } = latest.current;
+      const { frameRef: ref, corners: taps, locale: loc, walls: ws, pendingStart: ps, pendingEnd: pe, floorY: fy, openings: os, pendingOpening: po, openingTool: ot } = latest.current;
       const layout = ws !== undefined
-        ? computeWallsOverlayLayout(ref.current, ws, ps ?? null, pe ?? null, fy ?? null, loc)
+        ? computeWallsOverlayLayout(ref.current, ws, ps ?? null, pe ?? null, fy ?? null, loc, { openings: os, pendingOpening: po, openingTool: ot })
         : computeOverlayLayout(ref.current, taps, loc);
+      const oqs = openingQuadRefs.current;
+      for (let i = 0; i < oqs.length; i++) {
+        const poly = oqs[i];
+        if (poly === null || poly === undefined) continue;
+        const q = layout.openingQuads[i];
+        if (q === undefined || !q.visible) {
+          poly.style.display = "none";
+        } else {
+          poly.setAttribute("points", q.points);
+          poly.style.display = "";
+        }
+      }
+      const marker = markerRef.current;
+      if (marker !== null) {
+        if (layout.openingMarker !== null && layout.openingMarker.visible) {
+          marker.setAttribute("cx", String(layout.openingMarker.x));
+          marker.setAttribute("cy", String(layout.openingMarker.y));
+          marker.style.display = "";
+        } else {
+          marker.style.display = "none";
+        }
+      }
+      const live = liveHeightRef.current;
+      if (live !== null) {
+        if (layout.ceilingPreviewM !== null) {
+          live.textContent = formatMeasureM(loc, layout.ceilingPreviewM);
+          live.style.display = "";
+        } else {
+          live.style.display = "none";
+        }
+      }
       const ring = reticleRef.current;
       if (ring !== null) {
         if (layout.reticle !== null && layout.reticle.visible) {
@@ -533,6 +669,15 @@ export function ArOverlay({ frameRef, corners, locale, walls, pendingStart, pend
           ref={(el) => { cornerRefs.current[i] = el; }}
         />
       ))}
+      {Array.from({ length: openings?.length ?? 0 }).map((_, i) => (
+        <polygon
+          key={`o${i}`}
+          className={`ar-overlay-opening ar-overlay-opening-${openings?.[i]?.kind ?? "door"}`}
+          ref={(el) => { openingQuadRefs.current[i] = el; }}
+        />
+      ))}
+      <circle className="ar-overlay-marker" r={9} ref={(el) => { markerRef.current = el; }} style={{ display: "none" }} />
+      <text className="ar-overlay-live-height" x="50%" y="calc(50% - 34px)" textAnchor="middle" ref={(el) => { liveHeightRef.current = el; }} style={{ display: "none" }} />
       <line className="ar-overlay-band" ref={(el) => { bandRef.current = el; }} />
       <text className="ar-overlay-label" ref={(el) => { bandLabelRef.current = el; }} />
       <circle className="ar-overlay-reticle" r={22} ref={(el) => { reticleRef.current = el; }} />
