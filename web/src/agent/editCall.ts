@@ -43,3 +43,8 @@ export const nudgeCall = (itemId: string, position: [number, number], dx: number
 export const rotateCall = (itemId: string): EditCall => ({ tool: "rotate_item", args: { item: itemId, delta_deg: 90 } });
 export const removeCall = (itemId: string): EditCall => ({ tool: "remove_item", args: { item: itemId } });
 export const undoCall = (): EditCall => ({ tool: "undo", args: {} });
+
+export const moveToWallCall = (itemId: string, wallLabel: string): EditCall => ({
+  tool: "move_item",
+  args: { item: itemId, wall: wallLabel },
+});

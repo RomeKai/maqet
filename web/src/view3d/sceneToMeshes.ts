@@ -1,5 +1,6 @@
 import type { Opening, Room, Scene, Wall } from "../scene/types";
 import { finishColor, furnitureColor, furnitureKind } from "../design/catalog";
+import { furnitureParts, type FurniturePart } from "../design/furnitureShapes";
 
 /**
  * Scene -> declarative mesh descriptors (pure, no three.js here).
@@ -101,18 +102,24 @@ export interface FurnitureMesh {
   rotationZ: number;
   color: string;
   concept: boolean;
+  /** Low-poly parts in the item local frame (shared by r3f and the AR GLB). */
+  parts: FurniturePart[];
 }
 
 export function furnitureMeshes(scene: Scene): FurnitureMesh[] {
-  return (scene.furniture ?? []).map((f) => ({
+  return (scene.furniture ?? []).map((f) => {
+    const type = furnitureKind(f.catalog_id)?.type ?? (f.concept ? "concept" : "item");
+    return {
     id: f.id,
-    type: furnitureKind(f.catalog_id)?.type ?? (f.concept ? "concept" : "item"),
+    type,
+    parts: furnitureParts(f.concept ? "concept" : type, f.size_m),
     center: [f.position[0], f.position[1], f.size_m[2] / 2] as const,
     size: [f.size_m[0], f.size_m[1], f.size_m[2]] as const,
     rotationZ: ((f.rotation_deg ?? 0) * Math.PI) / 180,
     color: furnitureColor(f.catalog_id),
     concept: f.concept === true,
-  }));
+    };
+  });
 }
 
 /** Thin flat-color slab on the chosen side of a wall (side "left" = normal (-dy, dx) of a->b). */

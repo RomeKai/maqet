@@ -45,3 +45,11 @@ describe("DesignScreen", () => {
     expect(Object.keys(getDesignStrings("es-AR"))).toEqual(Object.keys(getDesignStrings("en")));
   });
 });
+
+import { moveToWallCall } from "../agent/editCall";
+
+describe("item sheet calls", () => {
+  it("moves to a wall label through move_item", () => {
+    expect(moveToWallCall("f1", "wall 2")).toEqual({ tool: "move_item", args: { item: "f1", wall: "wall 2" } });
+  });
+});

@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import type { Furniture, Scene } from "../scene/types";
 import { OPENING_THEME } from "../view3d/openingTheme";
-import { furnitureMeshes, planToThree, sceneToMeshes, surfaceOverlays } from "../view3d/sceneToMeshes";
+import { furnitureMeshes, planToThree, sceneToMeshes, surfaceOverlays, type FurnitureMesh } from "../view3d/sceneToMeshes";
+import { accentColor } from "../design/furnitureShapes";
 
 /** Table-top maquette scale: 1 unit = 1 m at scale 1, so 1:50 is 0.02. */
 export const DEFAULT_MAQUETTE_SCALE = 1 / 50;
@@ -17,16 +18,27 @@ const FLOOR_COLOR = "#e8e2d8";
 const FURNITURE_COLOR = "#c9b79c";
 const CONCEPT_COLOR = "#7a5ac8";
 
-function furnitureMesh(item: Furniture, material: THREE.Material): THREE.Mesh {
+/** Same low-poly parts as the r3f view (design/furnitureShapes), as one named group per item. */
+function furnitureGroup(item: Furniture, info: FurnitureMesh | undefined, material: THREE.Material, accent: THREE.Material): THREE.Group {
   const [width, depth, height] = item.size_m;
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
   const concept = item.concept === true;
-  mesh.name = concept ? `furniture:${item.id} (concept)` : `furniture:${item.id}`;
-  mesh.position.set(...planToThree(item.position, height / 2));
+  const group = new THREE.Group();
+  group.name = concept ? `furniture:${item.id} (concept)` : `furniture:${item.id}`;
+  const parts = info?.parts ?? [{ shape: "box" as const, center: [0, 0, height / 2] as const, size: [width, depth, height] as const, tone: 0 as const }];
+  for (const p of parts) {
+    const geometry =
+      p.shape === "cylinder"
+        ? new THREE.CylinderGeometry(p.size[0] / 2, p.size[0] / 2, p.size[2], 12)
+        : new THREE.BoxGeometry(p.size[0], p.size[2], p.size[1]);
+    const mesh = new THREE.Mesh(geometry, p.tone === 1 ? accent : material);
+    mesh.position.set(p.center[0], p.center[2], -p.center[1]);
+    group.add(mesh);
+  }
+  group.position.set(...planToThree(item.position, 0));
   // Plan rotation about Z is a rotation about +Y by the same angle (see view3d/sceneToMeshes).
-  mesh.rotation.y = THREE.MathUtils.degToRad(item.rotation_deg ?? 0);
-  if (concept) mesh.userData.concept = true;
-  return mesh;
+  group.rotation.y = THREE.MathUtils.degToRad(item.rotation_deg ?? 0);
+  if (concept) group.userData.concept = true;
+  return group;
 }
 
 /** Base plate: margin around the footprint and thickness, in metres before scaling. */
@@ -109,15 +121,18 @@ export function sceneToMaquette(scene: Scene, scale: number = DEFAULT_MAQUETTE_S
     group.add(mesh);
   }
 
-  const types = new Map(furnitureMeshes(scene).map((f) => [f.id, f]));
+  const infos = new Map(furnitureMeshes(scene).map((f) => [f.id, f]));
   for (const item of scene.furniture ?? []) {
-    const info = types.get(item.id);
-    const mesh = furnitureMesh(
+    const info = infos.get(item.id);
+    const color = info?.color ?? FURNITURE_COLOR;
+    const group3 = furnitureGroup(
       item,
-      item.concept === true ? conceptMaterial : new THREE.MeshStandardMaterial({ color: info?.color ?? FURNITURE_COLOR }),
+      info,
+      item.concept === true ? conceptMaterial : new THREE.MeshStandardMaterial({ color }),
+      item.concept === true ? conceptMaterial : new THREE.MeshStandardMaterial({ color: accentColor(color) }),
     );
-    if (info && !item.concept) mesh.name = `furniture:${item.id} (${info.type})`;
-    group.add(mesh);
+    if (info && !item.concept) group3.name = `furniture:${item.id} (${info.type})`;
+    group.add(group3);
   }
 
   centreOnFloor(group);

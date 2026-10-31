@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { Scene } from "../scene/types";
 import { OPENING_THEME } from "./openingTheme";
+import { accentColor } from "../design/furnitureShapes";
 import {
   wallBadgeLayout,
   cameraForBoundingBox,
@@ -20,6 +21,9 @@ interface SceneViewProps {
   onSelectWall?: (wallId: string) => void;
   /** Numbered wall badges (Reform/Design): the number is the label the agent uses. */
   wallNumbers?: boolean;
+  /** Design: tap a piece to select it; the selected piece glows. */
+  selectedItemId?: string | null;
+  onSelectItem?: (itemId: string) => void;
 }
 
 /**
@@ -41,6 +45,8 @@ export function SceneMeshesView({
   selectedWallId = null,
   onSelectWall,
   wallNumbers = false,
+  selectedItemId = null,
+  onSelectItem,
 }: SceneViewProps): React.JSX.Element {
   const meshes = useMemo(() => sceneToMeshes(scene), [scene]);
   const furniture = useMemo(() => furnitureMeshes(scene), [scene]);
@@ -110,14 +116,43 @@ export function SceneMeshesView({
           <meshStandardMaterial color={o.color} />
         </mesh>
       ))}
-      {furniture.map((f) => (
-        <group key={f.id} position={planToThree([f.center[0], f.center[1]], f.center[2])} rotation={[0, f.rotationZ, 0]}>
-          <mesh name={`furniture:${f.id} (${f.type})`}>
-            <boxGeometry args={[f.size[0], f.size[2], f.size[1]]} />
-            <meshStandardMaterial color={f.concept ? "#7a5ac8" : f.color} />
-          </mesh>
-        </group>
-      ))}
+      {furniture.map((f) => {
+        const selected = f.id === selectedItemId;
+        return (
+          <group
+            key={f.id}
+            name={`furniture:${f.id} (${f.type})`}
+            position={planToThree([f.center[0], f.center[1]], 0)}
+            rotation={[0, f.rotationZ, 0]}
+            onClick={
+              onSelectItem
+                ? (e) => {
+                    e.stopPropagation();
+                    onSelectItem(f.id);
+                  }
+                : undefined
+            }
+          >
+            {f.parts.map((p, i) => {
+              const base = f.concept ? "#7a5ac8" : f.color;
+              return (
+                <mesh key={i} position={[p.center[0], p.center[2], -p.center[1]]}>
+                  {p.shape === "cylinder" ? (
+                    <cylinderGeometry args={[p.size[0] / 2, p.size[0] / 2, p.size[2], 12]} />
+                  ) : (
+                    <boxGeometry args={[p.size[0], p.size[2], p.size[1]]} />
+                  )}
+                  <meshStandardMaterial
+                    color={p.tone === 1 ? accentColor(base) : base}
+                    emissive={selected ? "#e8a33d" : "#000000"}
+                    emissiveIntensity={selected ? 0.55 : 0}
+                  />
+                </mesh>
+              );
+            })}
+          </group>
+        );
+      })}
       <FurnitureLabels items={furniture} />
       {wallNumbers ? <WallBadges scene={scene} /> : null}
       {meshes.floors.map((floor, i) => (
@@ -317,6 +352,8 @@ export function SceneView({
   selectedWallId = null,
   onSelectWall,
   wallNumbers = false,
+  selectedItemId = null,
+  onSelectItem,
 }: SceneViewProps): React.JSX.Element {
   return (
     <div
@@ -343,6 +380,8 @@ export function SceneView({
           selectedWallId={selectedWallId}
           onSelectWall={onSelectWall}
           wallNumbers={wallNumbers}
+          selectedItemId={selectedItemId}
+          onSelectItem={onSelectItem}
         />
       </Canvas>
     </div>

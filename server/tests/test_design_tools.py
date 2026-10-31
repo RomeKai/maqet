@@ -174,3 +174,16 @@ def test_api_edit_accepts_design_tools_and_returns_warnings() -> None:
     assert r.json()["history"][-1]["op"] == "place_furniture"
     bad = client.post("/agent/edit", json={"scene": scene, "tool": "create_variant", "args": {}})
     assert bad.status_code == 422
+
+
+def test_move_to_wall_rotate_and_remove_are_undoable_and_fit_checked() -> None:
+    hist: list = []
+    s, _ = execute(_scene(), hist, "design", "place_furniture", {"catalog_id": "wardrobe-120x60", "room": "r1", "item_id": "w"})
+    s, res = execute(s, hist, "design", "move_item", {"item": "w", "wall": "wall 3"})
+    assert res.ok, res.errors
+    assert s.furniture[0].position[1] > 2.0  # wall 3 is the north wall of the 4 x 3 room
+    s, res = execute(s, hist, "design", "move_item", {"item": "w", "position": [2.0, 0.5]})
+    assert res.ok and any("door" in w for w in res.warnings)  # lands in the door swing: warns, never blocks
+    before = len(hist)
+    s, _ = execute(s, hist, "design", "undo", {})
+    assert len(hist) == before - 1 and s.furniture[0].position[1] > 2.0

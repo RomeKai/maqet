@@ -10,6 +10,7 @@ import {
   NUDGE_M,
   finishCall,
   nudgeCall,
+  moveToWallCall,
   placeCall,
   removeCall,
   rotateCall,
@@ -57,6 +58,7 @@ export function DesignScreen(props: DesignScreenProps): React.JSX.Element {
   const [roomId, setRoomId] = useState<string>("");
   const [itemId, setItemId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [itemOpen, setItemOpen] = useState(false);
   const [notes, setNotes] = useState<string[]>([]);
   const activeRoom = rooms.find((r) => r.id === roomId)?.id ?? rooms[0]?.id ?? "";
   const items = scene?.furniture ?? [];
@@ -85,7 +87,17 @@ export function DesignScreen(props: DesignScreenProps): React.JSX.Element {
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden font-sans" aria-label={t["design.title"]} data-testid="design-screen">
       <div className="agent-card relative mx-3 mt-2 h-[26dvh] min-h-[4.5rem] shrink overflow-hidden rounded-2xl border-2 border-foreground bg-card">
         {scene !== null && (scene.walls?.length ?? 0) > 0 ? (
-          <SceneView scene={scene} selectedWallId={props.selectedWallId} onSelectWall={props.onSelectWall} wallNumbers />
+          <SceneView
+            scene={scene}
+            selectedWallId={props.selectedWallId}
+            onSelectWall={props.onSelectWall}
+            wallNumbers
+            selectedItemId={itemOpen ? item?.id ?? null : null}
+            onSelectItem={(id) => {
+              setItemId(id);
+              setItemOpen(true);
+            }}
+          />
         ) : null}
         <button
           type="button"
@@ -176,33 +188,24 @@ export function DesignScreen(props: DesignScreenProps): React.JSX.Element {
                 </div>
               ) : null}
               {tab === "items" ? (
-                item === null ? (
+                items.length === 0 ? (
                   <p>{t["design.noItems"]}</p>
                 ) : (
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      {items.map((f) => (
-                        <button key={f.id} type="button" aria-pressed={f.id === item.id} className={`${btn} ${f.id === item.id ? on : ""}`} onClick={() => setItemId(f.id)}>
-                          {furnitureLabel(f.catalog_id, locale)}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="grid grid-cols-4 gap-2">
-                      {nudge(-NUDGE_M, 0, t["design.moveLeft"], <ArrowLeft className="size-5" />)}
-                      {nudge(0, NUDGE_M, t["design.moveUp"], <ArrowUp className="size-5" />)}
-                      {nudge(0, -NUDGE_M, t["design.moveDown"], <ArrowDown className="size-5" />)}
-                      {nudge(NUDGE_M, 0, t["design.moveRight"], <ArrowRight className="size-5" />)}
-                    </div>
-                    <div className="flex gap-2">
-                      <button type="button" className={`${btn} flex-1`} disabled={busy} onClick={() => void run(rotateCall(item.id))}>
-                        <RotateCw className="size-5" aria-hidden />
-                        {t["design.rotate"]}
+                  <div className="flex flex-wrap gap-2">
+                    {items.map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        className={btn}
+                        onClick={() => {
+                          setItemId(f.id);
+                          setOpen(false);
+                          setItemOpen(true);
+                        }}
+                      >
+                        {furnitureLabel(f.catalog_id, locale)}
                       </button>
-                      <button type="button" className={`${btn} flex-1`} disabled={busy} onClick={() => void run(removeCall(item.id))}>
-                        <Trash2 className="size-5" aria-hidden />
-                        {t["design.remove"]}
-                      </button>
-                    </div>
+                    ))}
                   </div>
                 )
               ) : null}
@@ -216,6 +219,50 @@ export function DesignScreen(props: DesignScreenProps): React.JSX.Element {
             </>
           )}
         </div>
+      </BottomSheet>
+      <BottomSheet open={itemOpen && item !== null} onClose={() => setItemOpen(false)} title={`${t["design.item"]}: ${furnitureLabel(item?.catalog_id, locale)}`} closeLabel={t["design.close"]}>
+        {item !== null ? (
+          <div className="space-y-3 font-sans" data-testid="item-sheet">
+            <p className="text-sm font-bold">{t["design.move"]}</p>
+            <div className="grid grid-cols-4 gap-2">
+              {nudge(-NUDGE_M, 0, t["design.moveLeft"], <ArrowLeft className="size-5" />)}
+              {nudge(0, NUDGE_M, t["design.moveUp"], <ArrowUp className="size-5" />)}
+              {nudge(0, -NUDGE_M, t["design.moveDown"], <ArrowDown className="size-5" />)}
+              {nudge(NUDGE_M, 0, t["design.moveRight"], <ArrowRight className="size-5" />)}
+            </div>
+            <p className="text-sm font-bold">{t["design.moveToWall"]}</p>
+            <div className="flex flex-wrap gap-2">
+              {(scene?.walls ?? []).map((w, i) => (
+                <button key={w.id} type="button" className={btn} disabled={busy} onClick={() => void run(moveToWallCall(item.id, `wall ${i + 1}`))}>
+                  {t["design.wallN"]} {i + 1}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button type="button" className={`${btn} flex-1`} disabled={busy} onClick={() => void run(rotateCall(item.id))}>
+                <RotateCw className="size-5" aria-hidden />
+                {t["design.rotate"]}
+              </button>
+              <button
+                type="button"
+                className={`${btn} flex-1`}
+                disabled={busy}
+                onClick={() => {
+                  void run(removeCall(item.id));
+                  setItemOpen(false);
+                }}
+              >
+                <Trash2 className="size-5" aria-hidden />
+                {t["design.remove"]}
+              </button>
+            </div>
+            {notes.length > 0 ? (
+              <p role="status" className="text-sm font-bold">
+                {notes[0]}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
       </BottomSheet>
     </main>
   );

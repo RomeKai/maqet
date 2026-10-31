@@ -19,3 +19,13 @@ describe("maquette design pieces", () => {
     expect(names).toContain("finish:b");
   });
 });
+
+describe("maquette furniture shapes", () => {
+  it("builds the sofa from several primitives with a closed footprint", () => {
+    let group: { children: unknown[] } | undefined;
+    sceneToMaquette(scene).traverse((o) => {
+      if (o.name === "furniture:f1 (sofa)") group = o;
+    });
+    expect(group?.children.length).toBe(4);
+  });
+});
