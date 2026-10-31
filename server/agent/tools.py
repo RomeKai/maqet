@@ -36,6 +36,8 @@ class AddRoomInput(_ToolInput):
     room: str | None = None
     # Wall to attach to: a label ("wall 2") or id. Omit to let code pick a free wall.
     wall: str | None = None
+    # Side of the anchor room to attach to: north/south/east/west.
+    side: str | None = None
     polygon: list[tuple[float, float]] | None = Field(default=None, min_length=3)
     # [width along the attached wall, depth outward]: exactly what the user said.
     size_m: tuple[
@@ -65,6 +67,9 @@ class RemoveWallInput(_ToolInput):
 
     wall_id: str | None = None
     wall: str | None = None
+    # Room-aware addressing (resolved in code): room name/id or "new" + a side.
+    room: str | None = None
+    side: str | None = None
     between: str | None = None
     and_: str | None = Field(default=None, alias="and")
     selected: SelectedRef | None = None
@@ -74,6 +79,9 @@ class AddOpeningInput(_ToolInput):
     opening_id: str | None = None
     wall_id: str | None = None
     wall: str | None = None
+    # Room-aware addressing (resolved in code): room name/id or "new" + a side.
+    room: str | None = None
+    side: str | None = None
     kind: Literal["door", "window"] = "door"
     at_ratio: float = Field(default=0.5, ge=0.0, le=1.0)
     offset_m: float | None = Field(default=None, ge=0.0)
@@ -100,12 +108,18 @@ class ResizeRoomInput(_ToolInput):
 
 class SetWallLengthInput(_ToolInput):
     wall: str | None = None
+    # Room-aware addressing (resolved in code): room name/id or "new" + a side.
+    room: str | None = None
+    side: str | None = None
     length_m: float = Field(gt=0)
     selected: SelectedRef | None = None
 
 
 class MoveWallInput(_ToolInput):
     wall: str | None = None
+    # Room-aware addressing (resolved in code): room name/id or "new" + a side.
+    room: str | None = None
+    side: str | None = None
     offset_m: float
     selected: SelectedRef | None = None
 

@@ -12,6 +12,10 @@ from dataclasses import replace
 from typing import Callable
 
 from server.agent import tools as tool_contracts
+from server.agent.addressing import (
+    resolve_wall_target,
+    unknown_wall_error,
+)
 from server.agent.wall_labels import resolve_in_walls
 from server.scene import ops
 from server.scene.models import Room, Scene, Wall
@@ -28,6 +32,34 @@ class EditError(Exception):
         self.message = message
 
 
+def _valid(items: list, kind: str) -> str:
+    """What exists, so the next call can be right."""
+    if kind == "wall":
+        return ", ".join(f"wall {i + 1} (id {w.id})" for i, w in enumerate(items)) or "none"
+    if kind == "room":
+        return ", ".join(f"{r.id}={r.name}" for r in items) or "none"
+    return ", ".join(i.id for i in items) or "none"
+
+
+def _pick_room(scene: Scene, a) -> Room:
+    """A room by id/name or "new"/"last" (the most recently added room)."""
+    from server.agent.addressing import resolve_room
+
+    if a.room is not None and not any(r.id.casefold() == a.room.strip().casefold() or r.name.casefold() == a.room.strip().casefold() for r in scene.rooms):
+        alias = resolve_room(scene, a.room)
+        if alias is not None:
+            return alias
+    return _pick(scene.rooms, a.room, a.selected, "room")
+
+
+def _pick_wall(scene: Scene, a) -> Wall:
+    """A wall by label/id, by room + side, or by tap selection."""
+    wid, err = resolve_wall_target(scene, ref=a.wall, room=a.room, side=a.side, selected=a.selected)
+    if wid is None:
+        raise EditError("anchor.unknown", err or unknown_wall_error(scene, a.wall))
+    return next(w for w in scene.walls if w.id == wid)
+
+
 def _pick(items: list, ref: str | None, selected, kind: str):
     if ref is None and selected is not None and selected.kind.casefold() == kind:
         ref = selected.id
@@ -41,7 +73,7 @@ def _pick(items: list, ref: str | None, selected, kind: str):
     if kind == "room" and not hits:
         hits = [i for i in items if i.name.casefold() == want]
     if not hits:
-        raise EditError("anchor.unknown", f"no {kind} matches {ref!r}; Scene unchanged")
+        raise EditError("anchor.unknown", f"no {kind} matches {ref!r}; valid {kind}s: {_valid(items, kind)}; Scene unchanged")
     if len(hits) > 1:
         raise EditError("anchor.ambiguous", f"{len(hits)} {kind}s match {ref!r}; Scene unchanged")
     return hits[0]
@@ -122,7 +154,7 @@ def _same(p: Point, q: Point) -> bool:
 
 
 def _resize_room(scene: Scene, a: tool_contracts.ResizeRoomInput):
-    room = _pick(scene.rooms, a.room, a.selected, "room")
+    room = _pick_room(scene, a)
     f = _frame(room)
     d_w, d_d = a.width_m - f.width, a.depth_m - f.depth
 
@@ -142,7 +174,7 @@ def _resize_room(scene: Scene, a: tool_contracts.ResizeRoomInput):
 
 
 def _set_wall_length(scene: Scene, a: tool_contracts.SetWallLengthInput):
-    wall = _pick(scene.walls, a.wall, a.selected, "wall")
+    wall = _pick_wall(scene, a)
     length = math.hypot(wall.b[0] - wall.a[0], wall.b[1] - wall.a[1])
     new_b = (
         wall.a[0] + (wall.b[0] - wall.a[0]) / length * a.length_m,
@@ -154,7 +186,7 @@ def _set_wall_length(scene: Scene, a: tool_contracts.SetWallLengthInput):
 
 
 def _move_wall(scene: Scene, a: tool_contracts.MoveWallInput):
-    wall = _pick(scene.walls, a.wall, a.selected, "wall")
+    wall = _pick_wall(scene, a)
     length = math.hypot(wall.b[0] - wall.a[0], wall.b[1] - wall.a[1])
     nx, ny = -(wall.b[1] - wall.a[1]) / length, (wall.b[0] - wall.a[0]) / length
     if ny < -_EPS or (abs(ny) <= _EPS and nx < 0):  # positive = north / east
@@ -182,7 +214,7 @@ def _set_opening_size(scene: Scene, a: tool_contracts.SetOpeningSizeInput):
 
 
 def _split_room(scene: Scene, a: tool_contracts.SplitRoomInput):
-    room = _pick(scene.rooms, a.room, a.selected, "room")
+    room = _pick_room(scene, a)
     f = _frame(room)
     if a.axis == "x":  # wall runs east-west
         t = a.at_ratio * f.depth
@@ -201,7 +233,7 @@ def _split_room(scene: Scene, a: tool_contracts.SplitRoomInput):
 
 
 def _rename_room(scene: Scene, a: tool_contracts.RenameRoomInput):
-    room = _pick(scene.rooms, a.room, a.selected, "room")
+    room = _pick_room(scene, a)
     if a.name is None and a.function is None:
         raise EditError("tool.invalid_args", "give a new name and/or function; Scene unchanged")
     update = {k: v for k, v in (("name", a.name), ("function", a.function)) if v is not None}

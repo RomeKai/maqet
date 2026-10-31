@@ -323,13 +323,17 @@ def run_turn(
         raise ValueError(
             f"unknown stage {stage!r}; expected one of {sorted(stage_table.STAGES)}"
         ) from None
-    parts = [_INSTRUCTIONS, "", "## Current scene (measured, meters)", scene_summary(scene)]
     selected_line = _selected_line(selected)
-    if selected_line is not None:
-        parts.append(selected_line)
-    instructions = "\n".join(parts)
+
+    def build_instructions(current_scene: Scene) -> str:
+        """Stable prompt first, then the CURRENT scene (rebuilt after every op, bug X)."""
+        parts = [_INSTRUCTIONS, "", "## Current scene (measured, meters)", scene_summary(current_scene)]
+        if selected_line is not None:
+            parts.append(selected_line)
+        return "\n".join(parts)
+
     base_kwargs: dict[str, Any] = {
-        "instructions": instructions,
+        "instructions": build_instructions(scene),
         "tools": tool_defs,
         "tier": TIER,
         "tag": TAG,
@@ -389,6 +393,7 @@ def run_turn(
                 }
             )
         response_id = response.get("id") if isinstance(response, dict) else None
+        base_kwargs["instructions"] = build_instructions(current)  # labels changed after the ops
         try:
             response = _respond(client, deadline, outputs, previous_response_id=response_id, **base_kwargs)
         except _Deadline:

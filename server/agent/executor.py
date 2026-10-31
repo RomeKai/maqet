@@ -23,6 +23,14 @@ from server.agent import stages as stage_table
 from server.agent import tools as tool_contracts
 from server.agent import edit_tools
 from server.agent.wall_labels import resolve_in_walls
+from server.agent.addressing import (
+    resolve_room,
+    resolve_wall_target,
+    unknown_room_error,
+    unknown_wall_error,
+    wall_on_side,
+    wall_table,
+)
 from server.agent.placement import PlacementError, place_on_wall
 from server.agent.room_walls import enclosing_walls
 from server.scene import ops
@@ -142,15 +150,24 @@ def _handle_add_room(
         if ref is not None:
             matches = _rooms_named(scene, ref)
             if not matches:
-                return _fail(scene, "anchor.unknown", f"no room matches {ref!r}; Scene unchanged")
+                alias = resolve_room(scene, ref)  # "new" / "last room" / fuzzy name
+                matches = [alias] if alias is not None else []
+            if not matches:
+                return _fail(scene, "anchor.unknown", unknown_room_error(scene, ref))
             if len(matches) > 1:
                 return _fail(
                     scene,
                     "anchor.ambiguous",
                     f"{len(matches)} rooms match {ref!r}; say which one; Scene unchanged",
                 )
+            wall_ref = a.wall
+            if wall_ref is None and a.side is not None:
+                side_wall, side_err = wall_on_side(scene, matches[0], a.side)
+                if side_wall is None:
+                    return _fail(scene, "anchor.unknown", side_err or "unknown side")
+                wall_ref = side_wall.id
             try:
-                on_wall = place_on_wall(scene, matches[0], a.size_m, a.level, a.wall)
+                on_wall = place_on_wall(scene, matches[0], a.size_m, a.level, wall_ref)
             except PlacementError as exc:
                 return _fail(scene, exc.code, exc.message)
             if on_wall is not None:
@@ -246,8 +263,9 @@ def _handle_add_wall(
 def _resolve_wall_id(scene: Scene, a: tool_contracts.RemoveWallInput) -> str | None:
     """Explicit id (case-insensitive) -> selected -> between/and fragment match."""
     ref = a.wall_id or a.wall
-    if ref is not None:
-        return resolve_in_walls(scene.walls, ref)
+    wid, _err = resolve_wall_target(scene, ref=ref, room=a.room, side=a.side, selected=a.selected)
+    if wid is not None or _err is not None:
+        return wid
     if a.selected is not None and a.selected.kind.casefold() == "wall":
         return resolve_in_walls(scene.walls, a.selected.id)
     if a.between is not None and a.and_ is not None:
@@ -274,7 +292,8 @@ def _handle_remove_wall(
                     f"{n} walls sit between {a.between!r} and {a.and_!r}; say which one; Scene unchanged",
                 )
         ref = a.wall_id or a.wall or a.between or (a.selected.id if a.selected else "?")
-        return _fail(scene, "anchor.unknown", f"no wall matches {ref!r}; Scene unchanged")
+        _wid, err = resolve_wall_target(scene, ref=a.wall_id or a.wall, room=a.room, side=a.side, selected=a.selected)
+        return _fail(scene, "anchor.unknown", err or unknown_wall_error(scene, ref))
     idx = next(i for i, w in enumerate(scene.walls) if w.id == wid)
     wall = scene.walls[idx]
     doomed = [(i, o) for i, o in enumerate(scene.openings) if o.wall_id == wid]
@@ -312,11 +331,14 @@ def _handle_add_opening(
     scene: Scene, history: list, a: tool_contracts.AddOpeningInput
 ) -> tuple[Scene, ToolResult]:
     ref = a.wall_id or a.wall
-    if ref is None and a.selected is not None and a.selected.kind.casefold() == "wall":
-        ref = a.selected.id
-    wall_id = resolve_in_walls(scene.walls, ref)
+    wall_id, err = resolve_wall_target(scene, ref=ref, room=a.room, side=a.side, selected=a.selected)
     if wall_id is None:
-        return _fail(scene, "anchor.unknown", f"no wall matches {ref!r}; Scene unchanged")
+        return _fail(
+            scene,
+            "anchor.unknown",
+            err or "say which wall: a label (\"wall 3\"), or a room and side "
+            f"({{\"room\": \"new\", \"side\": \"north\"}}); {unknown_wall_error(scene, ref)}",
+        )
     wall = next(w for w in scene.walls if w.id == wall_id)
     length = _wall_length(wall)
     width = a.width_m if a.width_m is not None else (
@@ -668,7 +690,13 @@ def execute(
             f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in exc.errors()
         )
         return _fail(scene, "tool.invalid_args", f"invalid args for {tool!r}: {details}")
-    return _HANDLERS[tool](scene, history, parsed)
+    new_scene, result = _HANDLERS[tool](scene, history, parsed)
+    if result.ok:
+        # The model never has to guess numbers: the CURRENT walls come back after every op.
+        result = result.model_copy(
+            update={"data": {**(result.data or {}), "walls": wall_table(new_scene)}}
+        )
+    return new_scene, result
 
 
 __all__ = ["ToolError", "ToolResult", "execute"]

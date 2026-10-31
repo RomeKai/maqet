@@ -168,7 +168,7 @@ def test_failed_tool_errors_reach_the_user_not_just_the_model(script: list) -> N
     ]
     body = _turn(message="Add a door").json()
     assert body["ops_applied"] == []
-    assert any("no wall matches" in e for e in body["tool_errors"]), body
+    assert any("does not exist; valid walls" in e for e in body["tool_errors"]), body
 
 
 def test_replay_miss_on_an_agent_turn_is_409_not_500() -> None:
