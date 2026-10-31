@@ -722,3 +722,120 @@ body {
   border-left: 4px solid var(--accent, #c2410c);
   padding-left: 8px;
 }
+
+/* --- Mode A HUD polish (phone width) -------------------------------------
+   Compact two-row toolbar of equal 48 px buttons: modes on top, actions below.
+   The height / wall-height controls sit ABOVE the toolbar (never over it). */
+.ar-hud-bar {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 8px;
+}
+
+.ar-hud-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 8px;
+}
+
+.ar-hud-bar .chip {
+  min-height: 48px;
+  padding: 6px 8px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ar-hud-ceiling,
+.ar-hud-wallheight {
+  bottom: calc(148px + env(safe-area-inset-bottom));
+}
+
+.ar-hud-ceiling .chip,
+.ar-hud-wallheight > summary {
+  min-height: 48px;
+  border-radius: 12px;
+}
+
+.ar-hud-setheight {
+  min-width: 200px;
+}
+
+/* Crosshair at the screen center: that is where the camera ray is read. */
+.ar-hud-crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  pointer-events: none;
+}
+
+.ar-hud-crosshair::before,
+.ar-hud-crosshair::after {
+  content: "";
+  position: absolute;
+  background: #fff;
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.75);
+}
+
+.ar-hud-crosshair::before {
+  left: 21px;
+  top: 0;
+  width: 2px;
+  height: 44px;
+}
+
+.ar-hud-crosshair::after {
+  top: 21px;
+  left: 0;
+  height: 2px;
+  width: 44px;
+}
+
+/* Measurement labels: dark text with a light halo so they read on any camera feed. */
+.ar-overlay-edge-label,
+.ar-overlay-label,
+.ar-overlay-live-height {
+  fill: #111;
+  stroke: #fff;
+  stroke-width: 5px;
+  paint-order: stroke;
+  stroke-linejoin: round;
+  text-shadow: none;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.ar-overlay-live-height {
+  font-size: 22px;
+}
+
+/* Openings on the wall quad use the shared OPENING_THEME colors. */
+.ar-overlay-opening {
+  stroke-width: 2;
+  stroke: #fff;
+}
+
+.ar-overlay-opening-door {
+  fill: #c8643c;
+  fill-opacity: 0.75;
+}
+
+.ar-overlay-opening-window {
+  fill: #9fd3ec;
+  fill-opacity: 0.6;
+}
+
+.ar-overlay-marker {
+  fill: #fff;
+  stroke: #c8643c;
+  stroke-width: 3;
+}

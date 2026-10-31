@@ -69,6 +69,9 @@ async function mockWebXr(page: Page, mode: XrMode): Promise<void> {
       setHit(pos: { x: number; y: number; z: number } | null) {
         state.hit = pos;
       },
+      setEye(x: number, y: number, z: number) {
+        state.eye = { x, y, z };
+      },
       setTracking(on: boolean) {
         state.tracking = on;
       },
@@ -129,7 +132,7 @@ test.describe("Mode A: device support", () => {
   });
 });
 
-type Xr = { tap: (p: { x: number; y: number; z: number } | null) => void; setTracking: (on: boolean) => void; sessions: number };
+type Xr = { tap: (p: { x: number; y: number; z: number } | null) => void; setTracking: (on: boolean) => void; setEye: (x: number, y: number, z: number) => void; sessions: number };
 
 test.describe("Mode A: live session (fake WebXR)", () => {
   test("captures a 4-wall room with ONE height and hands it to the editor", async ({ page }) => {
@@ -199,6 +202,74 @@ test.describe("Mode A: live session (fake WebXR)", () => {
     await page.getByLabel(/Height of wall 2/).fill("2.4");
     await page.getByRole("button", { name: "Set wall height" }).click();
     await expect(page.getByText(/Wall 2 height: 2\.40/)).toBeVisible();
+  });
+
+  test("Set height here confirms the ray height, then the next corner lands on the floor", async ({ page }) => {
+    await page.setViewportSize({ width: 412, height: 915 });
+    await mockWebXr(page, "live");
+    await openMethods(page);
+    await page.locator('[data-method="ar"]').click();
+    await page.getByRole("button", { name: "Measure (AR)" }).click();
+    const pill = page.locator(".ar-hud-pill");
+    const tap = (x: number, y: number, z: number) =>
+      page.evaluate(([px, py, pz]) => (window as unknown as { __xr: Xr }).__xr.tap({ x: px as number, y: py as number, z: pz as number }), [x, y, z]);
+    await tap(0, -1.2, -2);
+    await tap(3, -1.2, -2);
+    await expect(page.locator(".ar-hud-crosshair")).toBeVisible();
+    // The DOM button works without any hit-test or world tap.
+    await page.getByRole("button", { name: "Set height here" }).click();
+    await expect(pill).toContainText("Wall 2: tap the next corner");
+    // The hit-test now reports a point at wall height: the corner must still be accepted on the floor.
+    // (Level fake camera has no floor ray, so a mid-air pose is refused with floor guidance.)
+    await tap(3, 0.8, -5);
+    await expect(pill).toContainText("Aim at the floor");
+    await tap(3, -1.2, -5);
+    await expect(pill).toContainText("Wall 3");
+  });
+
+  test("captures a window and a door on a wall with two taps each", async ({ page }) => {
+    await page.setViewportSize({ width: 412, height: 915 });
+    await mockWebXr(page, "live");
+    await openMethods(page);
+    await page.locator('[data-method="ar"]').click();
+    await page.getByRole("button", { name: "Measure (AR)" }).click();
+    const pill = page.locator(".ar-hud-pill");
+    const tap = (x: number, y: number, z: number) =>
+      page.evaluate(([px, py, pz]) => (window as unknown as { __xr: Xr }).__xr.tap({ x: px as number, y: py as number, z: pz as number }), [x, y, z]);
+    // The fake camera moves on the next animation frame (40 ms): wait so the tap reads the new ray.
+    const aimAt = async (x: number) => {
+      await page.evaluate((px) => (window as unknown as { __xr: Xr }).__xr.setEye(px, 1.4, 0), x);
+      await page.waitForTimeout(200);
+    };
+    await tap(0, -1.2, -2);
+    await tap(3, -1.2, -2);
+    await page.getByRole("button", { name: "Use 2.60 m" }).click();
+    await expect(pill).toContainText("Wall 2");
+
+    await page.getByRole("button", { name: "Window" }).click();
+    await expect(pill).toContainText("window");
+    await aimAt(0.5);
+    await tap(0.5, -1.2, -1);
+    await aimAt(1.7);
+    await tap(1.7, -1.2, -1);
+
+    await page.getByRole("button", { name: "Door" }).click();
+    await aimAt(2.0);
+    await tap(2.0, -1.2, -1);
+    await aimAt(2.9);
+    await tap(2.9, -1.2, -1);
+
+    await page.getByRole("button", { name: "Done" }).click();
+    const sheet = page.getByRole("dialog", { name: "Review measurements" });
+    await expect(sheet).toBeVisible();
+    await expect(sheet).toContainText("opening-1 window");
+    await expect(sheet).toContainText("opening-2 door");
+    const values = await sheet.locator("input").evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value));
+    const nums = values.map(Number);
+    const has = (n: number) => nums.some((v) => Math.abs(v - n) < 0.01);
+    expect(has(0.9)).toBe(true); // window sill
+    expect(has(1.2)).toBe(true); // window height
+    expect(has(2.0)).toBe(true); // door height
   });
 
   test("tracking lost shows guidance and clears when tracking returns", async ({ page }) => {

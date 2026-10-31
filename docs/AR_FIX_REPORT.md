@@ -88,6 +88,20 @@ WebXR retry. `playwright.config.ts` now reads `E2E_WEB_PORT` / `E2E_API_PORT` (d
 worktree. Run: `E2E_WEB_PORT=5330 E2E_API_PORT=8030 npx playwright test` from `web/`.
 The reform-chat 412x915 test failed once on a cold first run in a full-suite run and passed alone and on re-run (timing; not changed by this work).
 
+## Phone round 2 - ceiling tap, floor corner, openings, HUD: DONE (unit + fake-WebXR level)
+
+Root causes (Android Chrome test):
+1. Ceiling tap did not register: the step waited on a hit-test pose that never exists on a ceiling line, and taps on HUD controls could also become world taps. Fix: the height is read from the center camera ray against the vertical plane above the last floor corner (`ceilingHeightFromCenterRay`), shown live over a crosshair, confirmed by the DOM button "Set height here" (always registers) or a world tap with or without a hit. `beforexrselect` is cancelled on `[data-xr-ui]` so toolbar/typing never becomes a world tap. Typed input and "Use 2.60 m" stay as fallback.
+2. Next corner floated at mid-height: the hit-test pose after the height step lands on the wall. Fix: `resolveFloorTap` keeps a hit within 0.15 m of the floor y, otherwise uses the ray's floor intersection; reticle/band use the same point and are hidden during the height step.
+3. Door/Window dead: buttons were gated and had no capture. Fix: unlocked once a wall exists; two taps on a wall (`wallPointFromRay`, projected onto the wall line) give offset and width; defaults window sill 0.90 / height 1.20, door sill 0 / height 2.0 (rules.py); editable in the review sheet; drawn on the wall quad (door terracotta, window light blue). Note: the Scene `Opening` has no provenance field; the wall carries `measured_ar`.
+4. HUD: two-row toolbar (modes, then Undo/Start over/Done/Cancel), 48 px buttons, height groups sit above the toolbar, labels dark text with a white halo.
+
+Tests: vitest `ceilingRay`, `overlayFloorReticle`, `captureOpenings.ar`; Playwright `ar-flow.spec.ts` (Set height here then floor corner; window + door capture and review values).
+Known flake: `reform-chat` 412x915 fails on a cold first Playwright run (unrelated, passes alone).
+Not verified on a device.
+
+Phone checklist additions: aim crosshair at ceiling line, see live height, tap "Set height here"; next corner starts on the floor; Window then two taps on a wall, then Door; review sheet shows sill/height; toolbar fits without wrapping.
+
 ## Gates (final run)
 - `MME_MODE=replay python -m pytest -q server`: 521 passed
 - `npx vitest run`: 89 files, 697 tests passed

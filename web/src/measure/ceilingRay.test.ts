@@ -113,3 +113,60 @@ describe("ceilingHeightFromCenterRay (fix 2 RED: ray-plane ceiling)", () => {
     expect(h).toBeNull();
   });
 });
+
+import { floorPointFromRay, wallPointFromRay } from "./ceilingRay";
+
+describe("floorPointFromRay", () => {
+  it("intersects the center ray with the floor plane y = floorY", () => {
+    // Eye 1.4 m above the floor, looking forward and down at 45 degrees.
+    const p = floorPointFromRay({ eye: [0, 1.4, 0], dir: [0, -Math.SQRT1_2, -Math.SQRT1_2] }, 0);
+    expect(p?.[0]).toBeCloseTo(0, 9);
+    expect(p?.[1]).toBe(0);
+    expect(p?.[2]).toBeCloseTo(-1.4, 9);
+  });
+  it("is null when the ray points up, is level, or is missing", () => {
+    expect(floorPointFromRay({ eye: [0, 1, 0], dir: [0, 0.5, -1] }, 0)).toBeNull();
+    expect(floorPointFromRay({ eye: [0, 1, 0], dir: [0, 0, -1] }, 0)).toBeNull();
+    expect(floorPointFromRay(null, 0)).toBeNull();
+  });
+});
+
+describe("wallPointFromRay", () => {
+  const walls = [
+    { id: "wall-1", start: { x: 0, z: -2 }, end: { x: 4, z: -2 }, heightM: 2.6, flaggedHeight: false },
+    { id: "wall-2", start: { x: 4, z: -2 }, end: { x: 4, z: -5 }, heightM: 2.6, flaggedHeight: false },
+  ];
+  it("returns the wall and the point where the ray crosses its vertical plane", () => {
+    const hit = wallPointFromRay(walls, 0, { eye: [1, 1.4, 0], dir: [0, 0, -1] });
+    expect(hit?.wallId).toBe("wall-1");
+    expect(hit?.point[0]).toBeCloseTo(1, 9);
+    expect(hit?.point[2]).toBeCloseTo(-2, 9);
+  });
+  it("ignores a plane crossing outside the wall segment", () => {
+    expect(wallPointFromRay(walls, 0, { eye: [9, 1.4, 0], dir: [0, 0, -1] })).toBeNull();
+  });
+  it("ignores a crossing above the wall top or below the floor", () => {
+    expect(wallPointFromRay(walls, 0, { eye: [1, 5, 0], dir: [0, 0, -1] })).toBeNull();
+    expect(wallPointFromRay(walls, 0, { eye: [1, -1, 0], dir: [0, 0, -1] })).toBeNull();
+  });
+});
+
+import { resolveFloorTap } from "./ceilingRay";
+
+describe("resolveFloorTap (next corner after the height step stays on the floor)", () => {
+  const down30 = { eye: [0, 1.4, 0] as Vec3, dir: [0, -0.5, -Math.sqrt(0.75)] as Vec3 };
+  it("keeps a hit that is on the floor plane", () => {
+    expect(resolveFloorTap([1, 0.04, -2], 0, down30)).toEqual([1, 0.04, -2]);
+  });
+  it("replaces a wall / ceiling hit with the ray's floor point", () => {
+    const p = resolveFloorTap([0, 1.6, -3], 0, down30);
+    expect(p?.[1]).toBe(0);
+    expect(p?.[2]).toBeCloseTo(-2.4249, 3);
+  });
+  it("uses the ray when there is no hit at all", () => {
+    expect(resolveFloorTap(null, 0, down30)?.[1]).toBe(0);
+  });
+  it("is null when there is neither a floor hit nor a downward ray", () => {
+    expect(resolveFloorTap(null, 0, null)).toBeNull();
+  });
+});
