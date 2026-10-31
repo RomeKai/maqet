@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseTurnResponse } from "./agentApi";
-import { withToolNotes } from "./toolNotes";
+import { splitToolNotes, withToolNotes } from "./toolNotes";
 
 describe("tool notes", () => {
   it("returns the reply untouched when nothing failed", () => {
@@ -22,5 +22,15 @@ describe("tool notes", () => {
     });
     expect(parsed.tool_errors).toEqual(["boom"]);
     expect(parsed.tool_warnings).toEqual([]);
+  });
+  it("keeps the reply plain and moves raw errors to details", () => {
+    const raw = "opening o2 overflows wall w3: offset 0.00 + width 1.20 m > length 0.73 m";
+    const out = splitToolNotes("That wall is too short for a 1.2 m window.", [raw], [raw, "w"], "fallback");
+    expect(out.text).toBe("That wall is too short for a 1.2 m window.");
+    expect(out.details).toEqual([raw, "w"]);
+  });
+  it("uses a plain fallback sentence when the model said nothing after an error", () => {
+    expect(splitToolNotes(" ", ["boom"], [], "Try another wall?").text).toBe("Try another wall?");
+    expect(splitToolNotes("", [], [], "x").text).toBe("");
   });
 });

@@ -109,6 +109,16 @@ export function ChatSheet({
         {messages.map((message) => (
           <li key={message.id} className="agent-message" data-role={message.role}>
             <p className="agent-text">{message.text}</p>
+            {message.details && message.details.length > 0 ? (
+              <details className="agent-details">
+                <summary className="min-h-12 py-3 text-[15px] font-bold">{t["chat.details"]}</summary>
+                <ul className="text-sm">
+                  {message.details.map((d) => (
+                    <li key={d}>{d}</li>
+                  ))}
+                </ul>
+              </details>
+            ) : null}
             {message.toolEvents && message.toolEvents.length > 0 ? (
               <ul className="agent-chips">
                 {message.toolEvents.map((event, index) => (

@@ -32,4 +32,6 @@ export interface ChatMessage {
   /** The model reply alone (no appended tool notes); what the conversation memory uses. */
   spoken?: string;
   toolEvents?: ToolEvent[];
+  /** Raw tool errors and rule warnings, shown behind a "details" disclosure. */
+  details?: string[];
 }

@@ -23,7 +23,7 @@ import { parseTakeoff } from "./deliver/takeoffFormat";
 import type { Takeoff } from "./deliver/takeoffTypes";
 import { sendEdit, sendTurn } from "./agent/agentApi";
 import type { EditCall } from "./agent/editCall";
-import { withToolNotes } from "./agent/toolNotes";
+import { splitToolNotes } from "./agent/toolNotes";
 import { useVariants } from "./agent/VariantTabs";
 import { getAgentStrings } from "./agent/agent.i18n";
 import type { AgentStage } from "./agent/agentApi";
@@ -227,10 +227,12 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
           warnings: [] as string[],
           flags: op.flags ?? [],
         }));
+        const notes = splitToolNotes(res.reply, res.tool_errors, res.tool_warnings, getAgentStrings(locale)["chat.errorFallback"]);
         addMessage(key, {
           id: `a-${Date.now()}`,
           role: "assistant",
-          text: withToolNotes(res.reply, res.tool_errors, res.tool_warnings),
+          text: notes.text,
+          details: notes.details,
           spoken: res.reply,
           toolEvents,
         });
@@ -240,7 +242,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
         setPending(false);
       }
     },
-    [intakeScene, agentStage, history, selectedWallId, stage, variants, readOnlyMessage, activeKey, messages, addMessage],
+    [intakeScene, agentStage, history, selectedWallId, stage, variants, readOnlyMessage, activeKey, messages, addMessage, locale],
   );
 
   const handleEdit = useCallback(
