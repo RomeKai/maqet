@@ -34,7 +34,6 @@ async function openReform(page: Page, bodies: SceneBody[]): Promise<void> {
   await page.getByText("Photograph a sketch").click();
   await page.getByText("Try a sample").click();
   await page.locator("button", { hasText: "Reform" }).click();
-  await page.locator(".agent-keyboard").click();
 }
 
 async function ask(page: Page, text: string, count: number): Promise<void> {

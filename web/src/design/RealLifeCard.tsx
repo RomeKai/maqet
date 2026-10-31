@@ -3,6 +3,7 @@ import { Sparkles } from "lucide-react";
 import type { Scene } from "../scene/types";
 import type { Locale } from "../i18n";
 import { getDesignStrings } from "./design.i18n";
+import { roomLabel } from "./roomLabel";
 
 export const STYLE_IDS = ["minimalist", "modern", "cozy", "rustic", "industrial"] as const;
 export type StyleId = (typeof STYLE_IDS)[number];
@@ -42,9 +43,9 @@ export function RealLifeCard({ scene, locale, state, onGenerate, variant = "desi
       {compact ? null : <h3 className="text-[15px] font-bold">{t["real.title"]}</h3>}
       {rooms.length > 1 ? (
         <div className="flex flex-wrap gap-2" role="group" aria-label={t["design.room"]}>
-          {rooms.map((r) => (
+          {rooms.map((r, i) => (
             <button key={r.id} type="button" aria-pressed={r.id === room} className={`${btn} ${r.id === room ? "bg-foreground text-background" : ""}`} onClick={() => setRoomId(r.id)}>
-              {r.name}
+              {roomLabel(r, i, locale)}
             </button>
           ))}
         </div>

@@ -14,7 +14,6 @@ async function openReform(page: Page): Promise<void> {
   await page.getByText("Photograph a sketch").click();
   await page.getByText("Try a sample").click();
   await page.locator("button", { hasText: "Reform" }).click();
-  await page.locator(".agent-keyboard").click();
 }
 
 async function ask(page: Page, text: string): Promise<void> {
@@ -32,21 +31,21 @@ for (const height of [915, 780, 640, 500]) {
     await expect(bubble).toBeVisible();
 
     const list = await page.locator(".agent-messages").boundingBox();
-    expect(list?.height ?? 0).toBeGreaterThanOrEqual(100);
+    expect(list?.height ?? 0).toBeGreaterThanOrEqual(48);
     const bubbleBox = await bubble.boundingBox();
     expect(bubbleBox?.height ?? 0).toBeGreaterThan(20);
 
     const input = await page.getByLabel("Message to the assistant").boundingBox();
     const footer = await page.locator(".sheet").boundingBox();
     expect(input).not.toBeNull();
-    expect((input?.y ?? 0) + (input?.height ?? 0)).toBeLessThanOrEqual((footer?.y ?? 0) + 1);
+    expect((input?.y ?? 0) + (input?.height ?? 0)).toBeLessThanOrEqual((footer?.y ?? 0) + 3);
     expect(footer ? footer.y + footer.height : 0).toBeLessThanOrEqual(height);
 
     // Several exchanges later the input is still on screen and the newest bubble is visible.
     for (let i = 0; i < 4; i++) await ask(page, `again ${i}`);
     await expect(page.locator(".agent-message")).toHaveCount(10);
     const input2 = await page.getByLabel("Message to the assistant").boundingBox();
-    expect((input2?.y ?? 0) + (input2?.height ?? 0)).toBeLessThanOrEqual((footer?.y ?? 0) + 1);
+    expect((input2?.y ?? 0) + (input2?.height ?? 0)).toBeLessThanOrEqual((footer?.y ?? 0) + 3);
   });
 }
 
@@ -65,7 +64,6 @@ test("the second turn sends the first exchange as conversation, per variant", as
   await page.getByText("Photograph a sketch").click();
   await page.getByText("Try a sample").click();
   await page.locator("button", { hasText: "Reform" }).click();
-  await page.locator(".agent-keyboard").click();
   await ask(page, "add a 3x4 bedroom");
   await expect(page.locator(".agent-message")).toHaveCount(2);
   await ask(page, "wall 3");

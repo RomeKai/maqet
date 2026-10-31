@@ -179,7 +179,7 @@ export function VariantTabs({ state, locale }: VariantTabsProps): React.JSX.Elem
           {t["variants.forkShort"].replace(/^\+\s*/, "")}
         </button>
       </div>
-      <p className="min-h-5 truncate text-center text-[15px] font-semibold" aria-live="polite">
+      <p className="variant-caption min-h-5 truncate text-center text-[15px] font-semibold" aria-live="polite">
         {caption}
       </p>
       {error ? <p className="text-[15px] font-semibold text-danger">{error}</p> : null}

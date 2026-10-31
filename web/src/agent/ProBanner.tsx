@@ -18,13 +18,15 @@ export function ProBanner({ flags, locale, compact = false }: ProBannerProps): R
   if (compact) {
     return (
       <details
-        className="mx-3 mt-1 shrink-0 rounded-xl border-2 border-danger bg-danger-soft px-3 py-2 font-sans text-foreground"
+        className="mx-3 mt-1 shrink-0 rounded-xl border-2 border-danger bg-danger-soft px-3 py-1 font-sans text-foreground"
         role="alert"
         data-testid="pro-banner"
       >
         <summary className="flex min-h-9 cursor-pointer items-center gap-2 text-[15px] font-bold">
           <OctagonAlert className="size-5 shrink-0 text-danger" aria-hidden />
-          {t["banner.needs_professional"]}
+          <span className="min-w-0 truncate">
+            {t["banner.needs_professional"]} · {codes.length}
+          </span>
         </summary>
         <ul className="mt-1 max-h-[20dvh] list-disc overflow-y-auto pl-5 text-[15px]">
           {codes.map((flag) => (

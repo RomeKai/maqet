@@ -351,7 +351,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
       />
       <Stepper locale={locale} stage={stage} onSelect={setStage} />
 
-      <ProBanner flags={professionalFlags} locale={locale} compact={isPresent || isDeliver} />
+      <ProBanner flags={professionalFlags} locale={locale} compact />
 
       {onCapture && view === "home" && (
         <HomeScreen

@@ -176,7 +176,7 @@ test.describe("Mode A: live session (fake WebXR)", () => {
     await expect(page.getByText("Room captured with AR")).toBeVisible();
     await expect(page.getByText("4 walls measured")).toBeVisible();
     await page.getByRole("button", { name: "Looks right" }).click();
-    await expect(page.locator(".agent-keyboard")).toBeVisible();
+    await expect(page.getByLabel("Message to the assistant")).toBeVisible();
   });
 
   test("an out-of-range typed height is refused and the next wall still works", async ({ page }) => {

@@ -68,6 +68,8 @@ interface ChatSheetProps {
   suggestionStage?: SuggestionStage;
   /** "Next ->" in the bottom bar. */
   onNext?: () => void;
+  /** Compact dock (Reform/Design): the text input is always visible and the message list only exists once there are messages. */
+  compact?: boolean;
 }
 
 
@@ -81,6 +83,7 @@ export function ChatSheet({
   suggestions = false,
   suggestionStage = "reform",
   onNext,
+  compact = false,
 }: ChatSheetProps): React.JSX.Element {
   const t = getAgentStrings(locale);
   const [draft, setDraft] = useState("");
@@ -100,12 +103,15 @@ export function ChatSheet({
     void sendDraft(text, onSend, setDraft);
   }
 
-  const showInput = onAudio === undefined || typing;
+  const showInput = onAudio === undefined || typing || compact;
+  const showList = !compact || messages.length > 0 || pending;
+  const inputRef = useRef<HTMLInputElement>(null);
 
   return (
     <section className="agent-sheet" aria-label={t["chat.title"]} aria-busy={pending}>
+      {showList ? (
       <ol className="agent-messages" ref={listRef} aria-live="polite">
-        {messages.length === 0 ? <li className="agent-empty">{t["chat.empty"]}</li> : null}
+        {messages.length === 0 && !compact ? <li className="agent-empty">{t["chat.empty"]}</li> : null}
         {messages.map((message) => (
           <li key={message.id} className="agent-message" data-role={message.role}>
             <p className="agent-text">{message.text}</p>
@@ -134,8 +140,9 @@ export function ChatSheet({
           </li>
         ) : null}
       </ol>
+      ) : null}
       {suggestions ? (
-        <div className="agent-suggestions" role="group" aria-label={t["suggest.label"]}>
+        <div className={compact ? "agent-suggestions agent-suggestions-compact" : "agent-suggestions"} role="group" aria-label={t["suggest.label"]}>
           {SUGGESTIONS[suggestionStage].map(({ key }) => (
             <button
               key={key}
@@ -147,6 +154,11 @@ export function ChatSheet({
               {t[key]}
             </button>
           ))}
+          {compact && onNext ? (
+            <button type="button" className="agent-next shrink-0" onClick={onNext}>
+              {t["bar.next"]} <ArrowRight className="size-4" aria-hidden />
+            </button>
+          ) : null}
         </div>
       ) : null}
       {showInput ? (
@@ -159,14 +171,18 @@ export function ChatSheet({
             aria-label={t["chat.input"]}
             placeholder={t["chat.placeholder"]}
             enterKeyHint="send"
-            autoFocus={typing}
+            autoFocus={typing && !compact}
+            ref={inputRef}
           />
           <button type="submit" className="agent-send" disabled={pending}>
             {t["chat.send"]}
           </button>
+          {compact && onAudio ? (
+            <PushToTalk locale={locale} onAudio={onAudio} appearance="round" onStateChange={setPttState} />
+          ) : null}
         </form>
       ) : null}
-      {onAudio ? (
+      {onAudio && !compact ? (
         <div className="agent-bar">
           <div className="agent-bar-left">
             <p className="agent-bar-hint">{pttState === "recording" ? t["bar.hintRecording"] : t["bar.hint"]}</p>
@@ -174,8 +190,8 @@ export function ChatSheet({
               type="button"
               className="agent-keyboard"
               aria-label={t["bar.keyboard"]}
-              aria-pressed={typing}
-              onClick={() => setTyping((v) => !v)}
+              aria-pressed={compact ? undefined : typing}
+              onClick={() => (compact ? inputRef.current?.focus() : setTyping((v) => !v))}
             >
               <Keyboard className="size-5" aria-hidden />
             </button>

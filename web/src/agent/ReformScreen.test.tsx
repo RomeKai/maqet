@@ -33,7 +33,6 @@ describe("ReformScreen", () => {
   it("has the 3D card undo, chips, talk bar and Next", () => {
     expect(html).toContain(`aria-label="${t["card.undo"]}"`);
     expect(html).toContain(t["suggest.reform.bedroom"]);
-    expect(html).toContain(t["bar.hint"]);
     expect(html).toContain(t["bar.next"]);
   });
   it("keeps no preliminary label of its own", () => {
@@ -140,7 +139,7 @@ describe("ReformScreen structure with a long conversation", () => {
     const list = long.indexOf('class="agent-messages"');
     const dockEnd = long.indexOf("</section>", list);
     expect(list).toBeGreaterThan(0);
-    for (const marker of ['class="agent-suggestions"', 'class="agent-bar"']) {
+    for (const marker of ['agent-suggestions', 'agent-composer']) {
       const at = long.indexOf(marker, list);
       expect(at, marker).toBeGreaterThan(list);
       expect(at, marker).toBeLessThan(dockEnd);

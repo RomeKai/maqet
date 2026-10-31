@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Plus, RotateCw, Trash2, Undo2 } from "lucide-react";
+import { useState } from "react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Plus, RotateCw, Sparkles, Trash2, Undo2 } from "lucide-react";
 import type { Scene } from "../scene/types";
 import type { Locale } from "../i18n";
 import { SceneView } from "../view3d/SceneView";
@@ -20,6 +20,7 @@ import {
 import { FINISHES, FURNITURE, finishLabel, furnitureLabel } from "./catalog";
 import { getDesignStrings } from "./design.i18n";
 import { RealLifeCard, type RealLifeState, type StyleId } from "./RealLifeCard";
+import { roomLabel } from "./roomLabel";
 
 export interface DesignEditResult {
   error: string | null;
@@ -59,10 +60,7 @@ export function DesignScreen(props: DesignScreenProps): React.JSX.Element {
   const [itemId, setItemId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [itemOpen, setItemOpen] = useState(false);
-  const [showImage, setShowImage] = useState(false);
-  useEffect(() => {
-    if (props.realLife.image !== null) setShowImage(true);
-  }, [props.realLife.image]);
+  const [realOpen, setRealOpen] = useState(false);
   const [notes, setNotes] = useState<string[]>([]);
   const activeRoom = rooms.find((r) => r.id === roomId)?.id ?? rooms[0]?.id ?? "";
   const items = scene?.furniture ?? [];
@@ -88,8 +86,8 @@ export function DesignScreen(props: DesignScreenProps): React.JSX.Element {
   );
 
   return (
-    <main className="flex min-h-0 flex-1 flex-col overflow-hidden font-sans" aria-label={t["design.title"]} data-testid="design-screen">
-      <div className="agent-card relative mx-3 mt-2 h-[26dvh] min-h-[4.5rem] shrink overflow-hidden rounded-2xl border-2 border-foreground bg-card">
+    <main className="stage-screen flex min-h-0 flex-1 flex-col overflow-hidden font-sans" aria-label={t["design.title"]} data-testid="design-screen">
+      <div className="agent-card relative mx-3 mt-2 min-h-[38dvh] flex-1 overflow-hidden rounded-2xl border-2 border-foreground bg-card">
         {scene !== null && (scene.walls?.length ?? 0) > 0 ? (
           <SceneView
             scene={scene}
@@ -121,7 +119,17 @@ export function DesignScreen(props: DesignScreenProps): React.JSX.Element {
           <Undo2 className="size-5" aria-hidden />
         </button>
       </div>
-      <RealLifeCard scene={scene} locale={locale} state={props.realLife} onGenerate={props.onRealLife} compact />
+      <div className="mx-3 mt-2 flex shrink-0 items-center gap-2" data-testid="real-life-row">
+        <button type="button" className={`${btn} flex-1 border-foreground bg-card`} onClick={() => setRealOpen(true)}>
+          <Sparkles className="size-5" aria-hidden />
+          {t["real.title"]}
+        </button>
+        {props.realLife.image !== null ? (
+          <button type="button" aria-label={t["real.title"]} className="size-12 shrink-0 overflow-hidden rounded-xl border-2 border-foreground" onClick={() => setRealOpen(true)}>
+            <img src={props.realLife.image} alt="" className="size-full object-cover" />
+          </button>
+        ) : null}
+      </div>
       {notes.length > 0 ? (
         <ul className="mx-3 mt-1 space-y-1" role="status" data-testid="design-notes">
           {notes.map((n) => (
@@ -131,7 +139,7 @@ export function DesignScreen(props: DesignScreenProps): React.JSX.Element {
           ))}
         </ul>
       ) : null}
-      <div className="agent-dock flex flex-1 flex-col">
+      <div className="agent-dock flex min-h-0 shrink flex-col">
         <ChatSheet
           messages={props.messages}
           locale={locale}
@@ -141,6 +149,7 @@ export function DesignScreen(props: DesignScreenProps): React.JSX.Element {
           suggestions
           suggestionStage="design"
           onNext={props.onNext}
+          compact
         />
         {props.agentError ? <p className="agent-error px-3">{props.agentError}</p> : null}
       </div>
@@ -151,9 +160,9 @@ export function DesignScreen(props: DesignScreenProps): React.JSX.Element {
           ) : (
             <>
               <div className="flex flex-wrap gap-2" role="group" aria-label={t["design.room"]}>
-                {rooms.map((r) => (
+                {rooms.map((r, i) => (
                   <button key={r.id} type="button" aria-pressed={r.id === activeRoom} className={`${btn} ${r.id === activeRoom ? on : ""}`} onClick={() => setRoomId(r.id)}>
-                    {r.name}
+                    {roomLabel(r, i, locale)}
                   </button>
                 ))}
               </div>
@@ -224,8 +233,8 @@ export function DesignScreen(props: DesignScreenProps): React.JSX.Element {
           )}
         </div>
       </BottomSheet>
-      <BottomSheet open={showImage && props.realLife.image !== null} onClose={() => setShowImage(false)} title={t["real.title"]} closeLabel={t["design.close"]}>
-        {props.realLife.image !== null ? <img src={props.realLife.image} alt="" className="w-full rounded-xl border-2 border-foreground" /> : null}
+      <BottomSheet open={realOpen} onClose={() => setRealOpen(false)} title={t["real.title"]} closeLabel={t["design.close"]}>
+        <RealLifeCard scene={scene} locale={locale} state={props.realLife} onGenerate={props.onRealLife} />
       </BottomSheet>
       <BottomSheet open={itemOpen && item !== null} onClose={() => setItemOpen(false)} title={`${t["design.item"]}: ${furnitureLabel(item?.catalog_id, locale)}`} closeLabel={t["design.close"]}>
         {item !== null ? (

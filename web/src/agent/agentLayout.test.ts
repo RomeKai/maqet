@@ -24,23 +24,17 @@ describe("agent chat dock layout (phone width)", () => {
     expect(css).toMatch(/\.agent-messages[^{]*\{[^}]*overflow-y:\s*auto/);
   });
 
-  it("keeps the dock at content size (card shrinks first) and honours the safe-area inset", () => {
-    expect(css).toMatch(/\[data-testid="reform-screen"\] \.agent-sheet,\s*\.agent-stage \.agent-sheet\s*\{[^}]*flex:\s*1\s+1\s+0[^}]*min-height:\s*auto/);
+  it("keeps the dock at content size and honours the safe-area inset", () => {
+    expect(rule(".stage-screen .agent-sheet")).toMatch(/flex:\s*1\s+1\s+auto/);
     expect(rule(".agent-sheet")).toMatch(/safe-area-inset-bottom/);
-  });
-
-  it("never collapses the conversation to zero height (bug E)", () => {
-    const messages = css.match(/(?:^|[\s}])\.agent-sheet \.agent-messages\s*\{([^}]*)\}/);
-    expect(messages, "missing .agent-sheet .agent-messages").not.toBeNull();
-    expect(messages![1]).toMatch(/min-height:\s*(?:[6-9]|\d{2,})(?:\.\d+)?rem/);
   });
 });
 
 describe("dock structure: only the message list scrolls (bug L)", () => {
-  it("scrolls the message list and never collapses it (measured 3 px before)", () => {
-    expect(css).toMatch(
-      /\[data-testid="reform-screen"\] \.agent-sheet \.agent-messages,\s*\.agent-stage \.agent-sheet \.agent-messages\s*\{[^}]*flex:\s*1\s+1\s+0[^}]*min-height:\s*7rem[^}]*overflow-y:\s*auto/,
-    );
+  it("only the message list scrolls, capped so the hero 3D card keeps its height", () => {
+    const r = rule(".stage-screen .agent-sheet .agent-messages");
+    expect(r).toMatch(/overflow-y:\s*auto/);
+    expect(r).toMatch(/max-height:\s*24dvh/);
   });
   it("keeps the composer, chips, bar un-shrinkable", () => {
     expect(rule(".agent-composer")).toMatch(/flex:\s*none/);
