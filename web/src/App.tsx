@@ -257,6 +257,25 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
     [intakeScene, history],
   );
 
+  const handleRender = useCallback(
+    async (roomId: string): Promise<{ image: string | null; error: string | null }> => {
+      if (!intakeScene) return { image: null, error: "No scene" };
+      try {
+        const res = await fetch(`${baseUrl()}/render/room`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ scene: intakeScene, room_id: roomId }),
+        });
+        if (!res.ok) return { image: null, error: (await res.text().catch(() => "")) || `render ${res.status}` };
+        const body = (await res.json()) as { image_b64: string };
+        return { image: `data:image/png;base64,${body.image_b64}`, error: null };
+      } catch (err) {
+        return { image: null, error: err instanceof Error ? err.message : String(err) };
+      }
+    },
+    [intakeScene],
+  );
+
   const handleAudio = useCallback(
     async (audio: Blob) => {
       // Transcribe then send as text
@@ -370,6 +389,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
           agentError={agentError}
           onNext={() => setStage(STAGES[stageIndex + 1] ?? "stage.deliver")}
           onEdit={handleDesignEdit}
+          onRender={handleRender}
         />
       ) : isDeliver ? (
         <main className="flex min-h-0 flex-1 flex-col" aria-label={t["app.name"]}>

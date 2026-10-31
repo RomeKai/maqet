@@ -731,3 +731,30 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run("server.api:app", host="127.0.0.1", port=8000)
+
+
+class RenderRoomIn(BaseModel):
+    scene: Scene
+    room_id: str
+
+
+def get_image_client() -> Any:
+    """Production Meta client; tests override this dependency."""
+    from mme.client import client
+
+    return client()
+
+
+@app.post("/render/room")
+def post_render_room(body: RenderRoomIn, image_client: Any = Depends(get_image_client)) -> dict[str, Any]:
+    """Concept render of one room. Runs only on an explicit tap; $0.01 per call."""
+    from server.render.room_render import render_room
+
+    try:
+        return render_room(body.scene, body.room_id, image_client)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"unknown room {body.room_id!r}") from exc
+    except Exception as exc:
+        if type(exc).__name__ == "ReplayMiss":
+            raise HTTPException(status_code=409, detail="no recorded render in replay mode") from exc
+        raise
