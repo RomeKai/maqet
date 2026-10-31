@@ -231,3 +231,20 @@ class SetSurfaceMaterialInput(_ToolInput):
 
 
 TOOL_MODELS["set_surface_material"] = SetSurfaceMaterialInput
+
+
+class FurnishRoomInput(_ToolInput):
+    brief_kind: Literal[
+        "double_bedroom", "single_bedroom", "kids_room", "study", "living", "dining", "living_dining"
+    ]
+    room_id: str | None = None
+    room: str | None = None
+    occupants: int | None = Field(default=None, ge=1, le=12)
+    # Extras by name: nightstands, wardrobe, desk, bookshelf, crib, armchair, tv, coffee_table, chairs.
+    items: list[str] | None = None
+    # Replace the room's existing furniture (default) or keep it and add around it.
+    replace: bool = True
+    selected: SelectedRef | None = None
+
+
+TOOL_MODELS["furnish_room"] = FurnishRoomInput

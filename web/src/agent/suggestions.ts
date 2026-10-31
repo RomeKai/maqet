@@ -21,6 +21,9 @@ export const SUGGESTIONS: Record<SuggestionStage, readonly Suggestion[]> = {
     { key: "suggest.reform.split", tool: "split_room" },
   ],
   design: [
+    { key: "suggest.design.furnishBedroom", tool: "furnish_room" },
+    { key: "suggest.design.study", tool: "furnish_room" },
+    { key: "suggest.design.livingDining", tool: "furnish_room" },
     { key: "suggest.design.bed", tool: "place_furniture" },
     { key: "suggest.design.fits", tool: "list_catalog" },
     { key: "suggest.design.remove", tool: "remove_item" },

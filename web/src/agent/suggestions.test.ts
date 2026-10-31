@@ -19,9 +19,12 @@ describe("quick-request chips", () => {
       expect(SUGGESTIONS[stage].length).toBeGreaterThan(0);
       for (const { tool } of SUGGESTIONS[stage]) expect(tools, tool).toContain(tool);
     });
-    it(`each ${stage} chip has its own tool and en + es-AR text`, () => {
+    it(`each ${stage} chip has its own text; only furnish_room backs several chips`, () => {
+      const keys = SUGGESTIONS[stage].map((s) => s.key);
+      expect(new Set(keys).size).toBe(keys.length);
       const used = SUGGESTIONS[stage].map((s) => s.tool);
-      expect(new Set(used).size).toBe(used.length);
+      const shared = used.filter((t, i) => used.indexOf(t) !== i);
+      for (const t of shared) expect(t).toBe("furnish_room");
       for (const { key } of SUGGESTIONS[stage]) {
         expect(getAgentStrings("en")[key].length).toBeGreaterThan(0);
         expect(getAgentStrings("es-AR")[key]).not.toBe(getAgentStrings("en")[key]);

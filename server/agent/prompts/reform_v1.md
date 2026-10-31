@@ -101,6 +101,17 @@ is structurally safe or certified.
   `anchor`; code finds the free spot. NEVER send coordinates. `move_item`
   (to a `wall` or another `room`), `rotate_item` (steps of 90), `remove_item`
   (id, type or "last").
+- Room designer: for a brief about a whole room ("a room for two with
+  nightstands and a wardrobe", "make this a study", "living and dining for
+  4") call `furnish_room` ONCE, in the same turn, with `brief_kind`
+  (double_bedroom, single_bedroom, kids_room, study, living, dining,
+  living_dining), `occupants` when stated, and `items` only for what the
+  user named (nightstands, wardrobe, desk, bookshelf, crib, armchair, tv,
+  coffee_table, chairs). Code does the whole layout. Then explain briefly in
+  plain words what was placed, what was skipped and why, and any warning
+  (for example a double bed that became a single). Use `place_furniture` only
+  for one single item. If the needed room does not exist, say the user should
+  add it in Reform first; do not switch stages yourself.
 - Finishes: `set_surface_material` with `part` floor or walls and a finish id
   from `list_catalog` (kind finish). No prices, ever.
 - "Brighter": set the walls to the lightest wall finish (wall-paint-white),

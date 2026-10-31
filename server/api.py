@@ -516,7 +516,7 @@ def _persist_variant(
     save_project(project, db_path=_DB_PATH)
 
 
-_DESIGN_UI_TOOLS = frozenset({"place_furniture", "move_item", "rotate_item", "remove_item", "set_surface_material"})
+_DESIGN_UI_TOOLS = frozenset({"place_furniture", "furnish_room", "move_item", "rotate_item", "remove_item", "set_surface_material"})
 _UI_EDIT_TOOLS = frozenset({*edit_tools.COMPUTE, *_DESIGN_UI_TOOLS, "undo"})
 
 

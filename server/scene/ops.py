@@ -332,6 +332,7 @@ def _replay_edit(label: str):
 
 DESIGN_OPS = (
     "place_furniture",
+    "furnish_room",
     "move_item",
     "rotate_item",
     "remove_item",

@@ -77,6 +77,7 @@ def test_stage_toolsets_exact() -> None:
     assert STAGES["design"] == (
         "list_catalog",
         "place_furniture",
+        "furnish_room",
         "move_item",
         "rotate_item",
         "remove_item",

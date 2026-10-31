@@ -303,6 +303,18 @@ def _symbol(kind: str, w: float, d: float) -> tuple[list[tuple[tuple[float, floa
         return [((0.0, -hd), (0.0, hd)), ((-hw, hd - 0.05), (hw, hd - 0.05))], []
     if kind == "desk":
         return [((-hw, -hd + 0.05), (hw, -hd + 0.05))], []
+    if kind == "nightstand":
+        return [((-hw, -hd + 0.1), (hw, -hd + 0.1))], [((0.0, 0.0), min(w, d) * 0.15)]
+    if kind == "armchair":
+        return [((-hw, -hd + 0.2), (hw, -hd + 0.2)), ((-hw + 0.15, -hd + 0.2), (-hw + 0.15, hd)), ((hw - 0.15, -hd + 0.2), (hw - 0.15, hd))], []
+    if kind == "tvunit":
+        return [((-hw + 0.1, -hd + 0.1), (hw - 0.1, -hd + 0.1)), ((-hw + 0.1, hd - 0.1), (hw - 0.1, hd - 0.1))], []
+    if kind == "bookshelf":
+        return [((-hw, -hd + 0.05), (hw, -hd + 0.05)), ((-hw, hd - 0.05), (hw, hd - 0.05)), ((-hw, -hd), (hw, hd))], []
+    if kind == "coffeetable":
+        return rect(-hw + 0.1, -hd + 0.1, hw - 0.1, hd - 0.1), []
+    if kind == "crib":
+        return [*(((u, -hd), (u, hd)) for u in (-hw + 0.1, -hw / 3.0, hw / 3.0, hw - 0.1))], []
     if kind == "stove":
         return [], [((su * w / 4.0, sv * d / 4.0), min(w, d) * 0.12) for su in (-1.0, 1.0) for sv in (-1.0, 1.0)]
     return [], []

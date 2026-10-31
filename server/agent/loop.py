@@ -76,6 +76,7 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
     "undo": "Undo the last successful change.",
     "list_catalog": "List CC0 catalog items (materials, furniture) for the Design stage.",
     "place_furniture": "Place a catalog item in a room by catalog_id; code finds a free spot (optional room, anchor wall label, scale 0.8-1.2). Design stage.",
+    "furnish_room": "Furnish a whole room in ONE call from a brief: brief_kind (double_bedroom, single_bedroom, kids_room, study, living, dining, living_dining), optional occupants and items (nightstands, wardrobe, desk, bookshelf, crib, armchair, tv, coffee_table, chairs). Code does the layout and reports placed and skipped. Design stage.",
     "move_item": "Move a placed item: to a wall label, another room, or meters from a tap (Design stage).",
     "rotate_item": "Rotate a placed item by delta_deg or to rotation_deg; snapped to 90 degrees (Design stage).",
     "remove_item": "Remove a placed item by id, type (bed) or \"last\" (Design stage).",

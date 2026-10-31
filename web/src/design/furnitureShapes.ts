@@ -58,6 +58,30 @@ export function furnitureParts(type: string, size: readonly [number, number, num
       ];
     case "desk":
       return [box(0, 0, h - 0.02, w, d, 0.04), ...legs(w, d, h - 0.04, 0.05, 0.03)];
+    case "nightstand":
+      return [box(0, 0, h / 2, w, d, h), box(0, d / 2 - 0.01, h * 0.7, w * 0.8, 0.02, h * 0.25, 1)];
+    case "armchair":
+      return [
+        box(0, d * 0.15, h * 0.2, w, d * 0.7, h * 0.4),
+        box(0, -d / 2 + d * 0.15, h / 2, w, d * 0.3, h),
+        box(-w / 2 + w * 0.08, d * 0.15, h * 0.35, w * 0.16, d * 0.7, h * 0.7),
+        box(w / 2 - w * 0.08, d * 0.15, h * 0.35, w * 0.16, d * 0.7, h * 0.7),
+      ];
+    case "tvunit":
+      return [box(0, 0, h / 2, w, d, h), box(0, d / 2 - 0.01, h / 2, w * 0.9, 0.02, h * 0.7, 1)];
+    case "bookshelf":
+      return [
+        box(0, 0, h / 2, w, d, h),
+        ...[0.25, 0.5, 0.75].map((f) => box(0, d / 2 - 0.01, h * f, w * 0.9, 0.02, 0.03, 1)),
+      ];
+    case "coffeetable":
+      return [box(0, 0, h - 0.02, w, d, 0.04), ...legs(w, d, h - 0.04, 0.05, 0.03)];
+    case "crib":
+      return [
+        box(0, 0, h * 0.3, w, d, h * 0.6),
+        box(0, -d / 2 + 0.02, h / 2, w, 0.04, h),
+        box(0, d / 2 - 0.02, h / 2, w, 0.04, h),
+      ];
     case "stove":
       return [
         box(0, 0, (h - 0.01) / 2, w, d, h - 0.01),

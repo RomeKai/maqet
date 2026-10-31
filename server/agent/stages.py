@@ -25,6 +25,7 @@ STAGES: dict[str, tuple[str, ...]] = {
     "design": (
         "list_catalog",
         "place_furniture",
+        "furnish_room",
         "move_item",
         "rotate_item",
         "remove_item",

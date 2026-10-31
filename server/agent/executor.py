@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from server.agent import stages as stage_table
 from server.agent import tools as tool_contracts
-from server.agent import design, edit_tools
+from server.agent import design, edit_tools, furnish
 from server.agent.wall_labels import resolve_in_walls
 from server.agent.addressing import (
     resolve_room,
@@ -682,6 +682,32 @@ def _make_design_handler(tool: str):
     return handler
 
 
+def _handle_furnish_room(scene: Scene, history: list, a) -> tuple[Scene, ToolResult]:
+    try:
+        furniture, changed, data, warnings = furnish.furnish(scene, a)
+    except design.DesignError as exc:
+        return _fail(scene, exc.code, exc.message)
+    new_scene, res = ops.edit_design(
+        scene, "furnish_room", furniture=tuple(furniture), surfaces=tuple(scene.surfaces)
+    )
+    if not res.ok:
+        return _op_fail(scene, res)
+    snapshot = {
+        "kind": "design",
+        "furniture": [f.model_dump() for f in scene.furniture],
+        "surfaces": [x.model_dump() for x in scene.surfaces],
+    }
+    edit_tools.attach_history(history, res.record, snapshot)
+    return new_scene, ToolResult(
+        ok=True,
+        warnings=[*warnings, *[str(w) for w in res.warnings]],
+        flags=[str(f) for f in res.flags],
+        changed_ids=list(changed),
+        version=new_scene.version,
+        data=data,
+    )
+
+
 def _handle_set_surface(scene: Scene, history: list, a) -> tuple[Scene, ToolResult]:
     try:
         surfaces, changed, warnings = design.set_surface(scene, a)
@@ -709,6 +735,7 @@ def _handle_set_surface(scene: Scene, history: list, a) -> tuple[Scene, ToolResu
 
 _HANDLERS = {
     "set_surface_material": _handle_set_surface,
+    "furnish_room": _handle_furnish_room,
     **{tool: _make_design_handler(tool) for tool in _DESIGN_COMPUTE},
     **{tool: _make_edit_handler(tool) for tool in edit_tools.COMPUTE},
     "add_room": _handle_add_room,

@@ -127,6 +127,204 @@
       "placement": "wall"
     },
     {
+      "clearance_only": false,
+      "dims_m": {
+        "d": 1.9,
+        "h": 0.55,
+        "w": 1.4
+      },
+      "id": "bed-double-140x190",
+      "kind": "furniture",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Double bed 140x190",
+      "name_es_AR": "Cama de dos plazas 140x190",
+      "source_url": "https://kenney.nl/assets/furniture-kit",
+      "asset_status": "pending",
+      "type": "bed",
+      "placement": "wall"
+    },
+    {
+      "clearance_only": false,
+      "dims_m": {
+        "d": 2.0,
+        "h": 0.55,
+        "w": 1.6
+      },
+      "id": "bed-queen-160x200",
+      "kind": "furniture",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Queen bed 160x200",
+      "name_es_AR": "Cama queen 160x200",
+      "source_url": "https://kenney.nl/assets/furniture-kit",
+      "asset_status": "pending",
+      "type": "bed",
+      "placement": "wall"
+    },
+    {
+      "clearance_only": false,
+      "dims_m": {
+        "d": 0.4,
+        "h": 0.55,
+        "w": 0.45
+      },
+      "id": "nightstand-45x40",
+      "kind": "furniture",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Nightstand 45x40",
+      "name_es_AR": "Mesa de luz 45x40",
+      "source_url": "https://kenney.nl/assets/furniture-kit",
+      "asset_status": "pending",
+      "type": "nightstand",
+      "placement": "wall"
+    },
+    {
+      "clearance_only": false,
+      "dims_m": {
+        "d": 0.9,
+        "h": 0.75,
+        "w": 0.9
+      },
+      "id": "table-90x90",
+      "kind": "furniture",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Dining table for 4, 90x90",
+      "name_es_AR": "Mesa de comedor para 4, 90x90",
+      "source_url": "https://kenney.nl/assets/furniture-kit",
+      "asset_status": "pending",
+      "type": "table",
+      "placement": "center"
+    },
+    {
+      "clearance_only": false,
+      "dims_m": {
+        "d": 0.9,
+        "h": 0.75,
+        "w": 1.6
+      },
+      "id": "table-160x90",
+      "kind": "furniture",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Dining table for 6, 160x90",
+      "name_es_AR": "Mesa de comedor para 6, 160x90",
+      "source_url": "https://kenney.nl/assets/furniture-kit",
+      "asset_status": "pending",
+      "type": "table",
+      "placement": "center"
+    },
+    {
+      "clearance_only": false,
+      "dims_m": {
+        "d": 0.5,
+        "h": 0.9,
+        "w": 0.45
+      },
+      "id": "chair-dining-45x50",
+      "kind": "furniture",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Dining chair 45x50",
+      "name_es_AR": "Silla de comedor 45x50",
+      "source_url": "https://kenney.nl/assets/furniture-kit",
+      "asset_status": "pending",
+      "type": "chair",
+      "placement": "center"
+    },
+    {
+      "clearance_only": false,
+      "dims_m": {
+        "d": 0.8,
+        "h": 0.85,
+        "w": 0.8
+      },
+      "id": "armchair-80x80",
+      "kind": "furniture",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Armchair 80x80",
+      "name_es_AR": "Sillon 80x80",
+      "source_url": "https://kenney.nl/assets/furniture-kit",
+      "asset_status": "pending",
+      "type": "armchair",
+      "placement": "wall"
+    },
+    {
+      "clearance_only": false,
+      "dims_m": {
+        "d": 0.4,
+        "h": 0.5,
+        "w": 1.4
+      },
+      "id": "tvunit-140x40",
+      "kind": "furniture",
+      "license": "CC0",
+      "local_path": null,
+      "name": "TV unit 140x40",
+      "name_es_AR": "Mueble de TV 140x40",
+      "source_url": "https://kenney.nl/assets/furniture-kit",
+      "asset_status": "pending",
+      "type": "tvunit",
+      "placement": "wall"
+    },
+    {
+      "clearance_only": false,
+      "dims_m": {
+        "d": 0.3,
+        "h": 1.8,
+        "w": 0.8
+      },
+      "id": "bookshelf-80x30",
+      "kind": "furniture",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Bookshelf 80x30",
+      "name_es_AR": "Biblioteca 80x30",
+      "source_url": "https://kenney.nl/assets/furniture-kit",
+      "asset_status": "pending",
+      "type": "bookshelf",
+      "placement": "wall"
+    },
+    {
+      "clearance_only": false,
+      "dims_m": {
+        "d": 0.5,
+        "h": 0.4,
+        "w": 0.9
+      },
+      "id": "coffeetable-90x50",
+      "kind": "furniture",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Coffee table 90x50",
+      "name_es_AR": "Mesa ratona 90x50",
+      "source_url": "https://kenney.nl/assets/furniture-kit",
+      "asset_status": "pending",
+      "type": "coffeetable",
+      "placement": "center"
+    },
+    {
+      "clearance_only": false,
+      "dims_m": {
+        "d": 1.25,
+        "h": 0.9,
+        "w": 0.65
+      },
+      "id": "crib-65x125",
+      "kind": "furniture",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Crib 65x125",
+      "name_es_AR": "Cuna 65x125",
+      "source_url": "https://kenney.nl/assets/furniture-kit",
+      "asset_status": "pending",
+      "type": "crib",
+      "placement": "wall"
+    },
+    {
       "clearance_only": true,
       "diameter_m": 0.9,
       "dims_m": {

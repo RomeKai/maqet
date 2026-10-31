@@ -4,7 +4,7 @@ Scripted fake model replaying real and common call sequences through the real lo
 addressing code on the `croquis_3x8_door_window` sample. Source: `server/tests/test_agent_multiturn_eval.py`.
 Regenerated on every pytest run.
 
-Result: 32/32 checks pass.
+Result: 38/38 checks pass.
 
 | Scenario | Check / phrasing | Result |
 |---|---|---|
@@ -40,3 +40,9 @@ Result: 32/32 checks pass.
 | phrasings on the new room | door on the new room's north wall | pass |
 | refusals | window on the shared wall | pass |
 | refusals | south side of the new room is the shared wall | pass |
+| design | bedroom for two: ONE furnish_room call | pass |
+| design | bed, nightstands and wardrobe placed | pass |
+| design | undo removes the whole batch | pass |
+| design | make this a study | pass |
+| design | dining for 4 replaces the study with a table and 4 chairs | pass |
+| design | unknown room is refused, Scene unchanged | pass |

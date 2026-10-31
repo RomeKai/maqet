@@ -42,10 +42,10 @@ class Session:
     history: list = field(default_factory=list)
     chat: list[dict[str, str]] = field(default_factory=list)
 
-    def say(self, text: str, *steps: dict[str, Any]) -> Any:
+    def say(self, text: str, *steps: dict[str, Any], stage: str = "reform") -> Any:
         client = ScriptedClient(list(steps))
         result = run_turn(
-            self.scene, self.history, "reform", text, client, conversation=list(self.chat)
+            self.scene, self.history, stage, text, client, conversation=list(self.chat)
         )
         self.chat += [{"role": "user", "text": text}, {"role": "assistant", "text": result.reply}]
         self.scene = result.scene
@@ -199,6 +199,47 @@ def test_a_window_on_the_shared_wall_is_refused_with_a_reason(sample: Scene) -> 
     check("refusals", "window on the shared wall", not ev["ok"] and "overlap" in ev["error_messages"][0], str(ev))
     s.say("window on the south wall of the new room", call("add_opening", wall="south wall of the new bedroom", kind="window"), reply("hm"))
     check("refusals", "south side of the new room is the shared wall", not s.last_events[0]["ok"])
+
+
+def test_design_brief_furnishes_the_room_in_one_turn(sample: Scene) -> None:
+    s = Session(sample)
+    s.say("add a 3x4 bedroom", call("add_room", **BEDROOM, wall="wall 1"), reply("ok"))
+    room = s.scene.rooms[-1].id
+    n0 = len(s.scene.furniture)
+    s.say(
+        "a room for two people with nightstands and a wardrobe",
+        call("furnish_room", brief_kind="double_bedroom", room=room, occupants=2, items=["nightstands", "wardrobe"]),
+        reply("Placed a double bed, two nightstands and a wardrobe."),
+        stage="design",
+    )
+    ev = s.last_events
+    check("design", "bedroom for two: ONE furnish_room call", len(ev) == 1 and ev[0]["ok"], str(ev))
+    ids = {f.catalog_id for f in s.scene.furniture[n0:]}
+    check("design", "bed, nightstands and wardrobe placed", {"nightstand-45x40", "wardrobe-120x60"} <= ids and any(i.startswith("bed-") for i in ids))
+    s.say("undo that", call("undo"), reply("Undone."), stage="design")
+    check("design", "undo removes the whole batch", len(s.scene.furniture) == n0)
+
+
+def test_design_study_and_dining_briefs(sample: Scene) -> None:
+    s = Session(sample)
+    s.say("add a 3x4 room", call("add_room", **BEDROOM, wall="wall 1"), reply("ok"))
+    room = s.scene.rooms[-1].id
+    s.say("make this a study", call("furnish_room", brief_kind="study", room=room), reply("A desk by the window."), stage="design")
+    check("design", "make this a study", s.last_events[0]["ok"] and any(f.catalog_id == "desk-120x60" for f in s.scene.furniture), str(s.last_events))
+    s.say("dining for 4 here instead", call("furnish_room", brief_kind="dining", room=room, occupants=4), reply("Table and chairs."), stage="design")
+    chairs = sum(f.catalog_id == "chair-dining-45x50" for f in s.scene.furniture)
+    check("design", "dining for 4 replaces the study with a table and 4 chairs", chairs == 4 and not any(f.catalog_id == "desk-120x60" for f in s.scene.furniture), str(chairs))
+
+
+def test_design_brief_without_the_room_is_refused_plainly(sample: Scene) -> None:
+    s = Session(sample)
+    s.say(
+        "furnish a bedroom for two",
+        call("furnish_room", brief_kind="double_bedroom", room="Nursery"),
+        reply("There is no such room; add it in Reform first."),
+        stage="design",
+    )
+    check("design", "unknown room is refused, Scene unchanged", not s.last_events[0]["ok"] and not s.scene.furniture)
 
 
 def test_write_results_table() -> None:

@@ -10,6 +10,17 @@ const DIMS: Record<string, [number, number, number]> = {
   "wardrobe-120x60": [1.2, 0.6, 2.0],
   "sofa-3seat-200x90": [2.0, 0.9, 0.85],
   "desk-120x60": [1.2, 0.6, 0.75],
+  "bed-double-140x190": [1.4, 1.9, 0.55],
+  "bed-queen-160x200": [1.6, 2.0, 0.55],
+  "nightstand-45x40": [0.45, 0.4, 0.55],
+  "table-90x90": [0.9, 0.9, 0.75],
+  "table-160x90": [1.6, 0.9, 0.75],
+  "chair-dining-45x50": [0.45, 0.5, 0.9],
+  "armchair-80x80": [0.8, 0.8, 0.85],
+  "tvunit-140x40": [1.4, 0.4, 0.5],
+  "bookshelf-80x30": [0.8, 0.3, 1.8],
+  "coffeetable-90x50": [0.9, 0.5, 0.4],
+  "crib-65x125": [0.65, 1.25, 0.9],
 };
 
 describe("furniture shapes", () => {
