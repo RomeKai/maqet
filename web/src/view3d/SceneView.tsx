@@ -24,6 +24,8 @@ interface SceneViewProps {
   /** Design: tap a piece to select it; the selected piece glows. */
   selectedItemId?: string | null;
   onSelectItem?: (itemId: string) => void;
+  /** Type labels above furniture (default on); the guide capture turns them off. */
+  labels?: boolean;
 }
 
 /**
@@ -47,6 +49,7 @@ export function SceneMeshesView({
   wallNumbers = false,
   selectedItemId = null,
   onSelectItem,
+  labels = true,
 }: SceneViewProps): React.JSX.Element {
   const meshes = useMemo(() => sceneToMeshes(scene), [scene]);
   const furniture = useMemo(() => furnitureMeshes(scene), [scene]);
@@ -153,7 +156,7 @@ export function SceneMeshesView({
           </group>
         );
       })}
-      <FurnitureLabels items={furniture} />
+      {labels ? <FurnitureLabels items={furniture} /> : null}
       {wallNumbers ? <WallBadges scene={scene} /> : null}
       {meshes.floors.map((floor, i) => (
         <mesh

@@ -76,3 +76,22 @@ for (const { width, height } of SIZES) {
     });
   }
 }
+
+test("In real life sends a PNG guide captured from the fixed door camera", async ({ page }) => {
+  await page.setViewportSize({ width: 412, height: 915 });
+  await openStage(page, "Design");
+  let guide = "";
+  await page.route("**/render/real-life", async (route) => {
+    const body = route.request().postDataJSON() as { guide_image_b64?: string };
+    guide = body.guide_image_b64 ?? "";
+    await route.fulfill({ json: { image_b64: guide || "AA", style: "modern", cost_usd: 0.01, guided: true } });
+  });
+  await page.getByRole("button", { name: "In real life" }).first().click();
+  await page.getByRole("button", { name: "Show it in real life" }).click();
+  await expect.poll(() => guide.length, { timeout: 15000 }).toBeGreaterThan(1000);
+  const bytes = Buffer.from(guide, "base64");
+  expect(bytes.subarray(1, 4).toString("ascii")).toBe("PNG");
+  expect(bytes.readUInt32BE(16)).toBe(1024);
+  const { writeFileSync } = await import("node:fs");
+  writeFileSync("e2e/screenshots/real-life-guide.png", bytes);
+});

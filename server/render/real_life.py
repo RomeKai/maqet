@@ -3,7 +3,9 @@
 Fidelity: the master prompt is a structured description built in code from the
 measured Scene (ADR-002): the house rooms, the chosen room with its openings,
 furniture and finishes, then the style; stable prefix first for caching.
-Text-only (human decision): the layout in the picture is approximate.
+With a guide image (a fixed eye-level capture of the Design scene) the model edits that
+picture, so camera and layout are preserved; without one it falls back to text only
+(approximate layout).
 """
 
 from __future__ import annotations
@@ -31,6 +33,10 @@ _PREFIX = (
     "Photorealistic interior photograph of a finished room in a self-built home. "
     "Follow the measured layout below exactly: do not add, remove or move any door, window or furniture. "
     "No people, no text."
+)
+PRESERVE_CLAUSE = (
+    "Keep the exact camera, room geometry, door, window and furniture positions of the input image; "
+    "restyle materials, lighting and decor only."
 )
 _FACING = {0: "north", 90: "west", 180: "south", 270: "east"}
 
@@ -71,7 +77,7 @@ def _openings(scene: Scene, room: Room) -> list[tuple[str, str, str]]:
     return sorted(out)
 
 
-def build_prompt(scene: Scene, room_id: str, style: str) -> str:
+def build_prompt(scene: Scene, room_id: str, style: str, guided: bool = False) -> str:
     room = next((r for r in scene.rooms if r.id == room_id), None)
     if room is None:
         raise KeyError(room_id)
@@ -125,18 +131,22 @@ def build_prompt(scene: Scene, room_id: str, style: str) -> str:
     window = next((o for o in ops if o[0] == "window"), None)
     cam = "Camera: eye-level view (1.5 m) from " + (f"the {door[1]} door" if door else "the room entrance")
     cam += f", looking toward the {window[1]} wall with the window." if window else ", looking across the room."
-    lines.append(cam)
+    lines.append(PRESERVE_CLAUSE if guided else cam)
     lines.append(STYLES[style])
     return "\n".join(lines)
 
 
-def render_real_life(scene: Scene, room_id: str, style: str, client: Any) -> dict:
-    """Text-only: one deterministic master prompt, one image (n=1)."""
-    images = client.image_generate(build_prompt(scene, room_id, style), tag="render", n=1)
+def render_real_life(scene: Scene, room_id: str, style: str, client: Any, guide_png: bytes | None = None) -> dict:
+    """One master prompt, one image (n=1): image-conditioned when a guide image is given, else text-only."""
+    if guide_png:
+        images = client.image_edit(build_prompt(scene, room_id, style, guided=True), guide_png, tag="render", n=1)
+    else:
+        images = client.image_generate(build_prompt(scene, room_id, style), tag="render", n=1)
     if not images:
         raise RuntimeError("the image model returned no image")
     return {
         "image_b64": base64.b64encode(images[0]).decode("ascii"),
         "style": style,
         "cost_usd": COST_PER_IMAGE_USD,
+        "guided": bool(guide_png),
     }

@@ -14,6 +14,7 @@ import { MaquetteSheet } from "./view3d/MaquetteSheet";
 import { ChatSheet } from "./agent/ChatSheet";
 import { transcribeClip } from "./agent/transcribe";
 import { ProBanner } from "./agent/ProBanner";
+import { captureGuideImage } from "./view3d/GuideCapture";
 import { ReformScreen } from "./agent/ReformScreen";
 import { DesignScreen, type DesignEditResult } from "./design/DesignScreen";
 import { EMPTY_REAL_LIFE, type RealLifeState, type StyleId } from "./design/RealLifeCard";
@@ -295,10 +296,12 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
       if (!intakeScene || realLife.pending) return;
       setRealLife((s) => ({ ...s, pending: true, error: null }));
       try {
+        // Fixed door-height capture of the Design scene keeps the layout; null falls back to text-only.
+        const guide = await captureGuideImage(intakeScene, roomId);
         const res = await fetch(`${baseUrl()}/render/real-life`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ scene: intakeScene, room_id: roomId, style }),
+          body: JSON.stringify({ scene: intakeScene, room_id: roomId, style, guide_image_b64: guide }),
         });
         if (!res.ok) throw new Error((await res.text().catch(() => "")) || `render ${res.status}`);
         const body = (await res.json()) as { image_b64: string };

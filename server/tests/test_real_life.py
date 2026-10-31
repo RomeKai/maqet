@@ -33,6 +33,10 @@ class Fake:
         self.calls.append(("generate", prompt, n))
         return [b"IMG"]
 
+    def image_edit(self, prompt, image_bytes, *, tag="render", n=1, **p):
+        self.calls.append(("edit", prompt, n, image_bytes))
+        return [b"EDIT"]
+
 
 def test_prompt_contains_measured_design_and_style() -> None:
     p = build_prompt(_designed(), "r1", "rustic")
@@ -88,4 +92,36 @@ def test_route_one_image() -> None:
     j = r.json()
     assert r.status_code == 200 and base64.b64decode(j["image_b64"]) == b"IMG"
     assert j["cost_usd"] == 0.01 and j["style"] == "industrial" and "label" not in j
+    assert bad.status_code == 422 and len(fake.calls) == 1
+GUIDE = bytes([137]) + b"PNG-guide"
+
+
+def test_guide_image_reaches_image_edit_with_the_preservation_clause() -> None:
+    fake = Fake(False)
+    r = render_real_life(_designed(), "r1", "cozy", fake, GUIDE)
+    kind, prompt, n, img = fake.calls[0]
+    assert kind == "edit" and img == GUIDE and n == 1
+    assert "Keep the exact camera, room geometry, door, window and furniture positions of the input image" in prompt
+    assert "restyle materials, lighting and decor only" in prompt
+    assert "Single bed" in prompt and "cozy" in prompt.lower()
+    assert r["guided"] is True and base64.b64decode(r["image_b64"]) == b"EDIT"
+
+
+def test_without_a_guide_it_falls_back_to_text_only() -> None:
+    fake = Fake(False)
+    r = render_real_life(_designed(), "r1", "cozy", fake)
+    assert fake.calls[0][0] == "generate" and r["guided"] is False
+
+
+def test_route_accepts_the_guide_and_rejects_non_png() -> None:
+    fake = Fake(False)
+    app.dependency_overrides[get_image_client] = lambda: fake
+    try:
+        c = TestClient(app)
+        body = {"scene": _designed().model_dump(mode="json"), "room_id": "r1", "style": "modern"}
+        ok = c.post("/render/real-life", json={**body, "guide_image_b64": base64.b64encode(GUIDE).decode()})
+        bad = c.post("/render/real-life", json={**body, "guide_image_b64": base64.b64encode(b"nope").decode()})
+    finally:
+        app.dependency_overrides.pop(get_image_client, None)
+    assert ok.status_code == 200 and fake.calls[0][0] == "edit" and fake.calls[0][3] == GUIDE
     assert bad.status_code == 422 and len(fake.calls) == 1

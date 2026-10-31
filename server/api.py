@@ -9,6 +9,7 @@ Run from the repo root:
 
 from __future__ import annotations
 
+import base64
 import io
 import logging
 import re
@@ -788,6 +789,12 @@ class RealLifeIn(BaseModel):
     scene: Scene
     room_id: str
     style: str
+    # PNG of the Design scene from a fixed eye-level camera (base64, optional); about 1024 px.
+    guide_image_b64: str | None = None
+
+
+_MAX_GUIDE_BYTES = 8_000_000
+_PNG_MAGIC = bytes.fromhex("89504e47")
 
 
 @app.post("/render/real-life")
@@ -797,8 +804,16 @@ def post_render_real_life(body: RealLifeIn, image_client: Any = Depends(get_imag
 
     if body.style not in STYLES:
         raise HTTPException(status_code=422, detail=f"unknown style {body.style!r}; use one of {sorted(STYLES)}")
+    guide: bytes | None = None
+    if body.guide_image_b64:
+        try:
+            guide = base64.b64decode(body.guide_image_b64, validate=True)
+        except Exception as exc:
+            raise HTTPException(status_code=422, detail="guide_image_b64 is not valid base64") from exc
+        if len(guide) > _MAX_GUIDE_BYTES or not guide.startswith(_PNG_MAGIC):
+            raise HTTPException(status_code=422, detail="guide image must be a PNG under 8 MB")
     try:
-        return render_real_life(body.scene, body.room_id, body.style, image_client)
+        return render_real_life(body.scene, body.room_id, body.style, image_client, guide)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=f"unknown room {body.room_id!r}") from exc
     except Exception as exc:
