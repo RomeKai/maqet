@@ -24,5 +24,8 @@ export const SUGGESTIONS: Record<SuggestionStage, readonly Suggestion[]> = {
     { key: "suggest.design.bed", tool: "place_furniture" },
     { key: "suggest.design.fits", tool: "list_catalog" },
     { key: "suggest.design.remove", tool: "remove_item" },
+    { key: "suggest.design.brighter", tool: "set_surface_material" },
+    { key: "suggest.design.move", tool: "move_item" },
+    { key: "suggest.design.rotate", tool: "rotate_item" },
   ],
 };

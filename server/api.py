@@ -557,6 +557,7 @@ def post_agent_edit(body: AgentEditIn) -> AgentTurnOut:
         ops_applied=[AppliedOpOut(name=body.tool, arguments=body.args, flags=res.flags)],
         professional_flags=flags,
         history=[OpRecordIn(**asdict(record)) for record in history],
+        tool_warnings=list(res.warnings),
     )
 
 

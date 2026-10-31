@@ -159,3 +159,18 @@ def test_surface_material_rejects_wrong_surface_kind_and_unknown() -> None:
 def test_brighter_hint_when_room_has_no_window() -> None:
     _, res = execute(_scene(), [], "design", "set_surface_material", {"room": "r1", "part": "walls", "material_id": "wall-paint-white"})
     assert any("window" in w for w in res.warnings)
+
+
+def test_api_edit_accepts_design_tools_and_returns_warnings() -> None:
+    from fastapi.testclient import TestClient
+
+    from server.api import app
+
+    client = TestClient(app)
+    scene = _scene().model_dump(mode="json")
+    r = client.post("/agent/edit", json={"scene": scene, "tool": "place_furniture", "args": {"catalog_id": "sofa-3seat-200x90", "room": "r1"}})
+    assert r.status_code == 200, r.text
+    assert len(r.json()["scene"]["furniture"]) == 1
+    assert r.json()["history"][-1]["op"] == "place_furniture"
+    bad = client.post("/agent/edit", json={"scene": scene, "tool": "create_variant", "args": {}})
+    assert bad.status_code == 422

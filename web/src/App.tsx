@@ -15,6 +15,7 @@ import { ChatSheet } from "./agent/ChatSheet";
 import { transcribeClip } from "./agent/transcribe";
 import { ProBanner } from "./agent/ProBanner";
 import { ReformScreen } from "./agent/ReformScreen";
+import { DesignScreen, type DesignEditResult } from "./design/DesignScreen";
 import { chatKey, toConversation } from "./agent/conversation";
 import { DeliverView } from "./deliver/DeliverView";
 import { parseTakeoff } from "./deliver/takeoffFormat";
@@ -240,6 +241,22 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
     [intakeScene, history, variants, readOnlyMessage],
   );
 
+  const handleDesignEdit = useCallback(
+    async (call: EditCall): Promise<DesignEditResult> => {
+      if (!intakeScene) return { error: "No scene", warnings: [] };
+      try {
+        const res = await sendEdit({ scene: intakeScene, tool: call.tool, args: call.args, history, variant: null });
+        setIntakeScene(res.scene);
+        setHistory(res.history);
+        setProfessionalFlags(res.professional_flags);
+        return { error: null, warnings: res.tool_warnings ?? [] };
+      } catch (err) {
+        return { error: err instanceof Error ? err.message : String(err), warnings: [] };
+      }
+    },
+    [intakeScene, history],
+  );
+
   const handleAudio = useCallback(
     async (audio: Blob) => {
       // Transcribe then send as text
@@ -267,6 +284,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
   const maquetteExpanded = shouldAutoExpandMaquette(captureStep);
   const isAgentStage = agentStage !== null;
   const isReform = stage === "stage.reform";
+  const isDesign = stage === "stage.design";
   const isDeliver = stage === "stage.deliver";
   const isPresent = stage === "stage.present";
 
@@ -339,6 +357,20 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
           onEdit={handleEdit}
           variants={variants}
         />
+      ) : isDesign ? (
+        <DesignScreen
+          scene={intakeScene}
+          locale={locale}
+          selectedWallId={selectedWallId}
+          onSelectWall={setSelectedWallId}
+          messages={messages}
+          onSend={handleSend}
+          onAudio={handleAudio}
+          pending={pending}
+          agentError={agentError}
+          onNext={() => setStage(STAGES[stageIndex + 1] ?? "stage.deliver")}
+          onEdit={handleDesignEdit}
+        />
       ) : isDeliver ? (
         <main className="flex min-h-0 flex-1 flex-col" aria-label={t["app.name"]}>
           {takeoffLoading ? (
@@ -361,7 +393,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
       )}
 
       <section className="sheet" aria-label={t["app.name"]}>
-        {(showWork || (isAgentStage && !isReform)) && (<>
+        {(showWork || (isAgentStage && !isReform && !isDesign)) && (<>
 
         {isAgentStage ? (
           <div className="agent-stage">
