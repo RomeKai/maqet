@@ -677,7 +677,7 @@ export function ArOverlay({ frameRef, corners, locale, walls, pendingStart, pend
         />
       ))}
       <circle className="ar-overlay-marker" r={9} ref={(el) => { markerRef.current = el; }} style={{ display: "none" }} />
-      <text className="ar-overlay-live-height" x="50%" y="calc(50% - 34px)" textAnchor="middle" ref={(el) => { liveHeightRef.current = el; }} style={{ display: "none" }} />
+      <text className="ar-overlay-live-height" x="50%" y="50%" dy="-34" textAnchor="middle" ref={(el) => { liveHeightRef.current = el; }} style={{ display: "none" }} />
       <line className="ar-overlay-band" ref={(el) => { bandRef.current = el; }} />
       <text className="ar-overlay-label" ref={(el) => { bandLabelRef.current = el; }} />
       <circle className="ar-overlay-reticle" r={22} ref={(el) => { reticleRef.current = el; }} />
