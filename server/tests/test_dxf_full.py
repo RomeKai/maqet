@@ -206,7 +206,7 @@ def test_furniture_footprints_and_labels() -> None:
     assert (maxx - minx) == pytest.approx(1.0, abs=TOL)
     assert (maxy - miny) == pytest.approx(2.0, abs=TOL)
 
-    labels = sorted(e.dxf.text for e in _on(msp, "A-FLOR-FURN", "TEXT"))
+    labels = sorted(e.dxf.text for e in _on(msp, "A-ANNO-TEXT", "TEXT") if e.dxf.text in ("lounge-concept CONCEPT", "table-01"))
     assert labels == ["lounge-concept CONCEPT", "table-01"]
 
 
@@ -381,3 +381,27 @@ def test_interior_opening_splits_wall_into_two_parts() -> None:
     parts = wall_shapes(wall, (door,))
     assert len(parts) == 2
     assert sorted(round(p.area, 9) for p in parts) == [0.16, 0.26]
+
+
+def test_furniture_symbols_on_furn_layer_with_real_pose_and_label_on_text_layer() -> None:
+    scene = Scene(
+        id="sym",
+        scale_confirmed=True,
+        walls=[Wall(id="w1", a=(0.0, 0.0), b=(6.0, 0.0), thickness_m=0.2, kind="exterior")],
+        furniture=[
+            Furniture(id="b1", catalog_id="bed-single-90x190", room_id="r1", position=(2.0, 2.0), rotation_deg=90.0, size_m=(0.9, 1.9, 0.55)),
+            Furniture(id="t1", catalog_id="table-120x75", room_id="r1", position=(4.0, 2.0), rotation_deg=0.0, size_m=(1.2, 0.75, 0.75)),
+            Furniture(id="s1", catalog_id="stove-60x60", room_id="r1", position=(5.0, 1.0), rotation_deg=0.0, size_m=(0.6, 0.6, 0.9)),
+        ],
+    )
+    msp = export_dxf(scene).modelspace()
+    assert len(_on(msp, "A-FLOR-FURN", "LWPOLYLINE")) == 3
+    lines = _on(msp, "A-FLOR-FURN", "LINE")
+    assert len(lines) == 5 + 16  # bed: pillow rect + line; table: four chair squares
+    assert len(_on(msp, "A-FLOR-FURN", "CIRCLE")) == 4  # burner marks
+    # bed rotated 90 degrees about (2, 2): its pillow line (local v = -d/2 + 0.45) turns into a vertical line
+    pillow = [e for e in lines if abs(e.dxf.start.x - e.dxf.end.x) < 1e-9 and abs(e.dxf.start.x - 2.0) > 0.4]
+    assert any(abs(abs(e.dxf.start.y - e.dxf.end.y) - 0.9) < 1e-9 for e in pillow)
+    labels = {e.dxf.text for e in _on(msp, "A-ANNO-TEXT", "TEXT")}
+    assert {"bed-single-90x190", "table-120x75", "stove-60x60"} <= labels
+    assert not _on(msp, "A-FLOR-FURN", "TEXT")

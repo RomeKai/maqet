@@ -18,6 +18,7 @@ scale_confirmed is false.
 
 from __future__ import annotations
 
+import json
 import math
 from collections.abc import Sequence
 from datetime import date
@@ -270,20 +271,65 @@ def _furniture_corners(item: Furniture) -> list[tuple[float, float]]:
     ]
 
 
+def _catalog_types() -> dict[str, str]:
+    from server.export.takeoff import CATALOG_PATH
+
+    data = json.loads(CATALOG_PATH.read_text(encoding="utf-8"))
+    return {f["id"]: f.get("type", "") for f in data["furniture"]}
+
+
+def _symbol(kind: str, w: float, d: float) -> tuple[list[tuple[tuple[float, float], tuple[float, float]]], list[tuple[tuple[float, float], float]]]:
+    """Plan symbol in local meters (u along width, v along depth; back at -v). (lines, circles)."""
+    hw, hd = w / 2.0, d / 2.0
+
+    def rect(u0: float, v0: float, u1: float, v1: float):
+        return [((u0, v0), (u1, v0)), ((u1, v0), (u1, v1)), ((u1, v1), (u0, v1)), ((u0, v1), (u0, v0))]
+
+    if kind == "bed":
+        pillow = rect(-hw + 0.08, -hd + 0.08, hw - 0.08, -hd + 0.38)
+        return [*pillow, ((-hw, -hd + 0.45), (hw, -hd + 0.45))], []
+    if kind == "table":
+        chairs = []
+        for u in (-w / 4.0, w / 4.0):
+            for sv in (-1.0, 1.0):
+                v = sv * (hd + 0.25)
+                chairs += rect(u - 0.2, v - 0.2, u + 0.2, v + 0.2)
+        return chairs, []
+    if kind == "chair":
+        return [((-hw, -hd + 0.06), (hw, -hd + 0.06))], []
+    if kind == "sofa":
+        return [((-hw, -hd + 0.2), (hw, -hd + 0.2)), ((-hw + 0.15, -hd + 0.2), (-hw + 0.15, hd)), ((hw - 0.15, -hd + 0.2), (hw - 0.15, hd))], []
+    if kind == "wardrobe":
+        return [((0.0, -hd), (0.0, hd)), ((-hw, hd - 0.05), (hw, hd - 0.05))], []
+    if kind == "desk":
+        return [((-hw, -hd + 0.05), (hw, -hd + 0.05))], []
+    if kind == "stove":
+        return [], [((su * w / 4.0, sv * d / 4.0), min(w, d) * 0.12) for su in (-1.0, 1.0) for sv in (-1.0, 1.0)]
+    return [], []
+
+
 def _add_furniture(msp: Modelspace, item: Furniture) -> None:
+    attrs = {"layer": "A-FLOR-FURN"}
     corners = _furniture_corners(item)
-    msp.add_lwpolyline(
-        [(_m(x), _m(y)) for x, y in corners],
-        close=True,
-        dxfattribs={"layer": "A-FLOR-FURN"},
-    )
+    msp.add_lwpolyline([(_m(x), _m(y)) for x, y in corners], close=True, dxfattribs=attrs)
+    cx, cy = item.position
+    theta = math.radians(item.rotation_deg)
+    cos_t, sin_t = math.cos(theta), math.sin(theta)
+
+    def world(u: float, v: float) -> tuple[float, float]:
+        return (_m(cx + u * cos_t - v * sin_t), _m(cy + u * sin_t + v * cos_t))
+
+    lines, circles = _symbol(_catalog_types().get(item.catalog_id or "", ""), item.size_m[0], item.size_m[1])
+    for p, q in lines:
+        msp.add_line(world(*p), world(*q), dxfattribs=attrs)
+    for c, r in circles:
+        msp.add_circle(world(*c), _m(r), dxfattribs=attrs)
     name = item.catalog_id or item.concept_id or item.id
     text = msp.add_text(
         f"{name} CONCEPT" if item.concept else name,
         height=_m(FURN_LABEL_HEIGHT_M),
-        dxfattribs={"layer": "A-FLOR-FURN"},
+        dxfattribs={"layer": "A-ANNO-TEXT"},
     )
-    cx, cy = item.position
     text.set_placement((_m(cx), _m(cy)), align=TextEntityAlignment.MIDDLE_CENTER)
 
 
