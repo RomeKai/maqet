@@ -115,11 +115,55 @@ def _same_shape(a: list[tuple[float, float]], b: list[tuple[float, float]]) -> b
 # --- polygonize -----------------------------------------------------------------
 
 
+_T_JUNCTION_TOL_M = 1e-4  # 0.1 mm: an end that touches another wall is a junction
+
+
+def _node_t_junctions(lines: list) -> list:
+    """Insert a vertex where a wall end touches the interior of another wall.
+
+    Intake walls are skewed, so a partition's end lands on a wall line only up
+    to floating-point error (1e-15 m). Without a shared vertex the union does
+    not node there and polygonize never splits the room (bug found by the
+    multi-turn eval: split_room on a room built on a skewed wall did nothing).
+    """
+    from shapely.geometry import LineString, Point
+
+    # 1. Ends that agree to within the tolerance become the SAME coordinate.
+    anchors: list[tuple[float, float]] = []
+
+    def canon(pt: tuple[float, ...]) -> tuple[float, float]:
+        for a in anchors:
+            if abs(a[0] - pt[0]) < _T_JUNCTION_TOL_M and abs(a[1] - pt[1]) < _T_JUNCTION_TOL_M:
+                return a
+        anchors.append((float(pt[0]), float(pt[1])))
+        return anchors[-1]
+
+    lines = [LineString([canon(ln.coords[0]), canon(ln.coords[-1])]) for ln in lines]
+    # 2. An end touching another wall's interior becomes a vertex of that wall.
+    out = []
+    for i, line in enumerate(lines):
+        (ax, ay), (bx, by) = line.coords[0], line.coords[-1]
+        extra = []
+        for j, other in enumerate(lines):
+            if i == j:
+                continue
+            for end in (other.coords[0], other.coords[-1]):
+                pt = Point(end)
+                if line.distance(pt) < _T_JUNCTION_TOL_M and pt.distance(Point(ax, ay)) > _T_JUNCTION_TOL_M and pt.distance(Point(bx, by)) > _T_JUNCTION_TOL_M:
+                    extra.append((line.project(pt), (float(end[0]), float(end[1]))))
+        if not extra:
+            out.append(line)
+            continue
+        extra.sort()
+        out.append(LineString([(ax, ay), *[p for _, p in extra], (bx, by)]))
+    return out
+
+
 def _shapely_polygonize(walls: list) -> list[list[tuple[float, float]]]:
     from shapely.geometry import LineString
     from shapely.ops import polygonize, unary_union
 
-    lines = [LineString([tuple(w.a), tuple(w.b)]) for w in walls]
+    lines = _node_t_junctions([LineString([tuple(w.a), tuple(w.b)]) for w in walls])
     merged = unary_union(lines)
     result = polygonize(merged)
     # shapely 2.x yields a GeometrySequence; older builds a collection with .geoms.
