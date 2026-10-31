@@ -11,7 +11,7 @@ History: every successful op produces an OpRecord
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from pydantic import ValidationError
 
@@ -365,7 +365,12 @@ def edit_design(
     changed = [x.id for x in (*new_f, *new_s) if old.get(x.id) != x]
     changed += [i for i in old if i not in {x.id for x in (*new_f, *new_s)}]
     args = {"furniture": [f.model_dump() for f in new_f], "surfaces": [x.model_dump() for x in new_s]}
-    return _apply(scene, label, args, candidate, changed, actor)
+    new_scene, result = _apply(scene, label, args, candidate, changed, actor)
+    if result.ok:
+        from server.scene.fit import furniture_fit_warnings
+
+        result = replace(result, warnings=(*result.warnings, *furniture_fit_warnings(new_scene)))
+    return new_scene, result
 
 
 _OPS = {

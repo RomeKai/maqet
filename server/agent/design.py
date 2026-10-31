@@ -14,6 +14,7 @@ from pathlib import Path
 from shapely.geometry import LineString, Point, Polygon
 
 from server.agent.wall_labels import resolve_in_walls
+from server.scene.fit import door_swing_zones, furniture_fit_warnings
 from server.scene.models import Furniture, Room, Scene
 
 CATALOG_PATH = Path(__file__).resolve().parents[2] / "assets" / "catalog.json"
@@ -60,25 +61,6 @@ def footprint(position: tuple[float, float], size: tuple[float, float, float], r
 
 def _wall_bodies(scene: Scene) -> list[Polygon]:
     return [LineString([w.a, w.b]).buffer(w.thickness_m / 2.0, cap_style=2) for w in scene.walls]
-
-
-def door_swing_zones(scene: Scene) -> list[Polygon]:
-    """Square of side = door width on both sides of every door (conservative leaf swing)."""
-    walls = {w.id: w for w in scene.walls}
-    zones: list[Polygon] = []
-    for o in scene.openings:
-        wall = walls.get(o.wall_id)
-        if o.kind != "door" or wall is None:
-            continue
-        length = math.hypot(wall.b[0] - wall.a[0], wall.b[1] - wall.a[1])
-        if length <= 0:
-            continue
-        dx, dy = (wall.b[0] - wall.a[0]) / length, (wall.b[1] - wall.a[1]) / length
-        p0 = (wall.a[0] + dx * o.offset_m, wall.a[1] + dy * o.offset_m)
-        p1 = (p0[0] + dx * o.width_m, p0[1] + dy * o.width_m)
-        nx, ny = -dy * o.width_m, dx * o.width_m
-        zones.append(Polygon([(p0[0] - nx, p0[1] - ny), (p1[0] - nx, p1[1] - ny), (p1[0] + nx, p1[1] + ny), (p0[0] + nx, p0[1] + ny)]))
-    return zones
 
 
 def is_valid(scene: Scene, room: Room, poly: Polygon, ignore_id: str | None = None, zones: bool = True) -> bool:
@@ -150,23 +132,34 @@ def _center_candidates(room: Room, size):
 
 
 def find_spot(scene: Scene, room: Room, size, placement: str, wall_ref: str | None = None, ignore_id: str | None = None):
+    """First valid spot that adds no fit warning; else the first valid spot."""
     only_wall = None
     if wall_ref is not None:
         wid = resolve_in_walls(scene.walls, wall_ref)
         only_wall = next((w for w in scene.walls if w.id == wid), None)
         if only_wall is None:
             raise DesignError("anchor.unknown", f"no wall matches {wall_ref!r}; Scene unchanged")
-    sources = [_wall_candidates(room, size, only_wall)]
-    if only_wall is None:
-        sources = [_center_candidates(room, size)] if placement == "center" else sources
-        sources.append(_wall_candidates(room, size)) if placement == "center" else None
-        sources.append(_center_candidates(room, size)) if placement != "center" else None
+    if only_wall is not None:
+        sources = [_wall_candidates(room, size, only_wall)]
+    elif placement == "center":
+        sources = [_center_candidates(room, size), _wall_candidates(room, size)]
+    else:
+        sources = [_wall_candidates(room, size), _center_candidates(room, size)]
+    others = [f for f in scene.furniture if f.id != ignore_id]
+    baseline = len(furniture_fit_warnings(scene.model_copy(update={"furniture": others})))
+    fallback = None
     for source in sources:
         for pos, rot in source:
-            sz = (size[0], size[1], size[2]) if rot % 180 == 0 else size
-            # rotation is applied by footprint(); sizes stay (w, d, h)
-            if is_valid(scene, room, footprint(pos, sz, rot), ignore_id):
+            if not is_valid(scene, room, footprint(pos, size, rot), ignore_id):
+                continue
+            probe = Furniture(id="_probe", room_id=room.id, position=pos, rotation_deg=rot, size_m=size)
+            trial = scene.model_copy(update={"furniture": [*others, probe]})
+            if len(furniture_fit_warnings(trial)) <= baseline:
                 return pos, rot
+            if fallback is None:
+                fallback = (pos, rot)
+    if fallback is not None:
+        return fallback
     raise DesignError("furniture.no_space", f"{room.name} has no free spot for it; Scene unchanged")
 
 
