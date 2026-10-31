@@ -15,6 +15,8 @@ import { ChatSheet } from "./agent/ChatSheet";
 import { transcribeClip } from "./agent/transcribe";
 import { ProBanner } from "./agent/ProBanner";
 import { ReformScreen } from "./agent/ReformScreen";
+import { DesignScreen, type DesignEditResult } from "./design/DesignScreen";
+import { EMPTY_REAL_LIFE, type RealLifeState, type StyleId } from "./design/RealLifeCard";
 import { chatKey, toConversation } from "./agent/conversation";
 import { DeliverView } from "./deliver/DeliverView";
 import { parseTakeoff } from "./deliver/takeoffFormat";
@@ -269,6 +271,43 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
     [intakeScene, history, variants, readOnlyMessage],
   );
 
+  const handleDesignEdit = useCallback(
+    async (call: EditCall): Promise<DesignEditResult> => {
+      if (!intakeScene) return { error: "No scene", warnings: [] };
+      try {
+        const res = await sendEdit({ scene: intakeScene, tool: call.tool, args: call.args, history, variant: null });
+        setIntakeScene(res.scene);
+        setHistory(res.history);
+        setProfessionalFlags(res.professional_flags);
+        return { error: null, warnings: res.tool_warnings ?? [] };
+      } catch (err) {
+        return { error: err instanceof Error ? err.message : String(err), warnings: [] };
+      }
+    },
+    [intakeScene, history],
+  );
+
+  const [realLife, setRealLife] = useState<RealLifeState>(EMPTY_REAL_LIFE);
+  const handleRealLife = useCallback(
+    async (roomId: string, style: StyleId): Promise<void> => {
+      if (!intakeScene || realLife.pending) return;
+      setRealLife((s) => ({ ...s, pending: true, error: null }));
+      try {
+        const res = await fetch(`${baseUrl()}/render/real-life`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ scene: intakeScene, room_id: roomId, style }),
+        });
+        if (!res.ok) throw new Error((await res.text().catch(() => "")) || `render ${res.status}`);
+        const body = (await res.json()) as { image_b64: string };
+        setRealLife({ image: `data:image/png;base64,${body.image_b64}`, pending: false, error: null });
+      } catch (err) {
+        setRealLife((s) => ({ ...s, pending: false, error: err instanceof Error ? err.message : String(err) }));
+      }
+    },
+    [intakeScene, realLife.pending],
+  );
+
   const handleAudio = useCallback(
     async (audio: Blob) => {
       // Transcribe then send as text
@@ -296,6 +335,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
   const maquetteExpanded = shouldAutoExpandMaquette(captureStep);
   const isAgentStage = agentStage !== null;
   const isReform = stage === "stage.reform";
+  const isDesign = stage === "stage.design";
   const isDeliver = stage === "stage.deliver";
   const isPresent = stage === "stage.present";
 
@@ -351,6 +391,8 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
           selectedWallId={selectedWallId}
           onSelectWall={setSelectedWallId}
           onSceneChange={handleIntakeScene}
+          realLife={realLife}
+          onRealLife={(r, st) => void handleRealLife(r, st)}
         />
       ) : isReform ? (
         <ReformScreen
@@ -367,6 +409,22 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
           onNext={() => setStage(STAGES[stageIndex + 1] ?? "stage.deliver")}
           onEdit={handleEdit}
           variants={variants}
+        />
+      ) : isDesign ? (
+        <DesignScreen
+          scene={intakeScene}
+          locale={locale}
+          selectedWallId={selectedWallId}
+          onSelectWall={setSelectedWallId}
+          messages={messages}
+          onSend={handleSend}
+          onAudio={handleAudio}
+          pending={pending}
+          agentError={agentError}
+          onNext={() => setStage(STAGES[stageIndex + 1] ?? "stage.deliver")}
+          onEdit={handleDesignEdit}
+          realLife={realLife}
+          onRealLife={(r, st) => void handleRealLife(r, st)}
         />
       ) : isDeliver ? (
         <main className="flex min-h-0 flex-1 flex-col" aria-label={t["app.name"]}>
@@ -390,7 +448,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
       )}
 
       <section className="sheet" aria-label={t["app.name"]}>
-        {(showWork || (isAgentStage && !isReform)) && (<>
+        {(showWork || (isAgentStage && !isReform && !isDesign)) && (<>
 
         {isAgentStage ? (
           <div className="agent-stage">

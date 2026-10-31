@@ -12,6 +12,7 @@ import type { ModelViewerElement } from "../ar/model-viewer.d";
 import { USDZ_MIME, useMaquetteUrl } from "../ar/useMaquetteUrl";
 import { ConnectedVariantTabs } from "../agent/VariantTabs";
 import { Banner, Button } from "../ui";
+import { RealLifeCard, type RealLifeState, type StyleId } from "../design/RealLifeCard";
 
 interface PresentViewProps {
   scene: Scene | null;
@@ -19,6 +20,8 @@ interface PresentViewProps {
   selectedWallId: string | null;
   onSelectWall: (wallId: string) => void;
   onSceneChange: (scene: Scene) => void;
+  realLife?: RealLifeState;
+  onRealLife?: (roomId: string, style: StyleId) => void;
   /** Test seam: replaces the clipboard write. */
   copyLink?: (url: string) => Promise<void>;
 }
@@ -26,7 +29,7 @@ interface PresentViewProps {
 type ShareState = "idle" | "copied" | "failed";
 
 /** Present stage: full 3D, variants, AR on the table, share link. */
-export function PresentView({ scene, locale, selectedWallId, onSelectWall, onSceneChange, copyLink }: PresentViewProps): React.JSX.Element {
+export function PresentView({ scene, locale, selectedWallId, onSelectWall, onSceneChange, copyLink, realLife, onRealLife }: PresentViewProps): React.JSX.Element {
   const t = getStrings(locale);
   const [files, setFiles] = useState<MaquetteFiles | null>(null);
   const [hosted, setHosted] = useState<{ glb: string | null; usdz: string | null }>({ glb: null, usdz: null });
@@ -106,6 +109,9 @@ export function PresentView({ scene, locale, selectedWallId, onSelectWall, onSce
         {hasPlan && <ScaleSelector value={scaleDenominator} onChange={setScaleDenominator} locale={locale} />}
         {hasPlan && (
           <MaquetteViewer src={hosted.glb ?? glbUrl} iosSrc={hosted.usdz ?? usdzUrl} locale={locale} elementRef={viewerRef} scaleDenominator={scaleDenominator} hostedReady={hosted.glb !== null} />
+        )}
+        {hasPlan && realLife !== undefined && onRealLife !== undefined && (
+          <RealLifeCard scene={scene} locale={locale} state={realLife} onGenerate={onRealLife} variant="present" />
         )}
         {hasPlan ? (
           <div className="h-[40dvh] min-h-48 overflow-hidden rounded-2xl border-2 border-foreground bg-card">

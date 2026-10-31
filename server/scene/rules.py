@@ -85,6 +85,8 @@ CODE_OPENING_INVALID_DIMENSIONS = "opening.invalid_dimensions"
 CODE_WINDOW_RATIO = "room.window_ratio_below_minimum"
 CODE_DOOR_CLEARANCE = "door.clearance_below_minimum"
 CODE_CORRIDOR_SIDE = "room.narrow_side_below_corridor"
+CODE_FURNITURE_DOOR_SWING = "furniture.blocks_door_swing"
+CODE_FURNITURE_NARROW_PASSAGE = "furniture.narrow_passage"
 
 # --- Professional-required flags (ADR-023) ------------------------------------
 # These do not block geometry; they travel in the validation report so every

@@ -70,6 +70,9 @@ def test_recipe_values_positive_and_sane() -> None:
         qty = material["recipe"]["qty"]
         assert qty > 0, material["id"]
         low, high = QTY_BOUNDS[material["unit"]]
+        if material["kind"] == "finish":  # 1 m2 of finish per m2 of surface
+            assert qty == 1.0, material["id"]
+            continue
         assert low < qty <= high, (material["id"], qty)
 
 

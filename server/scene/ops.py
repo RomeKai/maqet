@@ -11,11 +11,11 @@ History: every successful op produces an OpRecord
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from pydantic import ValidationError
 
-from server.scene.models import Opening, Room, Scene, Wall
+from server.scene.models import Furniture, Opening, Room, Scene, Surface, Wall
 from server.scene.rooms import check_furniture, recompute_rooms, repolygonize
 from server.scene.validation import (
     ValidationContext,
@@ -330,8 +330,60 @@ def _replay_edit(label: str):
     )
 
 
+DESIGN_OPS = (
+    "place_furniture",
+    "move_item",
+    "rotate_item",
+    "remove_item",
+    "set_surface_material",
+)
+
+
+def edit_design(
+    scene: Scene,
+    label: str,
+    *,
+    furniture: tuple[Furniture, ...],
+    surfaces: tuple[Surface, ...],
+    actor: str = "agent",
+) -> tuple[Scene, OpResult]:
+    """Replace furniture/surfaces with a result computed in code (Design stage).
+
+    Validated like any op (furniture inside rooms, no overlaps, rules); the full
+    result is recorded so replay reproduces it."""
+    if (err := _check_actor(actor)) is not None:
+        return _fail(scene, err)
+    if label not in DESIGN_OPS:
+        return _fail(scene, f"unknown design op {label!r}")
+    try:
+        new_f = [Furniture.model_validate(f.model_dump()) for f in furniture]
+        new_s = [Surface.model_validate(x.model_dump()) for x in surfaces]
+    except ValidationError as exc:
+        return _fail(scene, f"invalid design data: {exc.errors()[0]['msg']}")
+    candidate = scene.model_copy(update={"furniture": new_f, "surfaces": new_s})
+    old = {f.id: f for f in scene.furniture} | {x.id: x for x in scene.surfaces}
+    changed = [x.id for x in (*new_f, *new_s) if old.get(x.id) != x]
+    changed += [i for i in old if i not in {x.id for x in (*new_f, *new_s)}]
+    args = {"furniture": [f.model_dump() for f in new_f], "surfaces": [x.model_dump() for x in new_s]}
+    new_scene, result = _apply(scene, label, args, candidate, changed, actor)
+    if result.ok:
+        from server.scene.fit import furniture_fit_warnings
+
+        result = replace(result, warnings=(*result.warnings, *furniture_fit_warnings(new_scene)))
+    return new_scene, result
+
+
 _OPS = {
     **{label: _replay_edit(label) for label in EDIT_OPS},
+    **{
+        label: (lambda lab: lambda s, a: edit_design(
+            s, lab,
+            furniture=tuple(Furniture.model_validate(f) for f in a["furniture"]),
+            surfaces=tuple(Surface.model_validate(x) for x in a["surfaces"]),
+            actor=a.get("_actor", "agent"),
+        ))(label)
+        for label in DESIGN_OPS
+    },
     "add_room": lambda s, a: add_room(
         s,
         Room.model_validate(a["room"]),

@@ -159,21 +159,28 @@ class PlaceFurnitureInput(_ToolInput):
     item_id: str | None = None
     room_id: str | None = None
     room: str | None = None
+    # Wall label ("wall 2") to put the item against; code finds the spot.
     anchor: str | None = None
+    # Uniform size factor; code enforces 0.8 to 1.2 (ADR: real dims +-20%).
+    scale: float | None = Field(default=None, gt=0.0)
     selected: SelectedRef | None = None
 
 
 class MoveItemInput(_ToolInput):
     item_id: str | None = None
     item: str | None = None
+    # UI nudges send meters; the model should prefer `wall` or `room`.
     position: tuple[float, float] | None = None
+    wall: str | None = None
+    room: str | None = None
     selected: SelectedRef | None = None
 
 
 class RotateItemInput(_ToolInput):
     item_id: str | None = None
     item: str | None = None
-    rotation_deg: float = 0.0
+    rotation_deg: float | None = None
+    delta_deg: float | None = None
     selected: SelectedRef | None = None
 
 
@@ -214,3 +221,13 @@ TOOL_MODELS: dict[str, type[BaseModel]] = {
     "create_variant": CreateVariantInput,
     "render_view": RenderViewInput,
 }
+
+
+class SetSurfaceMaterialInput(_ToolInput):
+    room: str | None = None
+    part: Literal["floor", "walls"] = "walls"
+    material_id: str
+    selected: SelectedRef | None = None
+
+
+TOOL_MODELS["set_surface_material"] = SetSurfaceMaterialInput

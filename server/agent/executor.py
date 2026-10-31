@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from server.agent import stages as stage_table
 from server.agent import tools as tool_contracts
-from server.agent import edit_tools
+from server.agent import design, edit_tools
 from server.agent.wall_labels import resolve_in_walls
 from server.agent.addressing import (
     resolve_room,
@@ -34,7 +34,7 @@ from server.agent.addressing import (
 from server.agent.placement import PlacementError, place_on_wall
 from server.agent.room_walls import enclosing_walls
 from server.scene import ops
-from server.scene.models import Opening, Room, Scene, Wall
+from server.scene.models import Furniture, Opening, Room, Scene, Surface, Wall
 from server.scene.validation import rooms_overlap_m2
 from server.scene import geom
 from server.scene.rules import (
@@ -511,6 +511,21 @@ def _handle_undo(scene: Scene, history: list, args: dict) -> tuple[Scene, ToolRe
             }
         )
         changed = [record.op]
+    elif record.op in ops.DESIGN_OPS:
+        if snap.get("kind") != "design":
+            history.append(record)
+            return _fail(
+                scene,
+                "history.corrupt",
+                f"cannot undo {record.op!r}: missing snapshot; history unchanged",
+            )
+        rebuilt = scene.model_copy(
+            update={
+                "furniture": [Furniture.model_validate(f) for f in snap["furniture"]],
+                "surfaces": [Surface.model_validate(x) for x in snap["surfaces"]],
+            }
+        )
+        changed = [record.op]
     elif record.op == "remove_wall":
         if not all(k in snap for k in ("wall", "wall_index", "openings", "opening_indices")):
             history.append(record)
@@ -607,10 +622,6 @@ def _handle_list_catalog(scene: Scene, args: dict) -> tuple[Scene, ToolResult]:
 
 
 _MISSING_OP = {
-    "place_furniture": "place_furniture",
-    "move_item": "move_item",
-    "rotate_item": "rotate_item",
-    "remove_item": "remove_item",
     "create_variant": "create_variant",
     "render_view": "render_view",
 }
@@ -635,7 +646,70 @@ def _make_edit_handler(tool: str):
     return handler
 
 
+_DESIGN_COMPUTE = {
+    "place_furniture": design.place,
+    "move_item": design.move,
+    "rotate_item": design.rotate,
+    "remove_item": design.remove,
+}
+
+
+def _make_design_handler(tool: str):
+    def handler(scene: Scene, history: list, a) -> tuple[Scene, ToolResult]:
+        try:
+            furniture, changed = _DESIGN_COMPUTE[tool](scene, a)
+        except design.DesignError as exc:
+            return _fail(scene, exc.code, exc.message)
+        new_scene, res = ops.edit_design(
+            scene, tool, furniture=tuple(furniture), surfaces=tuple(scene.surfaces)
+        )
+        if not res.ok:
+            return _op_fail(scene, res)
+        snapshot = {
+            "kind": "design",
+            "furniture": [f.model_dump() for f in scene.furniture],
+            "surfaces": [x.model_dump() for x in scene.surfaces],
+        }
+        edit_tools.attach_history(history, res.record, snapshot)
+        return new_scene, ToolResult(
+            ok=True,
+            warnings=[str(w) for w in res.warnings],
+            flags=[str(f) for f in res.flags],
+            changed_ids=list(changed),
+            version=new_scene.version,
+        )
+
+    return handler
+
+
+def _handle_set_surface(scene: Scene, history: list, a) -> tuple[Scene, ToolResult]:
+    try:
+        surfaces, changed, warnings = design.set_surface(scene, a)
+    except design.DesignError as exc:
+        return _fail(scene, exc.code, exc.message)
+    new_scene, res = ops.edit_design(
+        scene, "set_surface_material", furniture=tuple(scene.furniture), surfaces=tuple(surfaces)
+    )
+    if not res.ok:
+        return _op_fail(scene, res)
+    snapshot = {
+        "kind": "design",
+        "furniture": [f.model_dump() for f in scene.furniture],
+        "surfaces": [x.model_dump() for x in scene.surfaces],
+    }
+    edit_tools.attach_history(history, res.record, snapshot)
+    return new_scene, ToolResult(
+        ok=True,
+        warnings=[*(str(w) for w in res.warnings), *warnings],
+        flags=[str(f) for f in res.flags],
+        changed_ids=list(changed),
+        version=new_scene.version,
+    )
+
+
 _HANDLERS = {
+    "set_surface_material": _handle_set_surface,
+    **{tool: _make_design_handler(tool) for tool in _DESIGN_COMPUTE},
     **{tool: _make_edit_handler(tool) for tool in edit_tools.COMPUTE},
     "add_room": _handle_add_room,
     "add_wall": _handle_add_wall,

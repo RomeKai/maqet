@@ -516,7 +516,8 @@ def _persist_variant(
     save_project(project, db_path=_DB_PATH)
 
 
-_UI_EDIT_TOOLS = frozenset({*edit_tools.COMPUTE, "undo"})
+_DESIGN_UI_TOOLS = frozenset({"place_furniture", "move_item", "rotate_item", "remove_item", "set_surface_material"})
+_UI_EDIT_TOOLS = frozenset({*edit_tools.COMPUTE, *_DESIGN_UI_TOOLS, "undo"})
 
 
 class AgentEditIn(BaseModel):
@@ -538,7 +539,8 @@ def post_agent_edit(body: AgentEditIn) -> AgentTurnOut:
     if body.tool not in _UI_EDIT_TOOLS:
         raise HTTPException(status_code=422, detail=f"tool {body.tool!r} is not an edit tool")
     history = [OpRecord(**record.model_dump()) for record in body.history]
-    new_scene, res = execute(body.scene, history, "reform", body.tool, body.args)
+    stage = "design" if body.tool in _DESIGN_UI_TOOLS else "reform"
+    new_scene, res = execute(body.scene, history, stage, body.tool, body.args)
     if not res.ok:
         raise HTTPException(
             status_code=422, detail="; ".join(e.message for e in res.errors)
@@ -555,6 +557,7 @@ def post_agent_edit(body: AgentEditIn) -> AgentTurnOut:
         ops_applied=[AppliedOpOut(name=body.tool, arguments=body.args, flags=res.flags)],
         professional_flags=flags,
         history=[OpRecordIn(**asdict(record)) for record in history],
+        tool_warnings=list(res.warnings),
     )
 
 
@@ -752,3 +755,53 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run("server.api:app", host="127.0.0.1", port=8000)
+
+
+class RenderRoomIn(BaseModel):
+    scene: Scene
+    room_id: str
+
+
+def get_image_client() -> Any:
+    """Production Meta client; tests override this dependency."""
+    from mme.client import client
+
+    return client()
+
+
+@app.post("/render/room")
+def post_render_room(body: RenderRoomIn, image_client: Any = Depends(get_image_client)) -> dict[str, Any]:
+    """Concept render of one room. Runs only on an explicit tap; $0.01 per call."""
+    from server.render.room_render import render_room
+
+    try:
+        return render_room(body.scene, body.room_id, image_client)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"unknown room {body.room_id!r}") from exc
+    except Exception as exc:
+        if type(exc).__name__ == "ReplayMiss":
+            raise HTTPException(status_code=409, detail="no recorded render in replay mode") from exc
+        raise
+
+
+class RealLifeIn(BaseModel):
+    scene: Scene
+    room_id: str
+    style: str
+
+
+@app.post("/render/real-life")
+def post_render_real_life(body: RealLifeIn, image_client: Any = Depends(get_image_client)) -> dict[str, Any]:
+    """'In real life' image in a chosen style. Explicit tap only; one image, $0.01."""
+    from server.render.real_life import STYLES, render_real_life
+
+    if body.style not in STYLES:
+        raise HTTPException(status_code=422, detail=f"unknown style {body.style!r}; use one of {sorted(STYLES)}")
+    try:
+        return render_real_life(body.scene, body.room_id, body.style, image_client)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"unknown room {body.room_id!r}") from exc
+    except Exception as exc:
+        if type(exc).__name__ == "ReplayMiss":
+            raise HTTPException(status_code=409, detail="no recorded render in replay mode") from exc
+        raise

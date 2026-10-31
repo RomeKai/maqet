@@ -80,6 +80,7 @@ def test_stage_toolsets_exact() -> None:
         "move_item",
         "rotate_item",
         "remove_item",
+        "set_surface_material",
         "undo",
     )
     assert STAGES["present"] == ("create_variant", "render_view")
@@ -354,7 +355,6 @@ def test_undo_is_global_across_stages() -> None:
 
 def test_unimplemented_ops_report_not_implemented() -> None:
     stubs = {
-        "design": ["place_furniture", "move_item", "rotate_item", "remove_item"],
         "present": ["create_variant", "render_view"],
     }
     for stage, names in stubs.items():
