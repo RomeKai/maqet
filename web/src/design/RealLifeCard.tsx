@@ -23,21 +23,23 @@ interface RealLifeCardProps {
   onGenerate: (roomId: string, style: StyleId) => void;
   /** Present uses "See it in real life". */
   variant?: "design" | "present";
+  /** Inline strip for the Design screen: horizontally scrolling chips, no image (the screen shows it in a sheet). */
+  compact?: boolean;
 }
 
 const btn =
   "flex min-h-12 items-center justify-center gap-2 rounded-xl border-2 border-border px-3 text-[15px] font-bold disabled:opacity-40";
 
 /** Style picker + "In real life" button + image. No extra label on the image (human decision); the global preliminary footer stays. */
-export function RealLifeCard({ scene, locale, state, onGenerate, variant = "design" }: RealLifeCardProps): React.JSX.Element {
+export function RealLifeCard({ scene, locale, state, onGenerate, variant = "design", compact = false }: RealLifeCardProps): React.JSX.Element {
   const t = getDesignStrings(locale);
   const rooms = scene?.rooms ?? [];
   const [style, setStyle] = useState<StyleId>("modern");
   const [roomId, setRoomId] = useState("");
   const room = rooms.find((r) => r.id === roomId)?.id ?? rooms[0]?.id ?? "";
   return (
-    <section className="space-y-2" aria-label={t["real.title"]} data-testid="real-life-card">
-      <h3 className="text-[15px] font-bold">{t["real.title"]}</h3>
+    <section className={compact ? "mx-3 mt-2 space-y-1 rounded-2xl border-2 border-foreground bg-card p-2" : "space-y-2"} aria-label={t["real.title"]} data-testid="real-life-card">
+      {compact ? null : <h3 className="text-[15px] font-bold">{t["real.title"]}</h3>}
       {rooms.length > 1 ? (
         <div className="flex flex-wrap gap-2" role="group" aria-label={t["design.room"]}>
           {rooms.map((r) => (
@@ -47,7 +49,7 @@ export function RealLifeCard({ scene, locale, state, onGenerate, variant = "desi
           ))}
         </div>
       ) : null}
-      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t["real.style"]}>
+      <div className={compact ? "flex gap-2 overflow-x-auto" : "flex flex-wrap gap-2"} role="radiogroup" aria-label={t["real.style"]}>
         {STYLE_IDS.map((id) => (
           <button key={id} type="button" role="radio" aria-checked={style === id} className={`${btn} ${style === id ? "bg-foreground text-background" : ""}`} onClick={() => setStyle(id)}>
             {t[`real.style.${id}`]}
@@ -64,7 +66,7 @@ export function RealLifeCard({ scene, locale, state, onGenerate, variant = "desi
           {state.error}
         </p>
       ) : null}
-      {state.image !== null ? <img src={state.image} alt="" className="w-full rounded-xl border-2 border-foreground" /> : null}
+      {!compact && state.image !== null ? <img src={state.image} alt="" className="w-full rounded-xl border-2 border-foreground" /> : null}
     </section>
   );
 }

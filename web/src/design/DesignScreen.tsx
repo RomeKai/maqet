@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Plus, RotateCw, Trash2, Undo2 } from "lucide-react";
 import type { Scene } from "../scene/types";
 import type { Locale } from "../i18n";
@@ -59,6 +59,10 @@ export function DesignScreen(props: DesignScreenProps): React.JSX.Element {
   const [itemId, setItemId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [itemOpen, setItemOpen] = useState(false);
+  const [showImage, setShowImage] = useState(false);
+  useEffect(() => {
+    if (props.realLife.image !== null) setShowImage(true);
+  }, [props.realLife.image]);
   const [notes, setNotes] = useState<string[]>([]);
   const activeRoom = rooms.find((r) => r.id === roomId)?.id ?? rooms[0]?.id ?? "";
   const items = scene?.furniture ?? [];
@@ -117,6 +121,7 @@ export function DesignScreen(props: DesignScreenProps): React.JSX.Element {
           <Undo2 className="size-5" aria-hidden />
         </button>
       </div>
+      <RealLifeCard scene={scene} locale={locale} state={props.realLife} onGenerate={props.onRealLife} compact />
       {notes.length > 0 ? (
         <ul className="mx-3 mt-1 space-y-1" role="status" data-testid="design-notes">
           {notes.map((n) => (
@@ -214,11 +219,13 @@ export function DesignScreen(props: DesignScreenProps): React.JSX.Element {
                   {notes[0]}
                 </p>
               ) : null}
-              <RealLifeCard scene={scene} locale={locale} state={props.realLife} onGenerate={props.onRealLife} />
               <p className="text-sm">{t["design.prelim"]}</p>
             </>
           )}
         </div>
+      </BottomSheet>
+      <BottomSheet open={showImage && props.realLife.image !== null} onClose={() => setShowImage(false)} title={t["real.title"]} closeLabel={t["design.close"]}>
+        {props.realLife.image !== null ? <img src={props.realLife.image} alt="" className="w-full rounded-xl border-2 border-foreground" /> : null}
       </BottomSheet>
       <BottomSheet open={itemOpen && item !== null} onClose={() => setItemOpen(false)} title={`${t["design.item"]}: ${furnitureLabel(item?.catalog_id, locale)}`} closeLabel={t["design.close"]}>
         {item !== null ? (

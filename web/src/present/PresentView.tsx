@@ -106,12 +106,12 @@ export function PresentView({ scene, locale, selectedWallId, onSelectWall, onSce
       <div className="space-y-3 p-3">
         <h1 className="text-2xl font-extrabold">{t["present.title"]}</h1>
         {arError && <Banner tone="danger" title={t["present.ar.error"]} />}
+        {hasPlan && realLife !== undefined && onRealLife !== undefined && (
+          <RealLifeCard scene={scene} locale={locale} state={realLife} onGenerate={onRealLife} variant="present" />
+        )}
         {hasPlan && <ScaleSelector value={scaleDenominator} onChange={setScaleDenominator} locale={locale} />}
         {hasPlan && (
           <MaquetteViewer src={hosted.glb ?? glbUrl} iosSrc={hosted.usdz ?? usdzUrl} locale={locale} elementRef={viewerRef} scaleDenominator={scaleDenominator} hostedReady={hosted.glb !== null} />
-        )}
-        {hasPlan && realLife !== undefined && onRealLife !== undefined && (
-          <RealLifeCard scene={scene} locale={locale} state={realLife} onGenerate={onRealLife} variant="present" />
         )}
         {hasPlan ? (
           <div className="h-[40dvh] min-h-48 overflow-hidden rounded-2xl border-2 border-foreground bg-card">

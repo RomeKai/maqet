@@ -44,3 +44,12 @@ One Muse Image call per tap, $0.01 (mme.client.image_generate, n=1). Never autom
 6. AR table view shows the boxes and colors.
 7. Render button: one tap, one image labelled concept (costs $0.01; do it once).
 8. Spanish: switch to es-AR and read every new string; tap targets feel 48 px.
+
+## Round 2 (branch day/design2, from main 875bda8)
+- Item sheet (tap a piece in 3D, or the Placed tab): 10 cm nudges, move to wall N, rotate 90, remove; all via /agent/edit (undoable, fit-checked, warnings shown). The selected piece glows.
+- Furniture: low-poly primitives per type (`web/src/design/furnitureShapes.ts`), one builder for r3f and the AR GLB; footprint and height stay the catalog values.
+- DXF: type symbols (pillow line, chair squares, sofa arms, door line, burner circles) on A-FLOR-FURN at the real pose; labels on A-ANNO-TEXT.
+- In real life: inline strip on the Design screen (image opens in a sheet) and above the AR card in Present.
+- Wall badges scale with the scene (capped) and stack when they would overlap.
+- Agent errors: one plain sentence; raw tool errors under a "Details" disclosure. Prompt rule updated.
+- Phone checks added: tap a piece to select; the badge size on a tiny room; furniture shapes read as bed/sofa/table; AR shows the same shapes; Details disclosure on a failed request; open the DXF in AutoCAD and check layers.

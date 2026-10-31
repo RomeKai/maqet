@@ -31,3 +31,12 @@ describe("RealLifeCard", () => {
     expect(html.toLowerCase()).not.toContain("concept");
   });
 });
+
+describe("RealLifeCard placement", () => {
+  it("compact strip keeps the style chips and the button inline and leaves the image to the screen", () => {
+    const html = renderToString(<RealLifeCard scene={scene} locale="en" state={{ image: "data:image/png;base64,AA", pending: false, error: null }} onGenerate={noop} compact />);
+    expect(html).toContain("overflow-x-auto");
+    expect(html).toContain("Show it in real life");
+    expect(html).not.toContain("data:image/png");
+  });
+});
