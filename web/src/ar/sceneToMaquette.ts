@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { Furniture, Scene } from "../scene/types";
 import { OPENING_THEME } from "../view3d/openingTheme";
-import { planToThree, sceneToMeshes } from "../view3d/sceneToMeshes";
+import { furnitureMeshes, planToThree, sceneToMeshes, surfaceOverlays } from "../view3d/sceneToMeshes";
 
 /** Table-top maquette scale: 1 unit = 1 m at scale 1, so 1:50 is 0.02. */
 export const DEFAULT_MAQUETTE_SCALE = 1 / 50;
@@ -58,7 +58,6 @@ export function sceneToMaquette(scene: Scene, scale: number = DEFAULT_MAQUETTE_S
 
   const wallMaterial = new THREE.MeshStandardMaterial({ color: WALL_COLOR });
   const floorMaterial = new THREE.MeshStandardMaterial({ color: FLOOR_COLOR, side: THREE.DoubleSide });
-  const furnitureMaterial = new THREE.MeshStandardMaterial({ color: FURNITURE_COLOR });
   const conceptMaterial = new THREE.MeshStandardMaterial({ color: CONCEPT_COLOR });
 
   const { walls, floors, openings } = sceneToMeshes(scene);
@@ -92,14 +91,33 @@ export function sceneToMaquette(scene: Scene, scale: number = DEFAULT_MAQUETTE_S
 
   for (const floor of floors) {
     const shape = new THREE.Shape(floor.points.map(([x, y]) => new THREE.Vector2(x, y)));
-    const mesh = new THREE.Mesh(new THREE.ShapeGeometry(shape), floorMaterial);
+    const mesh = new THREE.Mesh(
+      new THREE.ShapeGeometry(shape),
+      floor.color ? new THREE.MeshStandardMaterial({ color: floor.color, side: THREE.DoubleSide }) : floorMaterial,
+    );
     mesh.name = `floor:${floor.id}`;
     mesh.rotation.x = -Math.PI / 2;
     group.add(mesh);
   }
 
+  for (const o of surfaceOverlays(scene)) {
+    const [length, thickness, height] = o.size;
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(length, height, thickness), new THREE.MeshStandardMaterial({ color: o.color }));
+    mesh.name = `finish:${o.id}`;
+    mesh.position.set(...planToThree([o.center[0], o.center[1]], o.center[2]));
+    mesh.rotation.y = o.rotationZ;
+    group.add(mesh);
+  }
+
+  const types = new Map(furnitureMeshes(scene).map((f) => [f.id, f]));
   for (const item of scene.furniture ?? []) {
-    group.add(furnitureMesh(item, item.concept === true ? conceptMaterial : furnitureMaterial));
+    const info = types.get(item.id);
+    const mesh = furnitureMesh(
+      item,
+      item.concept === true ? conceptMaterial : new THREE.MeshStandardMaterial({ color: info?.color ?? FURNITURE_COLOR }),
+    );
+    if (info && !item.concept) mesh.name = `furniture:${item.id} (${info.type})`;
+    group.add(mesh);
   }
 
   centreOnFloor(group);

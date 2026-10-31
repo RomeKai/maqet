@@ -10,6 +10,8 @@ import {
   planToThree,
   sceneBoundingBox,
   sceneToMeshes,
+  furnitureMeshes,
+  surfaceOverlays,
 } from "./sceneToMeshes";
 
 interface SceneViewProps {
@@ -41,6 +43,8 @@ export function SceneMeshesView({
   wallNumbers = false,
 }: SceneViewProps): React.JSX.Element {
   const meshes = useMemo(() => sceneToMeshes(scene), [scene]);
+  const furniture = useMemo(() => furnitureMeshes(scene), [scene]);
+  const overlays = useMemo(() => surfaceOverlays(scene), [scene]);
   const floorGeometries = useMemo(
     () =>
       meshes.floors.map((floor) => {
@@ -100,6 +104,21 @@ export function SceneMeshesView({
           </mesh>
         );
       })}
+      {overlays.map((o) => (
+        <mesh key={o.id} position={planToThree([o.center[0], o.center[1]], o.center[2])} rotation={[0, o.rotationZ, 0]}>
+          <boxGeometry args={[o.size[0], o.size[2], o.size[1]]} />
+          <meshStandardMaterial color={o.color} />
+        </mesh>
+      ))}
+      {furniture.map((f) => (
+        <group key={f.id} position={planToThree([f.center[0], f.center[1]], f.center[2])} rotation={[0, f.rotationZ, 0]}>
+          <mesh name={`furniture:${f.id} (${f.type})`}>
+            <boxGeometry args={[f.size[0], f.size[2], f.size[1]]} />
+            <meshStandardMaterial color={f.concept ? "#7a5ac8" : f.color} />
+          </mesh>
+        </group>
+      ))}
+      <FurnitureLabels items={furniture} />
       {wallNumbers ? <WallBadges scene={scene} /> : null}
       {meshes.floors.map((floor, i) => (
         <mesh
@@ -107,8 +126,40 @@ export function SceneMeshesView({
           geometry={floorGeometries[i]}
           rotation={[-Math.PI / 2, 0, 0]}
         >
-          <meshStandardMaterial color="#e8e2d8" side={THREE.DoubleSide} />
+          <meshStandardMaterial color={floor.color ?? "#e8e2d8"} side={THREE.DoubleSide} />
         </mesh>
+      ))}
+    </group>
+  );
+}
+
+function labelTexture(text: string): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 64;
+  const ctx = canvas.getContext("2d");
+  if (ctx !== null) {
+    ctx.fillStyle = "#1f2124";
+    ctx.fillRect(0, 0, 256, 64);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 36px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, 128, 34);
+  }
+  return new THREE.CanvasTexture(canvas);
+}
+
+/** Type label above each furniture box (bed, sofa...): the 3D stays honest that these are placeholders. */
+function FurnitureLabels({ items }: { items: ReturnType<typeof furnitureMeshes> }): React.JSX.Element {
+  const labels = useMemo(() => items.map((f) => ({ ...f, texture: labelTexture(f.type) })), [items]);
+  useEffect(() => () => labels.forEach((l) => l.texture.dispose()), [labels]);
+  return (
+    <group>
+      {labels.map((l) => (
+        <sprite key={l.id} position={planToThree([l.center[0], l.center[1]], l.size[2] + 0.25)} scale={[0.6, 0.15, 1]}>
+          <spriteMaterial map={l.texture} depthTest={false} transparent />
+        </sprite>
       ))}
     </group>
   );

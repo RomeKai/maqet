@@ -1,4 +1,5 @@
 import type { Opening, Room, Scene, Wall } from "../scene/types";
+import { finishColor, furnitureColor, furnitureKind } from "../design/catalog";
 
 /**
  * Scene -> declarative mesh descriptors (pure, no three.js here).
@@ -73,6 +74,8 @@ export interface FloorMesh {
   points: PlanPoint[];
   /** Floor planes always face up: [0, 0, 1]. */
   normal: WorldPoint;
+  /** Flat finish color when the room has a floor surface. */
+  color?: string;
 }
 
 /** Door leaf or window pane, set into its wall (colors come from openingTheme). */
@@ -87,6 +90,68 @@ export interface OpeningMesh {
   /** Box size in meters: [width along wall, thickness, height]. */
   size: readonly [number, number, number];
   rotationZ: number;
+}
+
+/** Furniture as a simple box labelled by catalog type (CC0 primitives; real models later). */
+export interface FurnitureMesh {
+  id: string;
+  type: string;
+  center: WorldPoint;
+  size: readonly [number, number, number];
+  rotationZ: number;
+  color: string;
+  concept: boolean;
+}
+
+export function furnitureMeshes(scene: Scene): FurnitureMesh[] {
+  return (scene.furniture ?? []).map((f) => ({
+    id: f.id,
+    type: furnitureKind(f.catalog_id)?.type ?? (f.concept ? "concept" : "item"),
+    center: [f.position[0], f.position[1], f.size_m[2] / 2] as const,
+    size: [f.size_m[0], f.size_m[1], f.size_m[2]] as const,
+    rotationZ: ((f.rotation_deg ?? 0) * Math.PI) / 180,
+    color: furnitureColor(f.catalog_id),
+    concept: f.concept === true,
+  }));
+}
+
+/** Thin flat-color slab on the chosen side of a wall (side "left" = normal (-dy, dx) of a->b). */
+export interface SurfaceOverlay {
+  id: string;
+  wallId: string;
+  center: WorldPoint;
+  size: readonly [number, number, number];
+  rotationZ: number;
+  color: string;
+}
+
+const OVERLAY_M = 0.012;
+
+export function surfaceOverlays(scene: Scene): SurfaceOverlay[] {
+  const out: SurfaceOverlay[] = [];
+  for (const s of scene.surfaces ?? []) {
+    if (s.target.type !== "wall") continue;
+    const target = s.target as { wall_id: string; side: string };
+    const color = finishColor(s.material_id);
+    const wall = (scene.walls ?? []).find((w) => w.id === target.wall_id);
+    if (color === null || wall === undefined) continue;
+    const length = wallRunLengthM(wall);
+    if (!(length > EPS_M)) continue;
+    const dx = (wall.b[0] - wall.a[0]) / length;
+    const dy = (wall.b[1] - wall.a[1]) / length;
+    const sign = target.side === "left" ? 1 : -1;
+    const off = wall.thickness_m / 2 + OVERLAY_M / 2;
+    const height = wallHeightM(wall, scene);
+    out.push({
+      id: s.id,
+      wallId: wall.id,
+      center: [(wall.a[0] + wall.b[0]) / 2 - dy * off * sign, (wall.a[1] + wall.b[1]) / 2 + dx * off * sign, height / 2],
+      size: [length, OVERLAY_M, height],
+      rotationZ: Math.atan2(dy, dx),
+      color,
+    });
+  }
+  return out;
 }
 
 export interface SceneMeshes {
@@ -313,7 +378,7 @@ export function wallSegments(wall: Wall, scene: Scene): WallSegment[] {
  * gets no floor meshes (rooms are derived server-side after intake; the view
  * stays honest instead of inventing a floor).
  */
-export function floorMesh(room: Room): FloorMesh | null {
+export function floorMesh(room: Room, color?: string): FloorMesh | null {
   const raw = room.polygon ?? [];
   const points: PlanPoint[] = [];
   for (const p of raw) {
@@ -332,6 +397,7 @@ export function floorMesh(room: Room): FloorMesh | null {
     roomId: room.id,
     points,
     normal: [0, 0, 1],
+    ...(color !== undefined ? { color } : {}),
   };
 }
 
@@ -343,7 +409,10 @@ export function sceneToMeshes(scene: Scene): SceneMeshes {
   }
   const floors: FloorMesh[] = [];
   for (const room of scene.rooms ?? []) {
-    const floor = floorMesh(room);
+    const surface = (scene.surfaces ?? []).find(
+      (x) => x.target.type === "room" && x.target.room_id === room.id && x.target.part === "floor",
+    );
+    const floor = floorMesh(room, surface ? (finishColor(surface.material_id) ?? undefined) : undefined);
     if (floor !== null) floors.push(floor);
   }
   return { walls, floors, openings: openingMeshes(scene) };
