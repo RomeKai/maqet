@@ -28,6 +28,7 @@ STAGES: dict[str, tuple[str, ...]] = {
         "move_item",
         "rotate_item",
         "remove_item",
+        "set_surface_material",
         "undo",
     ),
     "present": (

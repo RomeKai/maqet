@@ -343,6 +343,168 @@
       "source_url": null,
       "unit": "piece",
       "waste_factor": 1.0
+    },
+    {
+      "id": "floor-cement-screed",
+      "kind": "finish",
+      "surface": "floor",
+      "color": "#9a9892",
+      "unit": "m2",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Cement screed floor",
+      "name_es_AR": "Piso de cemento alisado",
+      "recipe": {
+        "basis": "m2_surface",
+        "qty": 1.0
+      },
+      "recipe_source": "geometric surface area, flat color; no product recipe (finish quantity needs a product choice)",
+      "source_url": null,
+      "waste_factor": 1.0
+    },
+    {
+      "id": "floor-ceramic-light",
+      "kind": "finish",
+      "surface": "floor",
+      "color": "#d8d2c4",
+      "unit": "m2",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Light ceramic tile floor",
+      "name_es_AR": "Piso cerámico claro",
+      "recipe": {
+        "basis": "m2_surface",
+        "qty": 1.0
+      },
+      "recipe_source": "geometric surface area, flat color; no product recipe (finish quantity needs a product choice)",
+      "source_url": null,
+      "waste_factor": 1.0
+    },
+    {
+      "id": "floor-porcelain-dark",
+      "kind": "finish",
+      "surface": "floor",
+      "color": "#5f5b57",
+      "unit": "m2",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Dark porcelain tile floor",
+      "name_es_AR": "Piso porcelanato oscuro",
+      "recipe": {
+        "basis": "m2_surface",
+        "qty": 1.0
+      },
+      "recipe_source": "geometric surface area, flat color; no product recipe (finish quantity needs a product choice)",
+      "source_url": null,
+      "waste_factor": 1.0
+    },
+    {
+      "id": "floor-wood-laminate",
+      "kind": "finish",
+      "surface": "floor",
+      "color": "#b58a5a",
+      "unit": "m2",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Wood laminate floor",
+      "name_es_AR": "Piso flotante símil madera",
+      "recipe": {
+        "basis": "m2_surface",
+        "qty": 1.0
+      },
+      "recipe_source": "geometric surface area, flat color; no product recipe (finish quantity needs a product choice)",
+      "source_url": null,
+      "waste_factor": 1.0
+    },
+    {
+      "id": "wall-paint-white",
+      "kind": "finish",
+      "surface": "wall",
+      "color": "#f6f3ec",
+      "unit": "m2",
+      "license": "CC0",
+      "local_path": null,
+      "name": "White wall paint",
+      "name_es_AR": "Pintura blanca de muro",
+      "recipe": {
+        "basis": "m2_surface",
+        "qty": 1.0
+      },
+      "recipe_source": "geometric surface area, flat color; no product recipe (finish quantity needs a product choice)",
+      "source_url": null,
+      "waste_factor": 1.0
+    },
+    {
+      "id": "wall-paint-warm",
+      "kind": "finish",
+      "surface": "wall",
+      "color": "#e6d5b3",
+      "unit": "m2",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Warm sand wall paint",
+      "name_es_AR": "Pintura arena cálida",
+      "recipe": {
+        "basis": "m2_surface",
+        "qty": 1.0
+      },
+      "recipe_source": "geometric surface area, flat color; no product recipe (finish quantity needs a product choice)",
+      "source_url": null,
+      "waste_factor": 1.0
+    },
+    {
+      "id": "wall-paint-sage",
+      "kind": "finish",
+      "surface": "wall",
+      "color": "#a9b8a0",
+      "unit": "m2",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Sage green wall paint",
+      "name_es_AR": "Pintura verde salvia",
+      "recipe": {
+        "basis": "m2_surface",
+        "qty": 1.0
+      },
+      "recipe_source": "geometric surface area, flat color; no product recipe (finish quantity needs a product choice)",
+      "source_url": null,
+      "waste_factor": 1.0
+    },
+    {
+      "id": "wall-paint-terracotta",
+      "kind": "finish",
+      "surface": "wall",
+      "color": "#c47a5a",
+      "unit": "m2",
+      "license": "CC0",
+      "local_path": null,
+      "name": "Terracotta wall paint",
+      "name_es_AR": "Pintura terracota",
+      "recipe": {
+        "basis": "m2_surface",
+        "qty": 1.0
+      },
+      "recipe_source": "geometric surface area, flat color; no product recipe (finish quantity needs a product choice)",
+      "source_url": null,
+      "waste_factor": 1.0
+    },
+    {
+      "id": "wall-tile-white",
+      "kind": "finish",
+      "surface": "wall",
+      "color": "#e9ecee",
+      "unit": "m2",
+      "license": "CC0",
+      "local_path": null,
+      "name": "White wall tile",
+      "name_es_AR": "Revestimiento cerámico blanco",
+      "recipe": {
+        "basis": "m2_surface",
+        "qty": 1.0
+      },
+      "recipe_source": "geometric surface area, flat color; no product recipe (finish quantity needs a product choice)",
+      "source_url": null,
+      "waste_factor": 1.0
     }
   ],
   "schema_version": 1

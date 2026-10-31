@@ -207,3 +207,13 @@ TOOL_MODELS: dict[str, type[BaseModel]] = {
     "create_variant": CreateVariantInput,
     "render_view": RenderViewInput,
 }
+
+
+class SetSurfaceMaterialInput(_ToolInput):
+    room: str | None = None
+    part: Literal["floor", "walls"] = "walls"
+    material_id: str
+    selected: SelectedRef | None = None
+
+
+TOOL_MODELS["set_surface_material"] = SetSurfaceMaterialInput

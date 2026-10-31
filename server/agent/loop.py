@@ -79,6 +79,7 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
     "move_item": "Move a placed item: to a wall label, another room, or meters from a tap (Design stage).",
     "rotate_item": "Rotate a placed item by delta_deg or to rotation_deg; snapped to 90 degrees (Design stage).",
     "remove_item": "Remove a placed item by id, type (bed) or \"last\" (Design stage).",
+    "set_surface_material": "Set the floor or the wall finish of a room from the catalog finishes (list_catalog). \"Brighter\" = a light wall finish; also suggest a window in Reform. Flat colors, no prices (Design stage).",
     "create_variant": "Branch the Scene into a named variant (Present stage).",
     "render_view": "Render a photoreal view of a variant (Present stage, costs money, explicit request only).",
 }

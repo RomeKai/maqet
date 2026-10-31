@@ -123,3 +123,39 @@ def test_replay_reproduces_design_history() -> None:
 def test_design_tools_not_allowed_in_reform() -> None:
     _, res = execute(_scene(), [], "reform", "place_furniture", {"catalog_id": "chair-45x45"})
     assert res.errors[0].code == "stage.tool_not_allowed"
+
+
+def test_set_surface_material_floor_and_inward_wall_sides_reach_takeoff() -> None:
+    from server.export.takeoff import compute_takeoff
+
+    hist: list = []
+    s, res = execute(_scene(), hist, "design", "set_surface_material",
+                     {"room": "r1", "part": "floor", "material_id": "floor-wood-laminate"})
+    assert res.ok, res.errors
+    s, res = execute(s, hist, "design", "set_surface_material",
+                     {"room": "r1", "part": "walls", "material_id": "wall-paint-white"})
+    assert res.ok, res.errors
+    wall_surfaces = [x for x in s.surfaces if x.target.type == "wall"]
+    assert len(wall_surfaces) == 4  # one inward side per wall
+    # inward = side holding the room centre: w1 runs +x along the south edge, room is on its left
+    assert next(x for x in wall_surfaces if x.target.wall_id == "w1").target.side == "left"
+    finishes = next(st for st in compute_takeoff(s).stages if st.name == "finishes")
+    ids = {i.material_id for i in finishes.items}
+    assert {"floor-wood-laminate", "wall-paint-white"} <= ids
+    s, _ = execute(s, hist, "design", "set_surface_material",
+                   {"room": "r1", "part": "floor", "material_id": "floor-cement-screed"})
+    assert [x.material_id for x in s.surfaces if x.target.type == "room"] == ["floor-cement-screed"]
+    s, _ = execute(s, hist, "design", "undo", {})
+    assert [x.material_id for x in s.surfaces if x.target.type == "room"] == ["floor-wood-laminate"]
+
+
+def test_surface_material_rejects_wrong_surface_kind_and_unknown() -> None:
+    _, bad = execute(_scene(), [], "design", "set_surface_material", {"room": "r1", "part": "floor", "material_id": "wall-paint-white"})
+    assert bad.errors[0].code == "catalog.unknown_item"
+    _, bad = execute(_scene(), [], "design", "set_surface_material", {"room": "r1", "part": "walls", "material_id": "nope"})
+    assert bad.errors[0].code == "catalog.unknown_item"
+
+
+def test_brighter_hint_when_room_has_no_window() -> None:
+    _, res = execute(_scene(), [], "design", "set_surface_material", {"room": "r1", "part": "walls", "material_id": "wall-paint-white"})
+    assert any("window" in w for w in res.warnings)

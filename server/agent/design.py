@@ -271,3 +271,65 @@ def rotate(scene: Scene, a) -> tuple[list[Furniture], list[str]]:
 def remove(scene: Scene, a) -> tuple[list[Furniture], list[str]]:
     f = pick_item(scene, a.item_id or a.item, a.selected)
     return [x for x in scene.furniture if x.id != f.id], [f.id]
+
+
+# --- surface finishes ---------------------------------------------------------
+
+
+def finish_item(material_id: str, part: str) -> dict:
+    want = "floor" if part == "floor" else "wall"
+    for m in load_catalog()["materials"]:
+        if m["id"] == material_id and m.get("kind") == "finish" and m.get("surface") == want:
+            return m
+    raise DesignError("catalog.unknown_item", f"no {want} finish {material_id!r}; use list_catalog")
+
+
+def inward_wall_sides(scene: Scene, room: Room) -> list[tuple[str, str]]:
+    """(wall_id, side) of every wall side that faces into the room (left = normal (-dy, dx))."""
+    ring = Polygon(room.polygon).exterior
+    inside = Polygon(room.polygon).representative_point()
+    out: list[tuple[str, str]] = []
+    for w in scene.walls:
+        line = LineString([w.a, w.b])
+        if line.length < 1e-6 or ring.buffer(0.3).intersection(line).length < 0.5:
+            continue
+        dx, dy = (w.b[0] - w.a[0]) / line.length, (w.b[1] - w.a[1]) / line.length
+        mid = line.interpolate(0.5, normalized=True)
+        left = (-dy) * (inside.x - mid.x) + dx * (inside.y - mid.y) > 0
+        out.append((w.id, "left" if left else "right"))
+    return out
+
+
+def set_surface(scene: Scene, a) -> tuple[list, list[str], list[str]]:
+    from server.scene.models import RoomSurfaceTarget, Surface, WallSurfaceTarget
+
+    finish = finish_item(a.material_id, a.part)
+    room = pick_room(scene, a.room, a.selected)
+    if a.part == "floor":
+        targets = [("room", room.id, "floor")]
+    else:
+        targets = [("wall", wid, side) for wid, side in inward_wall_sides(scene, room)]
+        if not targets:
+            raise DesignError("room.no_walls", f"no wall found around {room.name}; Scene unchanged")
+
+    def key(s):
+        t = s.target
+        return ("room", t.room_id, t.part) if t.type == "room" else ("wall", t.wall_id, t.side)
+
+    kept = [s for s in scene.surfaces if key(s) not in set(targets)]
+    taken = {s.id for s in kept}
+    new = []
+    for kind, ref, sub in targets:
+        sid = f"sf-{ref}-{sub}"
+        while sid in taken:
+            sid += "x"
+        taken.add(sid)
+        target = RoomSurfaceTarget(room_id=ref, part="floor") if kind == "room" else WallSurfaceTarget(wall_id=ref, side=sub)
+        new.append(Surface(id=sid, target=target, material_id=finish["id"]))
+    warnings: list[str] = []
+    if a.part == "walls":
+        wall_ids = {wid for wid, _ in inward_wall_sides(scene, room)}
+        has_window = any(o.kind == "window" and o.wall_id in wall_ids for o in scene.openings)
+        if not has_window:
+            warnings.append(f"design.brighter: {room.name} has no window; a lighter finish helps, but add a window in Reform for real daylight")
+    return [*kept, *new], [s.id for s in new], warnings

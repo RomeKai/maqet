@@ -80,6 +80,7 @@ def test_stage_toolsets_exact() -> None:
         "move_item",
         "rotate_item",
         "remove_item",
+        "set_surface_material",
         "undo",
     )
     assert STAGES["present"] == ("create_variant", "render_view")
