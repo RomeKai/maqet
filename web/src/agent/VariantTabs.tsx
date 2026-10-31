@@ -3,7 +3,7 @@ import { Plus } from "lucide-react";
 import type { OpRecordIn, Scene, VariantsOut } from "../scene/types";
 import { getStrings, type Locale } from "../i18n";
 import { Segmented } from "../ui";
-import { chooseVariant, fetchVariants, forkVariant, undoVariant } from "./agentApi";
+import { chooseVariant, fetchVariants, forkVariant, startVariants, undoVariant } from "./agentApi";
 import { getAgentStrings } from "./agent.i18n";
 import { floorAreaM2 } from "./floorArea";
 
@@ -30,12 +30,16 @@ export interface VariantsState {
   fork: () => Promise<void>;
   choose: (label: string) => Promise<void>;
   undo: () => Promise<void>;
+  /** Align the server's variants with the Reform baseline and show its chosen variant. */
+  start: (base: Scene) => Promise<void>;
 }
 
 /** Variants API state shared by the tabs and the 3D card's Undo button. */
 export function useVariants(
-  onSceneChange: (scene: Scene, ops: OpRecordIn[]) => void,
+  onSceneChange: (scene: Scene, ops: OpRecordIn[], label: string) => void,
   getBase: () => Scene | null = () => null,
+  /** The client's own latest Scene + ops of a variant (the response of its last turn or edit). */
+  getLocal: (label: string) => { scene: Scene; ops: OpRecordIn[] } | null = () => null,
 ): VariantsState {
   const [data, setData] = useState<VariantsOut | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -66,10 +70,15 @@ export function useVariants(
     }
   }
 
-  function applyChosen(raw: VariantsOut): void {
+  function applyChosen(raw: VariantsOut, preferLocal: boolean = true): void {
     setData(raw);
+    const local = preferLocal ? getLocal(raw.chosen) : null;
+    if (local) {
+      onSceneChange(local.scene, local.ops, raw.chosen);
+      return;
+    }
     const chosen = raw.variants.find((v) => v.label === raw.chosen);
-    if (chosen) onSceneChange(chosen.scene, (chosen as VariantWithOps).ops ?? []);
+    if (chosen) onSceneChange(chosen.scene, (chosen as VariantWithOps).ops ?? [], raw.chosen);
   }
 
   return {
@@ -79,6 +88,11 @@ export function useVariants(
     selected: selected === "" ? (data?.chosen ?? NOW) : selected,
     active: activeVariant(selected, data?.chosen),
     reload: load,
+    start: (base: Scene) =>
+      run(async () => {
+        setSelected("");
+        applyChosen((await startVariants(base)) as VariantsOut);
+      }),
     fork: () =>
       run(async () => {
         if (!data) return;
@@ -92,7 +106,7 @@ export function useVariants(
         setSelected(label);
         if (label === NOW) {
           const base = getBase();
-          if (base) onSceneChange(base, []);
+          if (base) onSceneChange(base, [], NOW);
           return;
         }
         applyChosen((await chooseVariant(label)) as VariantsOut);
@@ -101,7 +115,7 @@ export function useVariants(
       run(async () => {
         if (!data) return;
         await undoVariant(data.chosen);
-        applyChosen((await fetchVariants()) as VariantsOut);
+        applyChosen((await fetchVariants()) as VariantsOut, false); // undo: the server just changed it
       }),
   };
 }

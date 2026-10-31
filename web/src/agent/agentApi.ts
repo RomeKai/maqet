@@ -279,6 +279,19 @@ export async function fetchVariants(timeoutMs: number = TURN_TIMEOUT_MS): Promis
   return fetchJson(variantsUrl(), { method: "GET" }, timeoutMs);
 }
 
+/** Align the server's variants with the Scene Reform starts from (a new baseline = a new session). */
+export async function startVariants(baseScene: Scene, timeoutMs: number = TURN_TIMEOUT_MS): Promise<unknown> {
+  return fetchJson(
+    `${variantsUrl()}/start`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ base_scene: baseScene }),
+    },
+    timeoutMs,
+  );
+}
+
 export async function forkVariant(
   label: string,
   fromBranch: string = "A",

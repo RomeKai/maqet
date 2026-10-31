@@ -146,14 +146,34 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
     if (stage !== "stage.reform") baseSceneRef.current = null;
     else if (baseSceneRef.current === null && intakeScene) baseSceneRef.current = intakeScene;
   }, [stage, intakeScene]);
+  // One store of (Scene, ops) per variant: the response of its last turn/edit replaces it,
+  // so switching A -> B -> A never shows a Scene older than the last result (bug W).
+  const variantStore = useRef<Record<string, { scene: Scene; ops: OpRecordIn[] }>>({});
+  const activeVariantRef = useRef<string | null>(null);
   const variants = useVariants(
-    (scene, ops) => {
+    (scene, ops, label) => {
+      variantStore.current[label] = { scene, ops };
       setIntakeScene(scene);
       setHistory(ops);
       setProfessionalFlags(scene.professional_flags ?? []);
     },
     () => baseSceneRef.current,
+    (label) => variantStore.current[label] ?? null,
   );
+  activeVariantRef.current = variants.active;
+
+  // Reform start: align the server's variants with this baseline (new baseline = clean store).
+  const startedFor = useRef<Scene | null>(null);
+  useEffect(() => {
+    const base = baseSceneRef.current;
+    if (stage !== "stage.reform" || base === null || startedFor.current === base) return;
+    startedFor.current = base;
+    variantStore.current = {};
+    void variants.start(base);
+  }, [stage, intakeScene, variants]);
+  useEffect(() => {
+    if (stage !== "stage.reform") startedFor.current = null;
+  }, [stage]);
   const readOnlyMessage = getAgentStrings(locale)["variants.nowReadOnly"];
   const activeKey = chatKey(stage, variants.active);
   const messages = chats[activeKey] ?? [];
@@ -186,9 +206,15 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
           baseScene: baseSceneRef.current,
           conversation,
         });
-        setIntakeScene(res.scene);
-        setHistory(res.history);
-        setProfessionalFlags(res.professional_flags);
+        if (stage === "stage.reform" && variants.active !== null) {
+          variantStore.current[variants.active] = { scene: res.scene, ops: res.history };
+        }
+        // A reply for a variant the user already left must not replace the Scene on screen.
+        if (stage !== "stage.reform" || activeVariantRef.current === variants.active) {
+          setIntakeScene(res.scene);
+          setHistory(res.history);
+          setProfessionalFlags(res.professional_flags);
+        }
         void variants.reload();
         // Map ops_applied -> ToolEvent (ok:true, no errors) for chips
         const toolEvents = res.ops_applied.map((op) => ({
@@ -228,10 +254,13 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
           variant: variants.active,
           baseScene: baseSceneRef.current,
         });
+        if (variants.active !== null) variantStore.current[variants.active] = { scene: res.scene, ops: res.history };
         void variants.reload();
-        setIntakeScene(res.scene);
-        setHistory(res.history);
-        setProfessionalFlags(res.professional_flags);
+        if (activeVariantRef.current === variants.active) {
+          setIntakeScene(res.scene);
+          setHistory(res.history);
+          setProfessionalFlags(res.professional_flags);
+        }
         return null;
       } catch (err) {
         return err instanceof Error ? err.message : String(err);

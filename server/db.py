@@ -9,6 +9,7 @@ pulling a new dependency. Switch to SQLModel tables when it is available.
 
 from __future__ import annotations
 
+import os
 import json
 import sqlite3
 from dataclasses import asdict
@@ -40,7 +41,7 @@ DbPath = str | Path
 
 
 def _resolve(db_path: DbPath | None) -> str:
-    return str(db_path) if db_path is not None else "maqet.db"
+    return str(db_path) if db_path is not None else os.environ.get("MAQET_DB", "maqet.db")
 
 
 def init_db(db_path: DbPath | None = None) -> None:

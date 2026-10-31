@@ -10,7 +10,7 @@ export interface ConversationTurn {
 
 /** Chat key: each variant keeps its own conversation; Design has one of its own. */
 export function chatKey(stage: string, variant: string | null): string {
-  return stage === "stage.reform" ? `reform:${variant ?? "now"}` : stage;
+  return stage === "stage.reform" ? `reform:${variant || "now"}` : stage;
 }
 
 /**

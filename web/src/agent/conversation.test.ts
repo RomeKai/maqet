@@ -33,6 +33,7 @@ describe("chatKey", () => {
     expect(chatKey("stage.reform", "A")).toBe("reform:A");
     expect(chatKey("stage.reform", "B")).not.toBe(chatKey("stage.reform", "A"));
     expect(chatKey("stage.reform", null)).toBe("reform:now");
+    expect(chatKey("stage.reform", "")).toBe("reform:now"); // variants not loaded yet
     expect(chatKey("stage.design", "A")).toBe("stage.design");
   });
 });

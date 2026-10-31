@@ -100,3 +100,22 @@ def test_get_variants_on_a_fresh_db_is_an_empty_list(db: Path) -> None:
     res = client.get("/variants")
     assert res.status_code == 200, res.text
     assert res.json() == {"chosen": "", "variants": []}
+
+
+def test_variants_start_aligns_the_project_with_the_reform_baseline(db: Path) -> None:
+    """Bug W: variants must start from the Scene Reform starts from, not a stale one."""
+    base = _house().model_dump(mode="json")
+    res = client.post("/variants/start", json={"base_scene": base})
+    assert res.status_code == 200, res.text
+    assert [v["label"] for v in res.json()["variants"]] == ["A"]
+    assert res.json()["variants"][0]["scene"]["walls"] == base["walls"]
+    # an edit on A, then starting again from the SAME baseline keeps it
+    edited = _edit(base, [], "A")
+    assert edited["scene"]["version"] == 1
+    again = client.post("/variants/start", json={"base_scene": base}).json()
+    assert again["variants"][0]["op_count"] == 1
+    # a different baseline is a new session with an empty A
+    other = dict(base, id="other", walls=base["walls"][:-1])
+    fresh = client.post("/variants/start", json={"base_scene": other}).json()
+    assert fresh["variants"][0]["op_count"] == 0
+    assert len(fresh["variants"][0]["scene"]["walls"]) == len(base["walls"]) - 1

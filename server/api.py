@@ -623,6 +623,30 @@ def get_variants() -> VariantsOut:
         raise
 
 
+class VariantsStartIn(BaseModel):
+    base_scene: Scene
+
+
+@app.post("/variants/start", response_model=VariantsOut)
+def post_variants_start(body: VariantsStartIn) -> VariantsOut:
+    """Align the variants project with the Scene Reform starts from (bug W).
+
+    The same baseline keeps the project (A/B/C and their ops); a different one
+    is a new session: Now = this Scene and a fresh empty branch A. Without
+    this, variants were seeded from whatever Scene the server saw last.
+    """
+    global _current
+    _current = body.base_scene
+    try:
+        project = load_project(db_path=_DB_PATH)
+    except KeyError:
+        project = None
+    if project is None or project.base.model_dump() != body.base_scene.model_dump():
+        project = Project(base=body.base_scene)
+        save_project(project, db_path=_DB_PATH)
+    return _variants_out(project)
+
+
 @app.post("/variants/fork", response_model=VariantsOut)
 def post_variant_fork(body: ForkIn) -> VariantsOut:
     project = _load_or_seed_project()

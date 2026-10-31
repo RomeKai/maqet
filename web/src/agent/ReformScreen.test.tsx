@@ -23,7 +23,7 @@ describe("ReformScreen", () => {
       agentError={null}
       onNext={noop}
       onEdit={async () => null}
-      variants={{ data: null, error: null, busy: false, selected: "A", active: "A", reload: async () => {}, fork: async () => {}, choose: async () => {}, undo: async () => {} }}
+      variants={{ data: null, error: null, busy: false, selected: "A", active: "A", reload: async () => {}, fork: async () => {}, choose: async () => {}, undo: async () => {}, start: async () => {} }}
     />,
   );
   it("offers the Edit measures button", () => {
@@ -60,7 +60,7 @@ describe("ReformScreen conversation (bug E)", () => {
         agentError={null}
         onNext={noop}
         onEdit={async () => null}
-        variants={{ data: null, error: null, busy: false, selected: "A", active: "A", reload: async () => {}, fork: async () => {}, choose: async () => {}, undo: async () => {} }}
+        variants={{ data: null, error: null, busy: false, selected: "A", active: "A", reload: async () => {}, fork: async () => {}, choose: async () => {}, undo: async () => {}, start: async () => {} }}
       />,
     );
     expect(html).toContain("Add a bedroom");
@@ -78,7 +78,7 @@ describe("activeVariant", () => {
   });
   it("shows the read-only hint on Now", () => {
     const sc = { id: "s", walls: [], rooms: [] } as unknown as Scene;
-    const st = { data: { chosen: "A", variants: [{ label: "A", scene: sc }] } as never, error: null, busy: false, selected: NOW, active: null, reload: async () => {}, fork: async () => {}, choose: async () => {}, undo: async () => {} } as VariantsState;
+    const st = { data: { chosen: "A", variants: [{ label: "A", scene: sc }] } as never, error: null, busy: false, selected: NOW, active: null, reload: async () => {}, fork: async () => {}, choose: async () => {}, undo: async () => {}, start: async () => {} } as VariantsState;
     expect(renderToString(<VariantTabs state={st} locale="en" />)).toContain("read-only");
   });
 });
@@ -94,7 +94,7 @@ describe("VariantTabs", () => {
     reload: async () => {},
     fork: async () => {},
     choose: async () => {},
-    undo: async () => {},
+    undo: async () => {}, start: async () => {},
   });
   it("offers Now, A, B and a fork action, Now caption by default", () => {
     const html = renderToString(<VariantTabs state={state(NOW)} locale="en" />);
@@ -129,7 +129,7 @@ describe("ReformScreen structure with a long conversation", () => {
       agentError={null}
       onNext={noop}
       onEdit={async () => null}
-      variants={{ data: null, error: null, busy: false, selected: "A", active: "A", reload: async () => {}, fork: async () => {}, choose: async () => {}, undo: async () => {} }}
+      variants={{ data: null, error: null, busy: false, selected: "A", active: "A", reload: async () => {}, fork: async () => {}, choose: async () => {}, undo: async () => {}, start: async () => {} }}
     />,
   );
   it("main is not the scroll container", () => {
