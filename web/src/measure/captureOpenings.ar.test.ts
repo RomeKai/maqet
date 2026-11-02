@@ -73,7 +73,7 @@ describe("openings in AR (door / window on a captured wall)", () => {
       ...oneWall,
       { type: "modeChange", mode: "door" },
       { type: "openingTap", point: [0.5, 1, 0], defaults: true },
-      { type: "openingTap", point: [1.0, 1, 0], defaults: true },
+      { type: "openingTap", point: [1.2, 1, 0], defaults: true },
     ]).state.openings[0]!;
     expect(narrow.flagged).toBe(true);
   });

@@ -86,9 +86,9 @@ describe("F4 door <0.80 kept and flagged", () => {
     let s = closeRoomWith4Walls();
     s = captureReducer(s, { type: "modeChange", mode: "door" }).state;
     s = captureReducer(s, { type: "openingTap", point: [1, FLOOR_Y + 0.1, 0] }).state;
-    s = captureReducer(s, { type: "openingTap", point: [1.5, FLOOR_Y + 2.0, 0] }).state;
+    s = captureReducer(s, { type: "openingTap", point: [1.7, FLOOR_Y + 2.0, 0] }).state;
     expect(s.openings).toHaveLength(1);
-    expect(s.openings[0]?.width_m).toBeCloseTo(0.5, 6);
+    expect(s.openings[0]?.width_m).toBeCloseTo(0.7, 6);
     expect(s.openings[0]?.flagged).toBe(true);
     const { ops, flaggedOpeningIds } = toSceneOps(s);
     const openings = ops.filter((o) => o.type === "markOpening");

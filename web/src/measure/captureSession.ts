@@ -53,6 +53,40 @@ export interface CapturedWall {
 export const AR_WINDOW_SILL_M = 0.9;
 export const AR_WINDOW_HEIGHT_M = 1.2;
 export const AR_DOOR_HEIGHT_M = 2.0;
+/** Smallest opening a tap pair may create (a pair closer than this is a mis-tap). */
+export const MIN_DOOR_WIDTH_M = 0.6;
+export const MIN_WINDOW_WIDTH_M = 0.4;
+/** A tap this far past a wall end snaps to the end instead of being refused. */
+const OPENING_SNAP_M = 0.1;
+
+/** Round a typed/ray value to the 0.01 m the UI shows and edits (full precision stays for geometry). */
+export function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+export interface RoomSanity {
+  areaM2: number;
+  shortestWallM: number;
+  tooSmall: boolean;
+}
+
+/** Non-blocking plausibility check: a tiny room usually means the user tapped only a corner. */
+export function roomSanity(walls: readonly CapturedWall[]): RoomSanity {
+  let twice = 0;
+  let shortest = Infinity;
+  for (const w of walls) {
+    twice += w.start.x * w.end.z - w.end.x * w.start.z;
+    shortest = Math.min(shortest, Math.hypot(w.end.x - w.start.x, w.end.z - w.start.z));
+  }
+  const areaM2 = Math.abs(twice) / 2;
+  const closedLoop = walls.length >= 3;
+  const shortestWallM = Number.isFinite(shortest) ? shortest : 0;
+  return {
+    areaM2,
+    shortestWallM,
+    tooSmall: walls.length > 0 && ((closedLoop && areaM2 < 2) || shortestWallM < 0.5),
+  };
+}
 
 /** Walls flow only: door/window unlock after closing or "Finish walls" (W3). */
 export type CaptureMode = "walls" | "door" | "window";
@@ -132,7 +166,8 @@ export type CaptureError =
   | "bad-height"
   | "opening-no-wall"
   | "opening-outside"
-  | "opening-degenerate";
+  | "opening-degenerate"
+  | "opening-too-narrow";
 
 export interface CaptureResult {
   state: CaptureState;
@@ -308,11 +343,12 @@ export function captureReducer(
       if (state.done) return { state, error: null };
       const target = state.walls.find((w) => w.id === event.wallId);
       if (target === undefined) return rejected(state, "no-pending");
-      if (!isPlausibleHeight(event.heightM)) return rejected(state, "bad-height");
+      const typedH = round2(event.heightM);
+      if (!isPlausibleHeight(typedH)) return rejected(state, "bad-height");
       return accepted(state, {
         walls: state.walls.map((w) =>
           w.id === event.wallId
-            ? { ...w, heightM: event.heightM, flaggedHeight: false, heightOverridden: true }
+            ? { ...w, heightM: typedH, flaggedHeight: false, heightOverridden: true }
             : w,
         ),
       });
@@ -373,15 +409,24 @@ export function captureReducer(
       const pending = state.pendingOpening;
       const wall = state.walls.find((w) => w.id === pending.wallId);
       if (!wall) return accepted(state, { pendingOpening: null });
-      const proj = projectOpeningOnWall(wall, pending.first, event.point);
-      if (!proj) {
+      const rawProj = projectOpeningOnWall(wall, pending.first, event.point);
+      if (!rawProj) {
         return rejected(state, "opening-degenerate");
       }
-      // Clamp check
+      // Snap: a tap a little past a wall end lands on the end; further out is refused.
       const wallLen = wallLength(wall);
-      if (proj.offset_m < -1e-6 || proj.offset_m + proj.width_m > wallLen + 1e-6 || proj.width_m <= 1e-6) {
-        // Keep first corner, show why
+      const lo = Math.max(rawProj.offset_m, 0);
+      const hi = Math.min(rawProj.offset_m + rawProj.width_m, wallLen);
+      if (
+        rawProj.offset_m < -OPENING_SNAP_M ||
+        rawProj.offset_m + rawProj.width_m > wallLen + OPENING_SNAP_M
+      ) {
         return rejected(state, "opening-outside");
+      }
+      const proj = { offset_m: lo, width_m: hi - lo };
+      if (proj.width_m < (kind === "door" ? MIN_DOOR_WIDTH_M : MIN_WINDOW_WIDTH_M) - 1e-6) {
+        // Keep the first point so the user only re-taps the second edge.
+        return rejected(state, "opening-too-narrow");
       }
       // Compute height/sill from diagonal taps
       const floorY = state.floorY;
@@ -472,7 +517,8 @@ function newWall(
  * changes) so the user retypes; a valid value is applied to every wall already
  * captured and completes the pending wall, if any.
  */
-function applyRoomHeight(state: CaptureState, heightM: number): CaptureResult {
+function applyRoomHeight(state: CaptureState, rawHeightM: number): CaptureResult {
+  const heightM = round2(rawHeightM);
   if (!isPlausibleHeight(heightM)) return rejected(state, "bad-height");
   // Walls the user overrode by hand keep their own height.
   const walls = state.walls.map((w) =>

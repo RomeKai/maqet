@@ -839,3 +839,56 @@ body {
   stroke: #c8643c;
   stroke-width: 3;
 }
+
+/* --- Review measurements sheet: matches the Check step cards --------------- */
+.measure-review {
+  background: var(--surface);
+  color: var(--ink);
+}
+.measure-review h3 { margin: 0; font-size: 20px; }
+.measure-review-hint { margin: 0; color: var(--lg-muted); font-size: 14px; }
+.measure-review-warning {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--lg-radius);
+  background: #fdf0d8;
+  border: 1px solid #e0b25a;
+  color: #5c3d00;
+  font-size: 15px;
+}
+.review-card {
+  border: 1px solid var(--hairline);
+  border-radius: var(--lg-radius);
+  padding: 10px 12px;
+  background: var(--surface);
+}
+.review-card h4 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.review-card-door { border-left: 4px solid #c8643c; }
+.review-card-window { border-left: 4px solid #9fd3ec; }
+.review-flag {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--lg-accent);
+}
+.review-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.review-field { display: flex; flex-direction: column; gap: 4px; flex: 1 1 96px; min-width: 96px; }
+.review-field-label { font-size: 12px; color: var(--lg-muted); }
+.measure-review .review-field input {
+  width: 100%;
+  min-height: 48px;
+  margin: 0;
+  padding: 0 10px;
+  font-size: 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--ink);
+  box-sizing: border-box;
+}
+.review-field-bad input { border-color: #b3261e; }

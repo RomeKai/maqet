@@ -102,6 +102,14 @@ Not verified on a device.
 
 Phone checklist additions: aim crosshair at ceiling line, see live height, tap "Set height here"; next corner starts on the floor; Window then two taps on a wall, then Door; review sheet shows sill/height; toolbar fits without wrapping.
 
+## Phone round 3 - opening limits, review sheet, tiny-room warning: DONE (unit + fake-WebXR level)
+
+- Openings: door min 0.60 m, window min 0.40 m (error `opening-too-narrow`, first point kept so only the second edge is re-tapped); a tap up to 0.10 m past a wall end snaps to the end, farther is refused ("off the wall"); live width shown at the crosshair while placing the second point. Root cause of the 0.22 m door: no minimum, two near taps accepted.
+- Review sheet: "Wall N" / "Door on wall N" cards with labeled 48 px fields (Length, Height, Width, Offset, Sill), 2-decimal display, comma or dot input, en + es-AR; full precision kept internally; only edited fields emit ops.
+- Typed/ray heights are rounded to 0.01 m in the reducer.
+- Non-blocking warning when a closed room is under 2 m2 or any wall under 0.5 m.
+- Tests: `openingLimits.test.ts`, updated narrow-door tests (0.7 m), e2e review assertions.
+
 ## Gates (final run)
 - `MME_MODE=replay python -m pytest -q server`: 521 passed
 - `npx vitest run`: 89 files, 697 tests passed

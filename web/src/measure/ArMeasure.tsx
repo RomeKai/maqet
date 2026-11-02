@@ -520,6 +520,7 @@ export function ArMeasure({
     if (error === "opening-no-wall") return tMeasure(ml, "pill.aimWall");
     if (error === "opening-outside") return tMeasure(ml, "pill.openingOutside");
     if (error === "opening-degenerate") return tMeasure(ml, "pill.openingDegenerate");
+    if (error === "opening-too-narrow") return tMeasure(ml, "pill.openingNarrow");
     return tMeasure(ml, "pill.badTap");
   }, [ml]);
 

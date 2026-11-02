@@ -262,9 +262,11 @@ test.describe("Mode A: live session (fake WebXR)", () => {
     await page.getByRole("button", { name: "Done" }).click();
     const sheet = page.getByRole("dialog", { name: "Review measurements" });
     await expect(sheet).toBeVisible();
-    await expect(sheet).toContainText("opening-1 window");
-    await expect(sheet).toContainText("opening-2 door");
+    await expect(sheet).toContainText("Window on wall 1");
+    await expect(sheet).toContainText("Door on wall 1");
     const values = await sheet.locator("input").evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value));
+    expect(values.every((v) => /^\d+\.\d{2}$/.test(v))).toBe(true); // rounded to 0.01
+    await expect(sheet.getByLabel("Width (m)").first()).toBeVisible();
     const nums = values.map(Number);
     const has = (n: number) => nums.some((v) => Math.abs(v - n) < 0.01);
     expect(has(0.9)).toBe(true); // window sill

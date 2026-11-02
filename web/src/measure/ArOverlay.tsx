@@ -6,7 +6,7 @@ import {
   shouldCloseRoom,
   type Vec3,
 } from "./cornerMath";
-import { centerRayFromViewInverse, ceilingHeightFromCenterRay, floorPointFromRay } from "./ceilingRay";
+import { centerRayFromViewInverse, ceilingHeightFromCenterRay, floorPointFromRay, wallPointFromRay } from "./ceilingRay";
 import { projectToScreen } from "./projectToScreen";
 import type { OverlayFrame } from "./xrAdapter";
 import type { CapturedWall, CapturedCorner, CapturedOpening, PendingOpening } from "./captureSession";
@@ -79,6 +79,8 @@ export interface OverlayLayout {
   closeLoop: boolean;
   /** Live camera-ray ceiling height (m) while the height step is pending. */
   ceilingPreviewM: number | null;
+  /** Live width (m) of the opening being placed, along the pending wall. */
+  openingPreviewM: number | null;
   /** Captured doors / windows projected onto their walls. */
   openingQuads: OverlayOpeningQuad[];
   /** First edge of an opening waiting for its second tap. */
@@ -191,6 +193,7 @@ export function computeOverlayLayout(
     rubberQuad: null,
     closeLoop: false,
     ceilingPreviewM: null,
+    openingPreviewM: null,
     openingQuads: [],
     openingMarker: null,
   };
@@ -385,6 +388,15 @@ export function computeWallsOverlayLayout(
       ? ceilingHeightFromCenterRay(pendingStart, pendingEnd, floorY, ray)
       : null;
 
+  let openingPreviewM: number | null = null;
+  if (extras.pendingOpening && floorY !== null) {
+    const wp = wallPointFromRay(walls, floorY, ray);
+    const first = extras.pendingOpening.first;
+    if (wp !== null && wp.wallId === extras.pendingOpening.wallId) {
+      openingPreviewM = Math.hypot(wp.point[0] - first[0], wp.point[2] - first[2]);
+    }
+  }
+
   // Captured openings drawn on their wall quads (door terracotta, window light blue via CSS).
   const openingQuads: OverlayOpeningQuad[] = [];
   if (floorY !== null) {
@@ -423,6 +435,7 @@ export function computeWallsOverlayLayout(
     rubberQuad,
     closeLoop,
     ceilingPreviewM,
+    openingPreviewM,
     openingQuads,
     openingMarker,
   };
@@ -502,8 +515,9 @@ export function ArOverlay({ frameRef, corners, locale, walls, pendingStart, pend
       }
       const live = liveHeightRef.current;
       if (live !== null) {
-        if (layout.ceilingPreviewM !== null) {
-          live.textContent = formatMeasureM(loc, layout.ceilingPreviewM);
+        const liveM = layout.ceilingPreviewM ?? layout.openingPreviewM;
+        if (liveM !== null) {
+          live.textContent = formatMeasureM(loc, liveM);
           live.style.display = "";
         } else {
           live.style.display = "none";
