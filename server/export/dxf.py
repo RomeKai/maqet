@@ -6,7 +6,7 @@ centerline offset with opening cuts, doors get a swing arc on A-DOOR,
 windows a centerline on A-GLAZ, furniture footprints with labels on
 A-FLOR-FURN (CONCEPT suffix for imagined items), rooms on A-AREA with
 labels centered on representative_point() plus an area text on
-A-ANNO-TEXT, one measured dimension per wall on A-ANNO-DIMS, title block
+A-ANNO-TEXT, one measured dimension per wall and one per opening width on A-ANNO-DIMS, title block
 on A-ANNO-TEXT carrying the preliminary label plus one line per
 professional-required flag. With a base Scene, walls split into status
 layers A-WALL-EXST / A-WALL-NEWW / A-WALL-DEMO; without one every wall
@@ -160,6 +160,9 @@ def export_dxf(
         _add_furniture(msp, item)
     for wall in scene.walls:
         dxf_dims.add_wall_dimension(msp, wall)
+    for wall in scene.walls:
+        for opening in openings.get(wall.id, []):
+            dxf_dims.add_opening_dimension(msp, wall, opening)
     _add_title_block(
         msp,
         scene,

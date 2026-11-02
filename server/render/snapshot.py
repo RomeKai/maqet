@@ -33,6 +33,14 @@ def _fmt(v: float) -> str:
     return f"{r:.3f}"
 
 
+def _len_label(meters: float, locale: str, estimated: bool = False) -> str:
+    """'3.00 m' (en) / '3,00 m' (es-AR); '≈' marks a length nobody measured."""
+    s = f"{meters:.2f}"
+    if locale == "es-AR":
+        s = s.replace(".", ",")
+    return f"{'≈' if estimated else ''}{s} m"
+
+
 def _area_label(area_m2: float, locale: str) -> str:
     s = f"{abs(area_m2):.1f}"
     if locale == "es-AR":
@@ -126,6 +134,58 @@ def render_snapshot(scene: Scene, locale: str = "en") -> str:
     for f in scene.furniture:
         for px, py in _furniture_corners(f):
             grow(px, py)
+    # A door's swing square (hinge .. hinge + width on the left normal) must fit, not only the wall footprint.
+    wall_by_id = {w.id: w for w in walls}
+    for o in scene.openings:
+        w = wall_by_id.get(o.wall_id)
+        frame = frames.get(o.wall_id)
+        if w is None or frame is None or o.kind != "door":
+            continue
+        (ux, uy), length = frame
+        cs, ce = max(0.0, o.offset_m), min(length, o.offset_m + o.width_m)
+        if ce - cs <= 1e-9:
+            continue
+        for t in (cs, ce):
+            bx, by = w.a[0] + ux * t, w.a[1] + uy * t
+            grow(bx, by)
+            grow(bx - uy * (ce - cs), by + ux * (ce - cs))
+
+    # Dimension labels sit outside the plan: size them from the plan so they stay readable on a phone card
+    # (the card scales the whole viewBox to its width), then make room for them in the bounds.
+    label_size = 0.24
+    if not math.isinf(minx):
+        label_size = max(0.24, 0.032 * max(maxx - minx, maxy - miny))
+    centre = ((minx + maxx) / 2.0, (miny + maxy) / 2.0) if not math.isinf(minx) else (0.0, 0.0)
+    labels: list[dict] = []
+    for w in walls:
+        frame = frames[w.id]
+        if frame is None:
+            continue
+        (ux, uy), length = frame
+        nx, ny = -uy, ux
+        mx, my = (w.a[0] + w.b[0]) / 2.0, (w.a[1] + w.b[1]) / 2.0
+        outward = 1.0 if (mx - centre[0]) * nx + (my - centre[1]) * ny >= 0 else -1.0
+        off = w.thickness_m / 2.0 + label_size * 1.4
+        text = _len_label(length, locale, estimated=w.provenance == "estimated")
+        labels.append({"kind": "wall", "id": w.id, "x": mx + nx * off * outward, "y": my + ny * off * outward, "text": text})
+    for o in sorted(scene.openings, key=lambda o: o.id):
+        w = wall_by_id.get(o.wall_id)
+        frame = frames.get(o.wall_id)
+        if w is None or frame is None:
+            continue
+        (ux, uy), length = frame
+        cs, ce = max(0.0, o.offset_m), min(length, o.offset_m + o.width_m)
+        if ce - cs <= 1e-9:
+            continue
+        nx, ny = -uy, ux
+        mx, my = w.a[0] + ux * (cs + ce) / 2.0, w.a[1] + uy * (cs + ce) / 2.0
+        # Opposite the door swing (left normal), so the label never sits on the arc.
+        off = w.thickness_m / 2.0 + label_size * 0.9
+        labels.append({"kind": "opening", "id": o.id, "x": mx - nx * off, "y": my - ny * off, "text": _len_label(ce - cs, locale)})
+    for lab in labels:
+        half = 0.62 * label_size * len(lab["text"]) / 2.0
+        grow(lab["x"] - half, lab["y"] - label_size)
+        grow(lab["x"] + half, lab["y"] + label_size * 0.3)
 
     root = ET.Element("svg", {
         "data-px-per-m": str(_PX_PER_M),
@@ -292,6 +352,21 @@ def render_snapshot(scene: Scene, locale: str = "en") -> str:
             attrs["data-concept"] = "true"
             attrs["stroke-dasharray"] = f"{_fmt(0.12)} {_fmt(0.08)}"
         _sub(furn_g, "polygon", attrs)
+
+    # --- dimensions: wall lengths outside, opening widths on the inner side ---
+    dims_g = _sub(root, "g", {"data-layer": "dimensions"})
+    for lab in labels:
+        t = _sub(dims_g, "text", {
+            "data-dim": lab["kind"],
+            "data-for": lab["id"],
+            "x": X(lab["x"]),
+            "y": Y(lab["y"]),
+            "text-anchor": "middle",
+            "dominant-baseline": "middle",
+            "font-size": _fmt(label_size if lab["kind"] == "wall" else label_size * 0.85),
+            "fill": "#111111" if lab["kind"] == "wall" else "#52525b",
+        })
+        t.text = lab["text"]
 
     # --- scale bar, bottom-left inside the margin ---
     bar = _nice_bar(width / 4.0)

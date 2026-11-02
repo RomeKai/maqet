@@ -146,3 +146,20 @@ for (const size of SIZES) {
     expect((box?.x ?? 0) + (box?.width ?? 0), "badge inside the viewport").toBeLessThanOrEqual(size.width);
   });
 }
+
+for (const size of SIZES) {
+  test(`finding 7: the Deliver plan snapshot carries wall lengths and opening widths (${size.width}x${size.height})`, async ({ page }) => {
+    await page.setViewportSize(size);
+    await mockTurns(page);
+    await loadSample(page);
+    await toReform(page);
+    await stageTab(page, /Deliver/).click();
+    const img = page.getByRole("img", { name: /Plan snapshot|plan/i }).first();
+    await expect(img).toBeVisible({ timeout: 20_000 });
+    const card = await img.boundingBox();
+    expect((card?.x ?? 0) + (card?.width ?? 0), "snapshot inside the viewport").toBeLessThanOrEqual(size.width + 1);
+    const svg = await img.evaluate(async (el) => (await fetch((el as HTMLImageElement).src)).text());
+    for (const label of ["3.00 m", "8.00 m", "1.50 m", "1.00 m"]) expect(svg, label).toContain(label);
+    expect(svg).toContain("Preliminary");
+  });
+}

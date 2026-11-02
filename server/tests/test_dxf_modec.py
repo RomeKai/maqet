@@ -82,13 +82,14 @@ def test_dxf_modec_dimensions_equal_written_lengths() -> None:
     scene = _scene()
     msp = export_dxf(scene).modelspace()
     dims = _on(msp, "A-ANNO-DIMS", "DIMENSION")
-    assert len(dims) == len(scene.walls)
+    # One per wall (unchanged, emitted first) plus one per opening width.
+    assert len(dims) == len(scene.walls) + len(scene.openings)
     for wall in scene.walls:
         # measured_length_m holds the written length; dimension defpoints must match
         expected = wall.measured_length_m if wall.measured_length_m is not None else math.hypot(wall.b[0] - wall.a[0], wall.b[1] - wall.a[1])
         assert expected is not None
     # Check that each dimension's defpoints span equals the wall length
-    for dim, wall in zip(dims, scene.walls):
+    for dim, wall in zip(dims[: len(scene.walls)], scene.walls):
         measured = math.dist(
             (dim.dxf.defpoint2.x, dim.dxf.defpoint2.y),
             (dim.dxf.defpoint3.x, dim.dxf.defpoint3.y),
