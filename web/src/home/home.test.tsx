@@ -53,3 +53,13 @@ describe("Home and method", () => {
     expect(await isARSupported()).toBe(false);
   });
 });
+
+describe("Home offline copy", () => {
+  it("states what works offline and what needs a connection, in both locales", () => {
+    for (const locale of ["en", "es-AR"] as const) {
+      const t = getStrings(locale);
+      expect(t["home.offline.body"]).toMatch(locale === "en" ? /assistant|AI/i : /asistente|IA/i);
+      expect(t["home.offline.body"]).not.toMatch(locale === "en" ? /^No signal\? Keep editing\. Changes are saved/ : /^¿Sin señal\? Seguí editando\. Los cambios/);
+    }
+  });
+});

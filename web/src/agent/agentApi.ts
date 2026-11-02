@@ -17,12 +17,15 @@ export class AgentApiError extends Error {
   readonly status: number | null;
   /** True when the request was aborted because the server did not answer in time. */
   readonly timedOut: boolean;
+  /** True when the request never reached the server (offline, DNS, connection refused). */
+  readonly network: boolean;
 
-  constructor(message: string, status: number | null = null, timedOut = false) {
+  constructor(message: string, status: number | null = null, timedOut = false, network = false) {
     super(message);
     this.name = "AgentApiError";
     this.status = status;
     this.timedOut = timedOut;
+    this.network = network;
   }
 }
 
@@ -149,7 +152,7 @@ async function fetchJson(url: string, init: RequestInit, timeoutMs: number): Pro
       response = await fetch(url, { ...init, signal: controller.signal });
     } catch (err) {
       if (timedOut) throw timeoutError();
-      throw new AgentApiError(err instanceof Error && err.message ? err.message : "Network error");
+      throw new AgentApiError(err instanceof Error && err.message ? err.message : "Network error", null, false, true);
     }
     if (!response.ok) {
       const detail = await readErrorDetail(response);
@@ -218,7 +221,7 @@ export async function sendTurn(
       });
     } catch (err) {
       if (timedOut) throw timeoutError();
-      throw new AgentApiError(err instanceof Error && err.message ? err.message : "Network error");
+      throw new AgentApiError(err instanceof Error && err.message ? err.message : "Network error", null, false, true);
     }
 
     if (!response.ok) {

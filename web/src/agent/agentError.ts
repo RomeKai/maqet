@@ -4,7 +4,7 @@ import { getAgentStrings } from "./agent.i18n";
 
 /** What the chat shows after a failed turn: one friendly sentence, raw text behind Details, a way to retry. */
 export interface AgentErrorInfo {
-  kind: "server" | "timeout" | "info";
+  kind: "server" | "timeout" | "offline" | "info";
   message: string;
   /** Technical line (status, server detail) shown only inside the Details disclosure. */
   details: string | null;
@@ -17,6 +17,9 @@ export function describeAgentError(err: unknown, locale: Locale, retryText: stri
   const raw = err instanceof Error ? err.message : String(err);
   if (err instanceof AgentApiError && err.timedOut) {
     return { kind: "timeout", message: t["chat.error.timeout"], details: raw, retryText };
+  }
+  if (err instanceof AgentApiError && err.network) {
+    return { kind: "offline", message: t["chat.error.offline"], details: raw, retryText };
   }
   return { kind: "server", message: t["chat.error.server"], details: raw, retryText };
 }

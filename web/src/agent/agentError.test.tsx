@@ -24,6 +24,17 @@ describe("describeAgentError", () => {
     }
   });
 
+  it("shows a friendly offline sentence for a network failure and keeps the text to retry", () => {
+    for (const locale of ["en", "es-AR"] as const) {
+      const info = describeAgentError(new AgentApiError("Failed to fetch", null, false, true), locale, "add a bedroom");
+      expect(info.kind).toBe("offline");
+      expect(info.message).toBe(getAgentStrings(locale)["chat.error.offline"]);
+      expect(info.message).not.toMatch(/fetch|TypeError|Network/i);
+      expect(info.details).toBe("Failed to fetch");
+      expect(info.retryText).toBe("add a bedroom");
+    }
+  });
+
   it("handles a non-Error throw without leaking it into the message", () => {
     const info = describeAgentError("weird", "en", null);
     expect(info.message).toBe(getAgentStrings("en")["chat.error.server"]);

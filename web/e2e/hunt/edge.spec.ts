@@ -120,7 +120,6 @@ test.describe("edge cases", () => {
   });
 
   test("offline: sending a turn shows a friendly error and the app keeps working", async ({ browser }) => {
-    test.fail(true, "E2E-013 offline turn shows the raw 'Failed to fetch', see docs/E2E_BUGS.md");
     const page = await fresh(browser);
     await loadSample(page);
     await toReform(page);
@@ -132,6 +131,12 @@ test.describe("edge cases", () => {
     await shot(page, "edge-offline-turn");
     await page.context().setOffline(false);
     await expect(page.getByLabel("Message to the assistant")).toBeEnabled();
+    // The message is kept and Try again resends it (once, no second bubble).
+    await expect(page.locator(".agent-message[data-role=user]")).toContainText("add a bedroom");
+    await mockTurns(page, { reply: "I added the bedroom." });
+    await page.getByRole("button", { name: "Try again" }).click();
+    await expect(page.locator(".agent-message[data-role=assistant]").last()).toContainText("bedroom");
+    await expect(page.locator(".agent-message[data-role=user]")).toHaveCount(1);
     await page.context().close();
   });
 
