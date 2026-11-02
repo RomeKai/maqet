@@ -25,8 +25,6 @@ const SCREENS = [
 const NO_PRELIM = new Set<string>(["home", "method", "capture-upload", "wall-sheet", "opening-door-form", "opening-window-form"]);
 /** screen:check -> bug id; filled from docs/E2E_BUGS.md once a failure is confirmed as a product bug. */
 const KNOWN: Record<string, string> = {
-  "pixel7:deliver:targets": "E2E-014",
-  "small360:deliver:targets": "E2E-014",
 };
 
 function record(profile: string, screen: string, check: Check, issues: string[]): void {

@@ -50,3 +50,12 @@ describe("ProBanner compact mode (bug D)", () => {
     expect(html).toContain("overflow-y-auto");
   });
 });
+
+describe("compact ProBanner tap target (E2E-014)", () => {
+  it("keeps the disclosure summary at least 48 px tall", () => {
+    const html = renderToStaticMarkup(<ProBanner flags={["needs_professional:second_floor"]} locale="en" compact />);
+    const summary = /<summary[^>]*class="([^"]*)"/.exec(html)?.[1] ?? "";
+    expect(summary).toContain("min-h-12");
+    expect(summary).not.toContain("min-h-9");
+  });
+});
