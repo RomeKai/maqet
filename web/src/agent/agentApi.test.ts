@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   TURN_TIMEOUT_MS,
   AgentApiError,
+  AgentCancelledError,
   parseTurnResponse,
   sendTurn,
   snapshotUrl,
@@ -280,5 +281,34 @@ describe("parseTurnResponse", () => {
   it("throws on a malformed payload", () => {
     expect(() => parseTurnResponse(null)).toThrow(AgentApiError);
     expect(() => parseTurnResponse({ scene: {}, reply: "x", ops_applied: "no" })).toThrow(AgentApiError);
+  });
+});
+
+describe("sendTurn cancellation", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("aborts the request and rejects with AgentCancelledError when the caller's signal fires", async () => {
+    const fetchMock = vi.fn((_url: string, init: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = new AbortController();
+    const pending = sendTurn({ scene, message: "add a bedroom", stage: "reform" }, { signal: controller.signal });
+    controller.abort();
+    await expect(pending).rejects.toBeInstanceOf(AgentCancelledError);
+    await expect(pending).rejects.toMatchObject({ timedOut: false, network: false });
+  });
+
+  it("rejects at once when the signal is already aborted, without calling fetch", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = new AbortController();
+    controller.abort();
+    await expect(sendTurn({ scene, message: "hi", stage: "reform" }, { signal: controller.signal })).rejects.toBeInstanceOf(AgentCancelledError);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

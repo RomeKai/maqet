@@ -57,7 +57,6 @@ test.describe("edge cases", () => {
   });
 
   test("a slow turn (30 s) shows a pending state and stays cancellable", async ({ browser }) => {
-    test.fail(true, "E2E-011 a pending agent turn cannot be cancelled, see docs/E2E_BUGS.md");
     const page = await fresh(browser);
     await loadSample(page);
     await toReform(page);
@@ -66,6 +65,29 @@ test.describe("edge cases", () => {
     await expect(page.getByText("Working on it…").first()).toBeVisible({ timeout: 5000 });
     await shot(page, "edge-turn-slow-pending");
     await expect(page.getByRole("button", { name: /Cancel|Stop/ }), "a Cancel/Stop control while pending").toBeVisible({ timeout: 2000 });
+    await page.context().close();
+  });
+
+  test("Cancel aborts a pending turn, ignores the late reply and Try again resends once", async ({ browser }) => {
+    const page = await fresh(browser);
+    await loadSample(page);
+    await toReform(page);
+    const mock = await mockTurns(page, { delayMs: 2500, reply: "I added the bedroom." });
+    await send(page, "add a bedroom");
+    await expect(page.getByText("Working on it…").first()).toBeVisible({ timeout: 5000 });
+    const cancel = page.getByRole("button", { name: "Cancel" });
+    expect((await cancel.boundingBox())!.height, "Cancel is a 48 px target").toBeGreaterThanOrEqual(47.5);
+    await cancel.click();
+    await expect(page.getByText("Cancelled. Your home was not changed.")).toBeVisible();
+    await expect(page.getByText("Working on it…")).toHaveCount(0);
+    await page.waitForTimeout(3500); // the mocked reply arrives late: it must change nothing
+    await expect(page.locator(".agent-message[data-role=assistant]")).toHaveCount(0);
+    await expect(page.locator(".agent-message[data-role=user]")).toHaveCount(1);
+    await expect(page.getByLabel("Message to the assistant")).toBeEnabled();
+    await page.getByRole("button", { name: "Try again" }).click();
+    await expect(page.locator(".agent-message[data-role=assistant]").last()).toContainText("bedroom", { timeout: 10_000 });
+    await expect(page.locator(".agent-message[data-role=user]")).toHaveCount(1);
+    expect(mock.bodies, "the retry resent the same message").toHaveLength(2);
     await page.context().close();
   });
 

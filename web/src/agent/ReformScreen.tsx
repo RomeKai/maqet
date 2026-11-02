@@ -23,6 +23,7 @@ interface ReformScreenProps {
   onSend: (text: string) => void | Promise<void>;
   onAudio: (audio: Blob) => void;
   pending: boolean;
+  onCancel?: () => void;
   agentError: AgentErrorInfo | null;
   onRetry?: () => void;
   onNext: () => void;
@@ -99,6 +100,7 @@ export function ReformScreen(props: ReformScreenProps): React.JSX.Element {
           onSend={props.onSend}
           onAudio={props.onAudio}
           pending={props.pending}
+          onCancel={props.onCancel}
           suggestions
           onNext={props.onNext}
           compact

@@ -196,3 +196,18 @@ describe("PushToTalk", () => {
     expect(html).toContain(getAgentStrings("en")["ptt.unsupported"]);
   });
 });
+
+describe("ChatSheet cancel", () => {
+  it("shows a 48 px Cancel button next to the pending state when onCancel is given", () => {
+    const t = getAgentStrings("en");
+    const html = render([{ id: "1", role: "user", text: "add a bedroom" }], { pending: true, onCancel: () => undefined });
+    expect(html).toContain(t["chat.sending"]);
+    expect(html).toContain(t["chat.cancel"]);
+    expect(html).toMatch(/agent-cancel[^>]*min-h-12|min-h-12[^>]*agent-cancel/);
+  });
+
+  it("has no Cancel button when nothing is pending", () => {
+    const html = render([{ id: "1", role: "user", text: "hi" }], { onCancel: () => undefined });
+    expect(html).not.toContain(getAgentStrings("en")["chat.cancel"]);
+  });
+});

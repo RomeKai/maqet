@@ -22,7 +22,7 @@ import { chatKey, toConversation } from "./agent/conversation";
 import { DeliverView } from "./deliver/DeliverView";
 import { parseTakeoff } from "./deliver/takeoffFormat";
 import type { Takeoff } from "./deliver/takeoffTypes";
-import { sendEdit, sendTurn } from "./agent/agentApi";
+import { AgentCancelledError, sendEdit, sendTurn } from "./agent/agentApi";
 import type { EditCall } from "./agent/editCall";
 import { splitToolNotes } from "./agent/toolNotes";
 import { useVariants } from "./agent/VariantTabs";
@@ -209,6 +209,10 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene: seededScene 
     setChats((c) => ({ ...c, [key]: [...(c[key] ?? []), message] }));
   }, []);
 
+  // The turn in flight: Cancel aborts it, and a reply for any other turn is ignored (never touches Scene or chat).
+  const turnRef = useRef<{ id: number; text: string; controller: AbortController } | null>(null);
+  const turnCounter = useRef(0);
+
   const handleSend = useCallback(
     async (text: string, retry = false) => {
       if (!intakeScene || !agentStage) return;
@@ -222,6 +226,8 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene: seededScene 
       const dropLast = retry && last?.role === "user" && last.text === text;
       const conversation = toConversation(dropLast ? messages.slice(0, -1) : messages);
       if (!dropLast) addMessage(key, { id: `u-${Date.now()}`, role: "user", text });
+      const turn = { id: ++turnCounter.current, text, controller: new AbortController() };
+      turnRef.current = turn;
       setPending(true);
       setAgentError(null);
       try {
@@ -235,7 +241,8 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene: seededScene 
           variant: stage === "stage.reform" ? variants.active : null,
           baseScene: baseSceneRef.current,
           conversation,
-        });
+        }, { signal: turn.controller.signal });
+        if (turnRef.current?.id !== turn.id) return; // cancelled while the reply was in flight
         if (stage === "stage.reform" && variants.active !== null) {
           variantStore.current[variants.active] = { scene: res.scene, ops: res.history };
         }
@@ -265,13 +272,26 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene: seededScene 
           toolEvents,
         });
       } catch (err) {
+        if (err instanceof AgentCancelledError || turnRef.current?.id !== turn.id) return;
         setAgentError(describeAgentError(err, locale, text));
       } finally {
-        setPending(false);
+        if (turnRef.current?.id === turn.id) {
+          turnRef.current = null;
+          setPending(false);
+        }
       }
     },
     [intakeScene, agentStage, history, selectedWallId, stage, variants, readOnlyMessage, activeKey, messages, addMessage, locale],
   );
+
+  const handleCancel = useCallback((): void => {
+    const turn = turnRef.current;
+    if (turn === null) return;
+    turnRef.current = null; // from here on the turn's reply, if any, is ignored
+    turn.controller.abort();
+    setPending(false);
+    setAgentError({ ...plainAgentError(getAgentStrings(locale)["chat.cancelled"]), retryText: turn.text });
+  }, [locale]);
 
   const handleRetry = useCallback((): void => {
     if (agentError?.retryText) void handleSend(agentError.retryText, true);
@@ -449,6 +469,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene: seededScene 
           pending={pending}
           agentError={agentError}
           onRetry={handleRetry}
+          onCancel={handleCancel}
           onNext={() => setStage(STAGES[stageIndex + 1] ?? "stage.deliver")}
           onEdit={handleEdit}
           variants={variants}
@@ -465,6 +486,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene: seededScene 
           pending={pending}
           agentError={agentError}
           onRetry={handleRetry}
+          onCancel={handleCancel}
           onNext={() => setStage(STAGES[stageIndex + 1] ?? "stage.deliver")}
           onEdit={handleDesignEdit}
           realLife={realLife}
@@ -496,7 +518,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene: seededScene 
 
         {isAgentStage ? (
           <div className="agent-stage">
-            <ChatSheet messages={messages} locale={locale} onSend={handleSend} onAudio={handleAudio} pending={pending} suggestions suggestionStage="design" />
+            <ChatSheet messages={messages} locale={locale} onSend={handleSend} onAudio={handleAudio} pending={pending} onCancel={handleCancel} suggestions suggestionStage="design" />
             {agentError ? <AgentErrorNotice error={agentError} locale={locale} onRetry={handleRetry} busy={pending} /> : null}
           </div>
         ) : (

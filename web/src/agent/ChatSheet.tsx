@@ -62,6 +62,8 @@ interface ChatSheetProps {
   onAudio?: (audio: Blob) => void;
   /** A turn is in flight: sending is disabled. */
   pending?: boolean;
+  /** Abort the turn in flight; the Cancel button shows only while pending. */
+  onCancel?: () => void;
   /** Show the quick-request chips above the bottom bar. */
   suggestions?: boolean;
   /** Which stage the chips belong to (each chip maps to one tool of that stage). */
@@ -80,6 +82,7 @@ export function ChatSheet({
   onSend,
   onAudio,
   pending = false,
+  onCancel,
   suggestions = false,
   suggestionStage = "reform",
   onNext,
@@ -136,7 +139,12 @@ export function ChatSheet({
         ))}
         {pending ? (
           <li className="agent-message agent-pending" data-role="assistant" role="status">
-            {t["chat.sending"]}
+            <span>{t["chat.sending"]}</span>
+            {onCancel ? (
+              <button type="button" className="agent-cancel min-h-12 rounded-xl border-2 border-foreground px-4 text-[15px] font-bold" onClick={onCancel}>
+                {t["chat.cancel"]}
+              </button>
+            ) : null}
           </li>
         ) : null}
       </ol>

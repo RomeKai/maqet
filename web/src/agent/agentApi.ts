@@ -29,8 +29,18 @@ export class AgentApiError extends Error {
   }
 }
 
+/** The caller aborted the turn (Cancel): not a failure to report, and a late reply must be ignored. */
+export class AgentCancelledError extends AgentApiError {
+  constructor() {
+    super("Agent request cancelled");
+    this.name = "AgentCancelledError";
+  }
+}
+
 export interface SendTurnOptions {
   timeoutMs?: number;
+  /** Abort the request from the caller (Cancel). */
+  signal?: AbortSignal;
 }
 
 /** Stage scoped to the current sheet (Capture has no agent tools). */
@@ -187,7 +197,7 @@ export interface SendTurnParams {
 
 export async function sendTurn(
   params: SendTurnParams,
-  { timeoutMs = TURN_TIMEOUT_MS }: SendTurnOptions = {},
+  { timeoutMs = TURN_TIMEOUT_MS, signal }: SendTurnOptions = {},
 ): Promise<TurnOutcome> {
   const message = params.message.trim();
   if (message.length === 0) throw new AgentApiError("Cannot send an empty message");
@@ -202,12 +212,15 @@ export async function sendTurn(
     ...(params.variant ? { variant: params.variant, base_scene: params.baseScene ?? null } : {}),
   };
 
+  if (signal?.aborted) throw new AgentCancelledError();
   const controller = new AbortController();
   let timedOut = false;
   const timer = setTimeout(() => {
     timedOut = true;
     controller.abort();
   }, timeoutMs);
+  const onCancel = (): void => controller.abort();
+  signal?.addEventListener("abort", onCancel, { once: true });
   const timeoutError = (): AgentApiError => new AgentApiError("Agent request timed out", null, true);
 
   try {
@@ -220,6 +233,7 @@ export async function sendTurn(
         signal: controller.signal,
       });
     } catch (err) {
+      if (signal?.aborted) throw new AgentCancelledError();
       if (timedOut) throw timeoutError();
       throw new AgentApiError(err instanceof Error && err.message ? err.message : "Network error", null, false, true);
     }
@@ -236,12 +250,14 @@ export async function sendTurn(
     try {
       payload = await response.json();
     } catch {
+      if (signal?.aborted) throw new AgentCancelledError();
       if (timedOut) throw timeoutError();
       throw new AgentApiError("Agent response was not JSON", response.status);
     }
     return parseTurnResponse(payload);
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener("abort", onCancel);
   }
 }
 

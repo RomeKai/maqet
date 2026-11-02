@@ -38,6 +38,7 @@ interface DesignScreenProps {
   onSend: (text: string) => void | Promise<void>;
   onAudio: (audio: Blob) => void;
   pending: boolean;
+  onCancel?: () => void;
   agentError: AgentErrorInfo | null;
   onRetry?: () => void;
   onNext: () => void;
@@ -149,6 +150,7 @@ export function DesignScreen(props: DesignScreenProps): React.JSX.Element {
           onSend={props.onSend}
           onAudio={props.onAudio}
           pending={props.pending}
+          onCancel={props.onCancel}
           suggestions
           suggestionStage="design"
           onNext={props.onNext}
