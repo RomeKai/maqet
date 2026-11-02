@@ -75,6 +75,9 @@ interface ChatSheetProps {
 }
 
 
+/** Content height above which the message list is kept readable (min-height) instead of squeezed. */
+const TALL_REPLY_PX = 64;
+
 /** Chat with the agent: bubbles, quick requests and a talk bar (phone-first). */
 export function ChatSheet({
   messages,
@@ -94,9 +97,18 @@ export function ChatSheet({
   const [pttState, setPttState] = useState<PushToTalkState>("idle");
   const listRef = useRef<HTMLOListElement>(null);
 
+  const [tall, setTall] = useState(false);
+
   useEffect(() => {
     const list = listRef.current;
-    if (list !== null) list.scrollTop = list.scrollHeight;
+    if (list === null) return;
+    // The newest bubble alone (its natural height does not depend on the list size, so no flicker).
+    const newest = list.lastElementChild as HTMLElement | null;
+    const content = newest?.offsetHeight ?? 0;
+    setTall(content > TALL_REPLY_PX);
+    list.scrollTop = list.scrollHeight;
+    // The dock can sit below the fold when the stage scrolls: bring the newest reply into view too.
+    list.scrollIntoView?.({ block: "nearest" });
   }, [messages, pending]);
 
   function submit(event: FormEvent<HTMLFormElement>): void {
@@ -111,7 +123,7 @@ export function ChatSheet({
   const inputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <section className="agent-sheet" aria-label={t["chat.title"]} aria-busy={pending}>
+    <section className="agent-sheet" data-tall={tall} aria-label={t["chat.title"]} aria-busy={pending}>
       {showList ? (
       <ol className="agent-messages" ref={listRef} aria-live="polite">
         {messages.length === 0 && !compact ? <li className="agent-empty">{t["chat.empty"]}</li> : null}

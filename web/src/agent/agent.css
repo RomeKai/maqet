@@ -376,3 +376,18 @@
 .agent-detail-line { margin: 0 0 6px; font-size: 0.8125rem; color: var(--muted-foreground); overflow-wrap: anywhere; }
 
 .agent-message.agent-pending { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+
+/* A reply taller than the squeezed list (ChatSheet sets data-tall): on a phone tall enough to afford it, the stage
+   scrolls and the reply keeps a readable height instead of being cut to a sliver under the hero, banner and chips.
+   Short replies, and screens under 700 px, keep the one-screen dock (the list then scrolls on its own). */
+@media (min-height: 700px) {
+  .app:has(.agent-sheet[data-tall="true"]) .stage-screen {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .app:has(.agent-sheet[data-tall="true"]) .stage-screen .agent-sheet .agent-messages {
+    flex: 1 0 auto;
+    min-height: 6.5rem;
+  }
+}
