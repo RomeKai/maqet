@@ -739,8 +739,8 @@ export function CornerEditor({
                   className={cls}
                   onClick={(e) => {
                     e.stopPropagation();
-                    // With a door/window tool armed the tap places the opening; it must not also open the length sheet.
-                    if (openingToolKind !== null) return;
+                    // The tap that places an opening (tool armed, or its sheet just opened) must not also open the length sheet.
+                    if (openingToolKind !== null || openingSheetId !== null) return;
                     setSelectedWall(w.id);
                     setSelectedOpening(null);
                     setWallSheetId(w.id);
@@ -753,7 +753,7 @@ export function CornerEditor({
                   kind={provenanceKind(w)}
                   badge={t[`intake.prov.${provenanceKind(w)}` as const]}
                   unitsPerPx={unitsPerPx}
-                  onSelect={() => { if (openingToolKind !== null) return; setSelectedWall(w.id); setWallSheetId(w.id); }}
+                  onSelect={() => { if (openingToolKind !== null || openingSheetId !== null) return; setSelectedWall(w.id); setWallSheetId(w.id); }}
                 />
               </g>
             );
