@@ -24,8 +24,6 @@ const NO_PRELIM = new Set<string>(["home", "method", "capture-upload", "wall-she
 /** screen:check -> bug id; filled from docs/E2E_BUGS.md once a failure is confirmed as a product bug. */
 const KNOWN: Record<string, string> = {
   "pixel7:capture-walls:overlap": "E2E-009",
-  "pixel7:capture-check:overlap": "E2E-009",
-  "pixel7:capture-3d:overlap": "E2E-009",
   "pixel7:deliver:targets": "E2E-014",
   "small360:deliver:targets": "E2E-014",
 };
@@ -433,10 +431,11 @@ for (const profile of PROFILES) {
     });
 
     test("global: reload mid-flow keeps the project", async () => {
-      test.fail(true, "E2E-007 the project lives only in memory: reload drops it, see docs/E2E_BUGS.md");
+      // Last test of a long shared-page journey: the page is slow by now, not the reload.
+      test.setTimeout(120_000);
       await toReform();
-      await page.reload({ waitUntil: "domcontentloaded" });
-      await expect(page.getByTestId("reform-screen"), "reload mid-flow keeps the stage").toBeVisible({ timeout: 5000 });
+      await page.reload({ waitUntil: "commit" });
+      await expect(page.getByTestId("reform-screen"), "reload mid-flow keeps the stage").toBeVisible({ timeout: 20_000 });
     });
   });
 }

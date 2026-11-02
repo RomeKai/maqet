@@ -30,6 +30,7 @@ import { getAgentStrings } from "./agent/agent.i18n";
 import type { AgentStage } from "./agent/agentApi";
 import type { ChatMessage } from "./agent/agentTypes";
 import type { OpRecordIn, Scene } from "./scene/types";
+import { clearProject, saveProject, type ProjectSnapshot } from "./persist/projectStore";
 
 const STAGE_TO_AGENT: Partial<Record<StringKey, AgentStage>> = {
   "stage.reform": "reform",
@@ -46,11 +47,16 @@ interface AppProps {
   /** Test seam: skip WebXR detection. */
   arSupported?: boolean;
   initialScene?: Scene | null;
+  /** Project read from the phone's storage on load; wins over `initialScene`. */
+  restored?: ProjectSnapshot | null;
+  /** Start a new project (the parent drops the stored one and remounts). */
+  onNewProject?: () => void;
 }
 
-export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initialView, arSupported }: AppProps) {
-  const [locale, setLocale] = useState<Locale>(initialLocale);
-  const [stage, setStage] = useState<StringKey>("stage.capture");
+export function App({ initialLocale = DEFAULT_LOCALE, initialScene: seededScene = null, initialView, arSupported, restored = null, onNewProject }: AppProps) {
+  const initialScene = restored?.scene ?? seededScene;
+  const [locale, setLocale] = useState<Locale>(restored?.locale ?? initialLocale);
+  const [stage, setStage] = useState<StringKey>(restored?.stage ?? "stage.capture");
   const [scaleConfirmed, setScaleConfirmed] = useState(initialScene?.scale_confirmed === true);
   const [hasPhoto, setHasPhoto] = useState(false);
   const [intakeScene, setIntakeScene] = useState<Scene | null>(initialScene);
@@ -61,7 +67,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
   // so going back to Home or the method list never drops the scene.
   const [workMounted, setWorkMounted] = useState(view === "work");
   const [startInAr, setStartInAr] = useState(false);
-  const [captureStep, setCaptureStep] = useState<CaptureStepKey>(initialScene?.walls?.length ? captureStepFromScene(initialScene) : "photo");
+  const [captureStep, setCaptureStep] = useState<CaptureStepKey>(restored?.captureStep ?? (initialScene?.walls?.length ? captureStepFromScene(initialScene) : "photo"));
   const [arAvailable, setArAvailable] = useState(arSupported ?? false);
 
   useEffect(() => {
@@ -127,10 +133,10 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
 
   // Agent wiring
   // One conversation per variant (and one for Design): switching variants switches the chat.
-  const [chats, setChats] = useState<Record<string, ChatMessage[]>>({});
+  const [chats, setChats] = useState<Record<string, ChatMessage[]>>(restored?.chats ?? {});
   const [pending, setPending] = useState(false);
-  const [professionalFlags, setProfessionalFlags] = useState<string[]>([]);
-  const [history, setHistory] = useState<OpRecordIn[]>([]);
+  const [professionalFlags, setProfessionalFlags] = useState<string[]>(restored?.professionalFlags ?? []);
+  const [history, setHistory] = useState<OpRecordIn[]>(restored?.history ?? []);
   const [agentError, setAgentError] = useState<string | null>(null);
 
   const t = getStrings(locale);
@@ -144,14 +150,14 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
   const agentStage = STAGE_TO_AGENT[stage] ?? null;
 
   // Now baseline: the Scene when Reform started (read-only; A/B/C hold the edits).
-  const baseSceneRef = useRef<Scene | null>(null);
+  const baseSceneRef = useRef<Scene | null>(restored?.baseScene ?? null);
   useEffect(() => {
     if (stage !== "stage.reform") baseSceneRef.current = null;
     else if (baseSceneRef.current === null && intakeScene) baseSceneRef.current = intakeScene;
   }, [stage, intakeScene]);
   // One store of (Scene, ops) per variant: the response of its last turn/edit replaces it,
   // so switching A -> B -> A never shows a Scene older than the last result (bug W).
-  const variantStore = useRef<Record<string, { scene: Scene; ops: OpRecordIn[] }>>({});
+  const variantStore = useRef<Record<string, { scene: Scene; ops: OpRecordIn[] }>>(restored?.variants ?? {});
   const activeVariantRef = useRef<string | null>(null);
   const variants = useVariants(
     (scene, ops, label) => {
@@ -166,7 +172,8 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
   activeVariantRef.current = variants.active;
 
   // Reform start: align the server's variants with this baseline (new baseline = clean store).
-  const startedFor = useRef<Scene | null>(null);
+  // A restored Reform session keeps its server variants: do not re-start them from the baseline.
+  const startedFor = useRef<Scene | null>(restored?.baseScene ?? null);
   useEffect(() => {
     const base = baseSceneRef.current;
     if (stage !== "stage.reform" || base === null || startedFor.current === base) return;
@@ -177,6 +184,22 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
   useEffect(() => {
     if (stage !== "stage.reform") startedFor.current = null;
   }, [stage]);
+  // Persist the project on the phone so a reload resumes where it was (try/catch inside saveProject).
+  useEffect(() => {
+    if (intakeScene === null || !intakeScene.walls?.length) return;
+    saveProject({
+      v: 1,
+      locale,
+      stage,
+      captureStep,
+      scene: intakeScene,
+      baseScene: baseSceneRef.current,
+      variants: variantStore.current,
+      history,
+      chats,
+      professionalFlags,
+    });
+  }, [locale, stage, captureStep, intakeScene, history, chats, professionalFlags]);
   const readOnlyMessage = getAgentStrings(locale)["variants.nowReadOnly"];
   const activeKey = chatKey(stage, variants.active);
   const messages = chats[activeKey] ?? [];
@@ -362,7 +385,13 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene = null, initi
           captured={wallsCount > 0}
           onStart={() => setView("method")}
           onContinue={() => enterWork(false)}
-          onNewProject={() => setView("method")}
+          onNewProject={() => {
+            if (onNewProject) onNewProject();
+            else {
+              clearProject();
+              setView("method");
+            }
+          }}
         />
       )}
       {onCapture && view === "method" && (
