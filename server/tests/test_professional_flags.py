@@ -112,7 +112,7 @@ def test_flags_survive_save_load_round_trip() -> None:
 def test_persisted_flag_written_next_to_preliminary_note() -> None:
     scene = _base().model_copy(update={"professional_flags": [PRO_FLAG_SECOND_FLOOR]})
     texts = _dxf_texts(export_dxf(scene))
-    line = f"{PROFESSIONAL_PREFIX}{PRO_FLAG_SECOND_FLOOR}"
+    line = f"{PROFESSIONAL_PREFIX}second floor"
     assert texts.count(line) == 1
     assert texts.index(line) == texts.index(PRELIMINARY_NOTE) + 1
 
@@ -122,4 +122,4 @@ def test_export_route_writes_flags_from_posted_scene() -> None:
     res = TestClient(app).post("/export/dxf", json=scene.model_dump(mode="json"))
     assert res.status_code == 200, res.text
     doc = ezdxf.read(io.StringIO(res.content.decode("utf-8")))
-    assert f"{PROFESSIONAL_PREFIX}{PRO_FLAG_SOIL}" in _dxf_texts(doc)
+    assert f"{PROFESSIONAL_PREFIX}foundations on unknown soil" in _dxf_texts(doc)

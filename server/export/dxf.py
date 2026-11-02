@@ -33,6 +33,7 @@ from shapely.geometry import Polygon
 
 from server.export import dxf_dims, dxf_status, dxf_walls
 from server.export.layers import ensure_layers, level_layer
+from server.export.flag_text import flag_notes
 from server.scene.models import Furniture, Opening, Room, Scene, Wall
 from server.scene.validation import ValidationReport, validate_scene
 
@@ -373,7 +374,7 @@ def _add_title_block(
         "Units: meters",
         "Scale 1:100 (1 unit = 1 m)",
         PRELIMINARY_NOTE,
-        *(f"{PROFESSIONAL_PREFIX}{flag}" for flag in flags),
+        *(f"{PROFESSIONAL_PREFIX}{note}" for note in flag_notes(flags)),
     ]
     x = _m(min_x)
     y = _m(min_y) - _m(TITLE_BELOW_SITE_M)

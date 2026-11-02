@@ -83,8 +83,8 @@ def test_dxf_puts_upper_level_rooms_on_l2_layers() -> None:
     assert by_text["12.0 m2"] == "A-ANNO-TEXT"
     polys = {e.dxf.layer for e in msp if e.dxftype() == "LWPOLYLINE"}
     assert "A-AREA-L2" in polys
-    assert f"{PROFESSIONAL_PREFIX}{PRO_FLAG_SECOND_FLOOR}" in by_text
-    assert by_text[f"{PROFESSIONAL_PREFIX}{PRO_FLAG_SECOND_FLOOR}"] == "A-ANNO-TEXT"
+    assert f"{PROFESSIONAL_PREFIX}second floor" in by_text
+    assert by_text[f"{PROFESSIONAL_PREFIX}second floor"] == "A-ANNO-TEXT"
 
 
 def test_ground_only_scene_creates_no_level_layers() -> None:

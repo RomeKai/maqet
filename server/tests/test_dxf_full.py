@@ -17,6 +17,7 @@ from shapely.geometry import Polygon
 from server.export.dxf import (
     PRELIMINARY_NOTE,
     PROFESSIONAL_PREFIX,
+    flag_notes,
     ScaleNotConfirmedError,
     export_dxf,
     save_dxf,
@@ -272,9 +273,10 @@ def test_title_block_contents() -> None:
     assert "Project: Casa Test" in texts
     assert any("Scale 1:100" in t for t in texts)
     assert PRELIMINARY_NOTE in texts
-    for flag in flags:
-        assert f"{PROFESSIONAL_PREFIX}{flag}" in texts
-    assert sum(t.startswith(PROFESSIONAL_PREFIX) for t in texts) == len(flags)
+    notes = flag_notes(flags)
+    for note in notes:
+        assert f"{PROFESSIONAL_PREFIX}{note}" in texts
+    assert sum(t.startswith(PROFESSIONAL_PREFIX) for t in texts) == len(notes)
 
 
 def test_status_layers_with_base_and_plain_wall_without() -> None:
