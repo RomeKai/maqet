@@ -7,6 +7,7 @@ technical assistant help many more of them: measure the home, design the next ro
 their own table, and leave a construction takeoff they can buy stage by stage.
 
 > **Demo video (3 min):** _link coming on submission day_ · **Built for** the Meta Global AI Developer Hackathon, Indie track
+> · Demo script: [`docs/DEMO.md`](docs/DEMO.md) · Submission checklist: [`docs/SUBMISSION.md`](docs/SUBMISSION.md)
 
 **Reads a hand sketch for a tenth of a cent.** In our test set, Muse Spark transcribed the written measurements on all
 six inputs (clean plans, phone photos and a hand sketch) and found every door and window on the drawn plans, at about
@@ -33,6 +34,17 @@ buy against and drawings a professional can sign.
 Sources: Habitat for Humanity, *Vivienda autoconstruida en Argentina* (2022), citing RENABAP; more in
 [`docs/PRODUCT.md`](docs/PRODUCT.md).
 
+## Who it's for
+
+| Who | Role in Maqet |
+|---|---|
+| **Technical assistants** (primary): architects, master builders and social-housing technicians at NGOs, municipalities and cooperatives | Drive the session on site with a phone: measure, design with the family, leave with a staged material list and a DXF |
+| **Families** | Watch the proposal in AR on their own table, ask for changes by voice in Spanish, keep a read-only link |
+| **Licensed professionals and hardware stores** (downstream) | Receive a measured DXF to review and sign; quote the staged material list |
+
+Families are free; the licensing hypothesis is a per-seat licence for programs ([`docs/PRODUCT.md`](docs/PRODUCT.md)).
+Maqet is not a plan generator and never certifies structural safety.
+
 ## How it works
 
 ```
@@ -44,7 +56,7 @@ AR measure  (agent)                render
 
 | Stage | What happens | Meta model |
 |---|---|---|
-| **Capture** | Photo of a plan or a hand-drawn *croquis* with written measurements → proposed walls, openings and labels → the technician corrects them on the phone → scale from a written or known measurement. AR measuring and per-wall measurements in progress ([ADR-025](docs/DECISIONS.md)) | Muse Spark 1.3 (vision, structured output) |
+| **Capture** | Three modes ([ADR-025](docs/DECISIONS.md)), one Scene with a measurement and a provenance per wall. **A, AR measure** (Android Chrome, primary path): tap each floor corner, walls come out in meters. **B, room photo + taps** (any phone). **C, hand sketch with written measurements** (fallback): proposed walls and openings, each wall takes its own written length | Muse Spark 1.3 (vision, structured output) for mode C |
 | **Reform** | The family asks by voice; the agent proposes the expansion through validated tools, checked against construction rules | Muse Voice Transcribe · Muse Spark 1.3 (tool calling) |
 | **Design** | Basic furniture, only to check the room is usable | — |
 | **Present** | AR maquette on the family's table + a render of the finished room | Muse Image |
@@ -60,60 +72,125 @@ AR measure  (agent)                render
 - **Offline tests.** Every Meta call is recorded once and replayed, so the test suite costs $0.
 - **Budget-safe development.** All AI traffic goes through a local gateway with daily caps and a spend watchdog. ([`docs/AI_USAGE.md`](docs/AI_USAGE.md))
 
+## How Meta models are used
+
+Every call goes through one client (`mme.client`), is tagged for cost attribution, and is recorded once and replayed in
+tests and demos. The model proposes; deterministic code validates ([ADR-002](docs/DECISIONS.md)).
+
+| Model | Where | What it does | Bounded by |
+|---|---|---|---|
+| **Muse Spark 1.3, vision** | Capture, mode C (`server/intake/`) | Reads a messy hand sketch or plan photo into proposed walls, openings, labels and the written measurement of each wall, as JSON | Strict schema, one retry then a loud failure; deterministic cleanup and a per-wall length solver; the technician corrects before anything is confirmed |
+| **Muse Spark 1.3, tool calling** (Responses API) | Reform (`server/agent/`) | The reform agent proposes an expansion by calling stage-scoped tools (`add_room`, `add_opening`, `undo`, ...) | Each tool is a validated Scene op checked against construction rules; the server enforces the toolset per stage; failures return to the model as tool errors |
+| **Muse Voice Transcribe** | Reform, push-to-talk (`POST /transcribe`) | Spanish-first speech to text so a family can talk to the model on site | Text only; the transcript goes through the same validated tools |
+| **Muse Image** | Present | Renders the finished room for the family | Generated only from the explicit Render action, from the exact Scene geometry; labelled as a render |
+| **SAM 3.1** (P1) | Capture, wall photos | Segments doors and windows in a photo of a measured wall; opening widths are computed from the mask | Only on a wall already measured in mode A or B; targets the measured weak point of sketches (2 of 5 openings found) |
+
+Status of each integration is in the table below. Depth over breadth: the agent is the product, and Spark vision reads
+the input a family really has, a hand sketch, not only clean plans.
+
 ## What you can run today
 
-| You want to | Today |
+Status as of 2026-10-28 (Day 3). This table is updated as features land; the demo script
+([`docs/DEMO.md`](docs/DEMO.md)) lists what the video will show.
+
+| You want to | Status |
 |---|---|
 | Run the API and the full server test suite offline | **Works.** See [Run it](#run-it). |
-| Read a plan or a hand sketch into a proposed Scene (`POST /intake`) | **Works** in replay with the six recorded inputs; live with your own Meta key. |
+| Read a plan or a hand sketch into a proposed Scene (`POST /intake`) | **Works** in replay with the recorded inputs; live with your own Meta key. |
 | Upload a plan or sketch on the phone, correct walls, mark doors and windows, set the scale | **Works** (Capture screen → `POST /intake`). |
+| Measure a room in AR on Android (mode A): corners, ceiling height, door and window taps | **In progress.** Needs HTTPS and an Android phone with Google Play Services for AR ([`docs/HARDENING.md`](docs/HARDENING.md) I14, I18); stays "In progress" until it passes a phone test. |
+| Transcribe Spanish or English speech (`POST /transcribe`) | **Works** (Muse Voice Transcribe, replay or live). |
 | Export a measured DXF of the walls | **Works.** Blocked until the scale is confirmed. |
-| Measure a room in AR (Android) | In progress ([ADR-025](docs/DECISIONS.md)). |
-| Ask the agent for an expansion by voice | Planned this week. |
-| Get the staged construction takeoff | Planned this week ([ADR-024](docs/DECISIONS.md)). |
-| See the room in AR and as a render | Planned this week. |
+| Ask the agent for an expansion by voice | **In progress.** Stage-scoped tools and executor exist; the chat route and UI are next. |
+| Get the staged construction takeoff | **Planned** ([ADR-024](docs/DECISIONS.md)). |
+| See the room as an AR maquette and as a render | **Planned.** |
+| Read-only family link | **Planned.** |
 
 Known limits and the hardening backlog are in [`docs/HARDENING.md`](docs/HARDENING.md).
 
 ## Run it
 
-Requirements: Python 3.12+, Node 20+. Tests and the default mode never call the network.
+Requirements: Python 3.12+, Node 20+. **No Meta key is needed to run or judge the project.**
+
+### Replay mode (default, $0, no network)
+
+In replay mode every Meta call (`mme.client`) returns a recorded response from [`samples/replay/`](samples/replay)
+instead of calling the API, so the demo and the tests are deterministic. An input with no recording fails loudly (HTTP 409
+with the list of known samples) instead of silently calling out.
 
 ```bash
 python -m venv .venv && source .venv/bin/activate   # Windows Git Bash: source .venv/Scripts/activate
 pip install -r server/requirements.txt
-cd server && MME_MODE=replay python -m pytest -q && cd ..
-uvicorn server.api:app --host 0.0.0.0 --port 8000
+cd server && MME_MODE=replay python -m pytest -q && cd ..     # offline test suite
+MME_MODE=replay uvicorn server.api:app --host 0.0.0.0 --port 8000
 ```
 
 In another terminal:
 
 ```bash
-cd web && npm install && VITE_API_URL=http://localhost:8000 npm run dev
+cd web && npm install && npm run dev
 ```
 
-Open the printed URL on your phone (same Wi-Fi). Live Meta calls need `MODEL_API_KEY` and `MME_MODE=live`; use only
-synthetic or consented, non-personal images.
+`npm run dev` serves the PWA over **HTTPS** (self-signed certificate) and proxies `/api` to the server on port 8000, so
+the phone talks to one origin. Open `https://<your-computer-ip>:5173` on the phone (same Wi-Fi) and accept the
+certificate warning. HTTPS is required for AR measuring (WebXR `immersive-ar`), camera and microphone.
 
-## What was built during the hackathon
+### Try it
 
-This repository was created after the kickoff (Oct 26, 2026) and contains no pre-existing product code. All code,
-including the synthetic test-data generator, was written during the event.
+- **Any phone or desktop:** Capture → *Try a sample* loads a recorded plan or hand sketch from [`samples/plans/`](samples/plans)
+  through the real intake path (`POST /intake`), then correct walls, mark doors and windows, confirm the scale, export
+  the DXF.
+- **Android Chrome with Google Play Services for AR:** Capture → AR measure (mode A). iPhone Safari has no WebXR; the UI
+  detects it and offers modes B and C.
+- Language: English by default; es-AR is one tap away.
 
-The **first commit** also carries material prepared before kickoff, none of it product code (confirmed acceptable by the
-organizers when disclosed):
+### Live mode (optional)
+
+Needs `MODEL_API_KEY` and `MME_MODE=live`. Use only synthetic or consented, non-personal images: contributor-tier models
+may train on inputs ([`docs/HARDENING.md`](docs/HARDENING.md) P1).
+
+## Built during the hackathon
+
+Kickoff was 2026-10-26 12:00 GMT-5 (14:00 Buenos Aires, ART). Anything written before that counts as pre-existing, so
+this section lists all of it.
+
+**Before kickoff (pre-existing).** Three commits on 2026-10-26, dated 13:38 to 13:58 ART: `9af461d`, `6af0e64` and
+`a4ee4f8`. They contain only:
 
 - **Planning docs:** `docs/PLAN.md`, `docs/PRODUCT.md`, `docs/DECISIONS.md`, `docs/CUTLIST.md`, `docs/RUNBOOK.md`.
-- **Dev tooling config:** `AGENTS.md`, `mme/` and `.claude/` (agent instructions, budgets, MME hooks) plus third-party
-  ECC rule packs in `.claude/rules/ecc/` (MIT, see their `LICENSE`). MME itself is a separate dev tool, not part of
-  this submission.
+- **Agent skills, rules and config:** `AGENTS.md`, `CLAUDE.md` and `.claude/` (instructions, skills and hooks), including
+  third-party ECC rule packs in `.claude/rules/ecc/` (MIT, see their `LICENSE`).
+- **`mme/`:** this repo's configuration (budget, policy, milestones, night missions) for MME, a dev-tooling harness
+  (a budget guard for AI spend). The config is not part of the product.
+- **Housekeeping:** `LICENSE`, `.gitignore`, `.gitattributes`, `.env.example`, empty `samples/` placeholders
+  (`.gitkeep`), and a `setup.sh` that was removed in `27c73f9`.
 
-The demo video opens by stating this split and only shows features built during the event. AI usage is disclosed in
-[`docs/AI_USAGE.md`](docs/AI_USAGE.md).
+There is **no product code** in those commits: no `server/`, `web/` or `assets/`. Verify with
+`git show --stat 9af461d 6af0e64 a4ee4f8`.
+
+**Built this week.** The product (`server/`, `web/`, `assets/`, `samples/`) was built between Oct 26 and Nov 4, 2026.
+Every product commit starts at `33d3db3` (14:35 ART on 2026-10-26, after kickoff). The synthetic sample generator
+(`samples/tools/make_samples.py`) first appears in `2cb8896` (14:44 ART, after kickoff); the organizers asked that any
+pre-kickoff script be rewritten after kickoff rather than copied in, and that rewrite is in progress.
+
+**Pre-existing open-source dependency: [MME](https://github.com/RomeKai/mme)** (MIT, `mme-harness`). It is a dev-tooling
+package whose development started on 2026-10-22, before kickoff (earliest commit in its public history; the GitHub
+repository was published on 2026-10-28). Maqet uses it as a **library**: `mme.client` is the Meta Model API client and
+the replay cache behind every model call. It is pinned to an exact commit in `server/requirements.txt`, so a fresh clone
+installs it with `pip install -r server/requirements.txt`. None of Maqet's product code (Scene, rules, intake, agent,
+export, web) lives in MME.
+
+**Organizers' reply** (Discord, 2026-10-28; screenshot in
+[`docs/evidence/organizer-reply-2026-10-28.png`](docs/evidence/organizer-reply-2026-10-28.png)): tooling and planning
+docs are fine if disclosed, anything written before kickoff counts as pre-existing work, and the 3-minute video must open
+with one line stating what was pre-existing and what was built this week. We kept this repository rather than starting a
+fresh one, so the pre-kickoff commits above remain in its history.
+
+The demo opens with that line and shows only Maqet. AI usage is disclosed in [`docs/AI_USAGE.md`](docs/AI_USAGE.md).
 
 ## Roadmap
 
-- **This week:** AR measuring, the reform agent by voice, the staged takeoff, AR presentation and render.
+- **Before the Nov 4 deadline:** the reform agent by voice, the staged takeoff, AR presentation and render (see the status table above).
 - **Next:** rule sets per jurisdiction, reviewed by professionals; recipes validated with builders.
 - **Later:** a version for NGO and municipal programs, free for families, with privacy-first models for real homes.
 
