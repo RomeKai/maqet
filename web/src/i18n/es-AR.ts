@@ -26,6 +26,7 @@ export const esAR = {
   "maquette.collapse": "Ocultar 3D",
   "intake.step.capture": "Paso 1 · Captura",
   "intake.editor": "Editor del plano",
+  "intake.corner": "Esquina {n}",
   "intake.tool.select": "Elegir",
   "intake.tool.addWall": "Pared",
   "intake.tool.door": "Puerta",

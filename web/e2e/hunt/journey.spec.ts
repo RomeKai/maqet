@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import {
   PROFILES, SHOT_DIR, attachMonitor, auditLayout, checkPreliminary, englishLeaks, mockTurns, setLocale, shot, type Monitor,
@@ -12,6 +12,8 @@ import {
  * end, so each (screen, check) pair can be marked as a known product bug with test.fail.
  */
 const ISSUES = path.join(SHOT_DIR, "issues.jsonl");
+// Records from an earlier run must never leak into this one (a fixed bug kept showing up as a stale failure).
+rmSync(ISSUES, { force: true });
 const CHECKS = ["console", "overflow", "targets", "overlap", "clipped", "preliminary"] as const;
 type Check = (typeof CHECKS)[number];
 const SCREENS = [
@@ -23,7 +25,6 @@ const SCREENS = [
 const NO_PRELIM = new Set<string>(["home", "method", "capture-upload", "wall-sheet", "opening-door-form", "opening-window-form"]);
 /** screen:check -> bug id; filled from docs/E2E_BUGS.md once a failure is confirmed as a product bug. */
 const KNOWN: Record<string, string> = {
-  "pixel7:capture-walls:overlap": "E2E-009",
   "pixel7:deliver:targets": "E2E-014",
   "small360:deliver:targets": "E2E-014",
 };
@@ -200,7 +201,6 @@ for (const profile of PROFILES) {
     });
 
     test("capture C: dragging a corner changes the wall length", async () => {
-      test.fail(profile.name === "small360", "E2E-009 on 360 px the first corner handle cannot be dragged (covered by another control), see docs/E2E_BUGS.md");
       await toEditor();
       const handle = page.locator(".handle-btn").first();
       await expect(handle).toBeVisible();

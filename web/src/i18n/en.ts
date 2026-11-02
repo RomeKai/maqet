@@ -27,6 +27,7 @@ export const en: Record<keyof typeof esAR, string> = {
   "maquette.collapse": "Hide 3D",
   "intake.step.capture": "Step 1 · Capture",
   "intake.editor": "Plan editor",
+  "intake.corner": "Corner {n}",
   "intake.tool.select": "Select",
   "intake.tool.addWall": "Wall",
   "intake.tool.door": "Door",

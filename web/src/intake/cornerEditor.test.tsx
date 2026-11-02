@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { renderToString } from "react-dom/server";
 import {
@@ -72,7 +73,7 @@ function firstHandlePercent(html: string): { left: number; top: number } {
     if (m === null || m[1] === undefined) throw new Error(`missing ${name}`);
     return Number(m[1]);
   };
-  return { left: pct("left"), top: pct("top") };
+  return { left: pct("--hx"), top: pct("--hy") };
 }
 
 describe("calibratePhotoSpace", () => {
@@ -255,6 +256,28 @@ describe("shared corner handles", () => {
     const html = renderEditor();
     const count = (html.match(/handle-btn/g) ?? []).length;
     expect(count).toBe(4);
+  });
+
+  it("labels every corner handle uniquely instead of repeating the canvas name (E2E-009)", () => {
+    const html = renderEditor();
+    const handleLabels = [...html.matchAll(/<button[^>]*class="handle-btn[^"]*"[^>]*>/g)].map((m) => /aria-label="([^"]*)"/.exec(m[0])?.[1]);
+    expect(handleLabels).toEqual(["Corner 1", "Corner 2", "Corner 3", "Corner 4"]);
+    expect(new Set(handleLabels).size).toBe(handleLabels.length);
+  });
+
+  it("caps the canvas height to the visible editor area so the bottom corners clear the 3D sheet (E2E-009, 360 px)", () => {
+    const source = readFileSync(new URL("./CornerEditor.tsx", import.meta.url), "utf8");
+    expect(source).not.toContain("calc(55dvh");
+    expect(source).toContain("clamp(180px, calc(100dvh - 520px), 55dvh)");
+    // The toolbar and the step actions are both sticky: the toolbar must sit above the actions, not under them.
+    expect(source).toContain('className="sticky bottom-16 flex gap-1 rounded-2xl bg-secondary p-1"');
+  });
+
+  it("keeps each 48 px handle inside the canvas so it never reaches the toolbar below (E2E-009)", () => {
+    const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+    const rule = /\.handle-btn\s*\{([^}]*)\}/.exec(css)?.[1] ?? "";
+    expect(rule).toMatch(/left:\s*clamp\(24px,\s*var\(--hx\),\s*calc\(100% - 24px\)\)/);
+    expect(rule).toMatch(/top:\s*clamp\(24px,\s*var\(--hy\),\s*calc\(100% - 24px\)\)/);
   });
 
   it("shows the selected wall length label", () => {

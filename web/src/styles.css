@@ -468,6 +468,9 @@ body {
 /* Endpoint drag handles: fixed 44 px screen hit targets */
 .handle-btn {
   position: absolute;
+  /* Keep the whole 48 px target inside the canvas: a corner on the edge must not reach the toolbar or stepper. */
+  left: clamp(24px, var(--hx), calc(100% - 24px));
+  top: clamp(24px, var(--hy), calc(100% - 24px));
   width: 48px;
   height: 48px;
   margin: -24px 0 0 -24px;

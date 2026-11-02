@@ -610,7 +610,7 @@ export function CornerEditor({
       <div
         className="intake-canvas"
         style={fit !== null
-          ? { flex: "none", aspectRatio: `${canvasW} / ${canvasH}`, width: `min(100%, calc(55dvh * ${canvasW / canvasH}))`, margin: "0 auto" }
+          ? { flex: "none", aspectRatio: `${canvasW} / ${canvasH}`, width: `min(100%, calc(clamp(180px, calc(100dvh - 520px), 55dvh) * ${canvasW / canvasH}))`, margin: "0 auto" }
           : undefined}
       >
         {imageUrl !== null && (
@@ -827,11 +827,11 @@ export function CornerEditor({
               key={`handle-${i}`}
               type="button"
               className={active ? "handle-btn handle-active" : "handle-btn"}
-              aria-label={t["intake.editor"]}
+              aria-label={t["intake.corner"].replace("{n}", String(i + 1))}
               style={{
-                left: `${(dp.x / canvasW) * 100}%`,
-                top: `${(dp.y / canvasH) * 100}%`,
-              }}
+                "--hx": `${(dp.x / canvasW) * 100}%`,
+                "--hy": `${(dp.y / canvasH) * 100}%`,
+              } as React.CSSProperties}
               onPointerDown={(e) => {
                 e.stopPropagation();
                 (e.target as HTMLButtonElement).setPointerCapture(e.pointerId);
@@ -1028,7 +1028,7 @@ export function CornerEditor({
 
       {step !== "check" && step !== "photo" && (
         <div
-          className="sticky bottom-0 flex gap-1 rounded-2xl bg-secondary p-1"
+          className="sticky bottom-16 flex gap-1 rounded-2xl bg-secondary p-1"
           role="toolbar"
           aria-label={t["intake.editor"]}
         >
