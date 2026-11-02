@@ -134,3 +134,15 @@ for (const size of SIZES) {
     expect(disconnected(moved.walls), "walls detached after the drag").toEqual([]);
   });
 }
+
+for (const size of SIZES) {
+  test(`finding 6: sketch with written lengths is not badged Measured 1:1 (${size.width}x${size.height})`, async ({ page }) => {
+    await page.setViewportSize(size);
+    await loadSample(page);
+    const badge = page.locator("header .badge");
+    await expect(badge).toContainText(/Written lengths|estimated/);
+    await expect(badge).not.toContainText("Measured");
+    const box = await badge.boundingBox();
+    expect((box?.x ?? 0) + (box?.width ?? 0), "badge inside the viewport").toBeLessThanOrEqual(size.width);
+  });
+}

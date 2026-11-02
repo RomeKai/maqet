@@ -17,6 +17,8 @@ export const esAR = {
   "stage.skip": "Omitir",
   "badge.measured": "Medido · 1:1",
   "badge.notToScale": "Sin escala",
+  "badge.written": "Medidas escritas",
+  "badge.estimatedSome": "{n} de {total} paredes estimadas",
   "notice.preliminary": "Preliminar: no es una certificación estructural",
   "banner.needs_professional": "Requiere un profesional matriculado",
   "banner.needs_professional.detail": "Esta propuesta requiere que un profesional matriculado la revise antes de construir.",

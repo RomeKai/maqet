@@ -16,7 +16,7 @@ describe("shell", () => {
   });
 
   it("header offers EN/ES and disables back when there is nowhere to go", () => {
-    const html = renderToString(<Header locale="es-AR" onLocaleChange={() => {}} scaleConfirmed={false} onBack={null} />);
+    const html = renderToString(<Header locale="es-AR" onLocaleChange={() => {}} scene={null} onBack={null} />);
     expect(html).toContain(">EN<");
     expect(html).toContain(">ES<");
     expect(html).toContain("disabled");

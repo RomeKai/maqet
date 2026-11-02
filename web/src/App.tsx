@@ -59,7 +59,6 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene: seededScene 
   const initialScene = restored?.scene ?? seededScene;
   const [locale, setLocale] = useState<Locale>(restored?.locale ?? initialLocale);
   const [stage, setStage] = useState<StringKey>(restored?.stage ?? "stage.capture");
-  const [scaleConfirmed, setScaleConfirmed] = useState(initialScene?.scale_confirmed === true);
   const [hasPhoto, setHasPhoto] = useState(false);
   const [intakeScene, setIntakeScene] = useState<Scene | null>(initialScene);
   const [selectedWallId, setSelectedWallId] = useState<string | null>(null);
@@ -145,7 +144,6 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene: seededScene 
 
   function handleIntakeScene(scene: Scene): void {
     setIntakeScene(scene);
-    setScaleConfirmed(scene.scale_confirmed === true);
     if (scene.professional_flags) setProfessionalFlags(scene.professional_flags);
   }
 
@@ -400,7 +398,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene: seededScene 
       <Header
         locale={locale}
         onLocaleChange={setLocale}
-        scaleConfirmed={scaleConfirmed}
+        scene={intakeScene}
         onBack={canGoBack ? goBack : null}
       />
       <Stepper locale={locale} stage={stage} onSelect={setStage} />

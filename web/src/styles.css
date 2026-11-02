@@ -49,6 +49,11 @@ body {
   border: 1px solid var(--accent-2);
 }
 
+.badge-written {
+  color: var(--accent-2);
+  border: 1px dashed var(--accent-2);
+}
+
 .badge-notoscale {
   color: #8a5a00;
   border: 1px solid #d9a400;

@@ -13,7 +13,7 @@ const confirmedScene: Scene = {
   units: "m",
   scale_confirmed: true,
   ceiling_height_m: 2.6,
-  walls: [{ id: "w1", a: [0, 0], b: [3.5, 0], thickness_m: 0.2, kind: "exterior" }],
+  walls: [{ id: "w1", a: [0, 0], b: [3.5, 0], thickness_m: 0.2, kind: "exterior", provenance: "measured_tape", measured_length_m: 3.5 }],
   openings: [],
   rooms: [],
 };
@@ -62,8 +62,8 @@ describe("BUG4: reading state, receipt hiding, scale badge", () => {
     for (const locale of ["en", "es-AR"] as const) {
       const t = getStrings(locale);
       // Component renders both states in both locales.
-      expect(renderToString(<ScaleBadge locale={locale} scaleConfirmed />)).toContain(t["badge.measured"]);
-      expect(renderToString(<ScaleBadge locale={locale} scaleConfirmed={false} />)).toContain(
+      expect(renderToString(<ScaleBadge locale={locale} scene={confirmedScene} />)).toContain(t["badge.measured"]);
+      expect(renderToString(<ScaleBadge locale={locale} scene={null} />)).toContain(
         t["badge.notToScale"],
       );
       // App topbar consumes the component (confirmed scene -> measured).

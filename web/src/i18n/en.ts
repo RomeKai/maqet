@@ -18,6 +18,8 @@ export const en: Record<keyof typeof esAR, string> = {
   "stage.skip": "Skip",
   "badge.measured": "Measured · 1:1",
   "badge.notToScale": "Not to scale",
+  "badge.written": "Written lengths",
+  "badge.estimatedSome": "{n} of {total} walls estimated",
   "notice.preliminary": "Preliminary: not a structural certification",
   "banner.needs_professional": "Needs a licensed professional",
   "banner.needs_professional.detail": "This proposal needs a licensed professional to review it before building.",

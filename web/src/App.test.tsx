@@ -22,7 +22,7 @@ describe("App stages", () => {
       id: "intake-1",
       scale_confirmed: true,
       walls: [
-        { id: "w1", a: [0, 0], b: [4, 0], thickness_m: 0.2, kind: "exterior" },
+        { id: "w1", a: [0, 0], b: [4, 0], thickness_m: 0.2, kind: "exterior", provenance: "measured_tape", measured_length_m: 4 },
       ],
     };
     const withScene = renderToString(<App initialScene={scene} />);

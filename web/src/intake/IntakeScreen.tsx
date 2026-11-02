@@ -146,7 +146,7 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 p-3 font-sans">
-      {!hideScaleBadge && <ScaleBadge locale={locale} scaleConfirmed={scaleConfirmed} />}
+      {!hideScaleBadge && <ScaleBadge locale={locale} scene={scene} />}
 
       {arPhase === "choose" && (
         <section className="ar-choice" role="dialog" aria-label={t["measure.ar.choice.title"]}>
