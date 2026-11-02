@@ -54,3 +54,10 @@ describe("agent chat dock layout (landscape phone)", () => {
     expect(block).toMatch(/\.stage-skip-note\s*\{\s*display:\s*none/);
   });
 });
+
+describe("error notice below the dock (rehearsal)", () => {
+  it("never lets the squeezed sheet overflow into the notice under it", () => {
+    // min-height: 0 let the dock shrink the sheet below its content; its overflow then painted over the notice.
+    expect(rule(".stage-screen .agent-sheet")).toMatch(/min-height:\s*min-content/);
+  });
+});

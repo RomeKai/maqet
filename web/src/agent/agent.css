@@ -302,7 +302,7 @@
    the dock is content-sized (chips, input, mic) and only the message list scrolls. */
 .stage-screen .agent-sheet {
   flex: 1 1 auto;
-  min-height: 0;
+  min-height: min-content;
   max-height: 46dvh;
   margin-top: 4px;
   overflow: visible;
