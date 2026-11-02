@@ -34,6 +34,7 @@ import { describeAgentError, plainAgentError, type AgentErrorInfo } from "./agen
 import type { AgentStage } from "./agent/agentApi";
 import type { ChatMessage } from "./agent/agentTypes";
 import type { OpRecordIn, Scene } from "./scene/types";
+import { apiErrorText } from "./apiDetail";
 import { clearProject, saveProject, type ProjectSnapshot } from "./persist/projectStore";
 
 const STAGE_TO_AGENT: Partial<Record<StringKey, AgentStage>> = {
@@ -114,7 +115,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene: seededScene 
       body: JSON.stringify(payload),
     })
       .then(async (res) => {
-        if (!res.ok) throw new Error((await res.text().catch(() => "")) || `takeoff ${res.status}`);
+        if (!res.ok) throw new Error(apiErrorText(await res.text().catch(() => ""), `takeoff ${res.status}`));
         return res.json() as Promise<unknown>;
       })
       .then((raw) => {
@@ -360,7 +361,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene: seededScene 
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ scene: intakeScene, room_id: roomId, style, guide_image_b64: guide }),
           });
-          if (!res.ok) throw new Error((await res.text().catch(() => "")) || `render ${res.status}`);
+          if (!res.ok) throw new Error(apiErrorText(await res.text().catch(() => ""), `render ${res.status}`));
           const body = (await res.json()) as { image_b64: string };
           return `data:image/png;base64,${body.image_b64}`;
         });

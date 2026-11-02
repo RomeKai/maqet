@@ -8,6 +8,7 @@ import { getDeliverStrings } from "./deliver.i18n";
 import { NextSteps } from "./NextSteps";
 import { TakeoffView } from "./TakeoffView";
 import type { Takeoff } from "./takeoffTypes";
+import { apiErrorText } from "../apiDetail";
 import { downloadCsv } from "./takeoffFormat";
 import { dropFailedSnapshot, withSvgNamespace } from "./snapshotState";
 
@@ -80,7 +81,7 @@ export function DeliverView({ scene, takeoff, locale }: DeliverViewProps): React
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ scene }),
       });
-      if (!res.ok) throw new Error((await res.text().catch(() => "")) || `CSV export failed (${res.status})`);
+      if (!res.ok) throw new Error(apiErrorText(await res.text().catch(() => ""), `CSV export failed (${res.status})`));
       const csv = await res.text();
       downloadCsv(csv, "takeoff.csv");
     } catch (err) {
@@ -100,7 +101,7 @@ export function DeliverView({ scene, takeoff, locale }: DeliverViewProps): React
       });
       if (!res.ok) {
         const text = await res.text().catch(() => "");
-        throw new Error(text.slice(0, 300) || `DXF export failed (${res.status})`);
+        throw new Error(apiErrorText(text, `DXF export failed (${res.status})`));
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
