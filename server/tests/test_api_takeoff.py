@@ -70,7 +70,7 @@ def test_takeoff_csv_returns_csv_with_header() -> None:
     assert res.status_code == 200, res.text
     assert "text/csv" in res.headers["content-type"]
     lines = res.text.splitlines()
-    assert lines[0] == "stage,material_id,unit,quantity,waste_factor,recipe_source,estimated"
+    assert lines[0] == "stage,material_id,unit,quantity,waste_factor,recipe_source,estimated,purchase_quantity"
     assert len(lines) > 1
 
 

@@ -867,7 +867,7 @@ def to_scene(
     rooms = tuple(
         SceneRoom(
             id=f"r{i}",
-            name=f"room-{i + 1}",
+            name=f"Room {i + 1}",
             polygon=[[x, y] for x, y in room.polygon],
         )
         for i, room in enumerate(plan.rooms)

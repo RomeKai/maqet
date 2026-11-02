@@ -4,6 +4,7 @@ import type { Locale } from "../i18n";
 import { BottomSheet } from "../ui";
 import { getAgentStrings } from "./agent.i18n";
 import { roomEditCall, wallEditCall, type EditCall } from "./editCall";
+import { roomLabel } from "../design/roomLabel";
 
 interface EditSheetProps {
   scene: Scene;
@@ -72,9 +73,9 @@ export function EditSheet({ scene, locale, wallId, busy, error, onApply, onClose
             <label className="block text-[15px] font-bold">
               {t["edit.room"]}
               <select className={field} value={roomId} onChange={(e) => setRoomId(e.target.value)}>
-                {rooms.map((r) => (
+                {rooms.map((r, i) => (
                   <option key={r.id} value={r.id}>
-                    {r.name}
+                    {roomLabel(r, i, locale)}
                   </option>
                 ))}
               </select>

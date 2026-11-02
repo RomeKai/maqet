@@ -72,10 +72,24 @@ def _load_recipes() -> dict[str, dict[str, object]]:
 RECIPES: dict[str, dict[str, object]] = _load_recipes()
 
 
+WHOLE_UNITS = ("bag", "piece")
+_ROUND_EPS = 1e-9  # float noise must not add a bag
+
+
+def purchase_quantity(quantity: float, unit: str) -> float:
+    """Round up to what can be bought: whole bags and pieces, 2 decimals otherwise."""
+    if unit in WHOLE_UNITS:
+        return float(math.ceil(quantity - _ROUND_EPS))
+    return math.ceil(quantity * 100 - _ROUND_EPS) / 100
+
+
 class TakeoffItem(BaseModel):
     material_id: str = Field(min_length=1)
     unit: str = Field(min_length=1)
+    # Computed from the geometry and the recipe (waste included), never rounded: the math and the CSV use it.
     quantity: float
+    # What to buy: `quantity` rounded up (whole bags and pieces, 2 decimals for m, m2, m3). Filled from `quantity`.
+    purchase_quantity: float = 0.0
     waste_factor: float
     recipe_source: str = Field(min_length=1)
     estimated: bool = False
@@ -86,6 +100,11 @@ class TakeoffItem(BaseModel):
     width_m: float | None = None
     note: str = ""
     note_es_AR: str = ""
+
+    @model_validator(mode="after")
+    def _fill_purchase(self) -> "TakeoffItem":
+        self.purchase_quantity = purchase_quantity(self.quantity, self.unit)
+        return self
 
     @model_validator(mode="after")
     def _fill_names(self) -> "TakeoffItem":
@@ -476,7 +495,8 @@ def compute_takeoff(scene: Scene, base: Scene | None = None) -> Takeoff:
 
 def to_csv(takeoff: Takeoff) -> str:
     """One row per item; header exactly
-    stage,material_id,unit,quantity,waste_factor,recipe_source,estimated."""
+    stage,material_id,unit,quantity,waste_factor,recipe_source,estimated,purchase_quantity.
+    `quantity` is unrounded; `purchase_quantity` is what to buy."""
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(
@@ -488,6 +508,7 @@ def to_csv(takeoff: Takeoff) -> str:
             "waste_factor",
             "recipe_source",
             "estimated",
+            "purchase_quantity",
         ]
     )
     for stage in takeoff.stages:
@@ -501,6 +522,7 @@ def to_csv(takeoff: Takeoff) -> str:
                     item.waste_factor,
                     item.recipe_source,
                     "true" if item.estimated else "false",
+                    item.purchase_quantity,
                 ]
             )
     return buf.getvalue().strip("\r\n")

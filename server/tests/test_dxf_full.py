@@ -207,8 +207,8 @@ def test_furniture_footprints_and_labels() -> None:
     assert (maxx - minx) == pytest.approx(1.0, abs=TOL)
     assert (maxy - miny) == pytest.approx(2.0, abs=TOL)
 
-    labels = sorted(e.dxf.text for e in _on(msp, "A-ANNO-TEXT", "TEXT") if e.dxf.text in ("lounge-concept CONCEPT", "table-01"))
-    assert labels == ["lounge-concept CONCEPT", "table-01"]
+    labels = sorted(e.dxf.text for e in _on(msp, "A-ANNO-TEXT", "TEXT") if e.dxf.text in ("Concept piece", "Furniture"))
+    assert labels == ["Concept piece", "Furniture"]
 
 
 def test_room_name_and_area_texts() -> None:
@@ -405,5 +405,5 @@ def test_furniture_symbols_on_furn_layer_with_real_pose_and_label_on_text_layer(
     pillow = [e for e in lines if abs(e.dxf.start.x - e.dxf.end.x) < 1e-9 and abs(e.dxf.start.x - 2.0) > 0.4]
     assert any(abs(abs(e.dxf.start.y - e.dxf.end.y) - 0.9) < 1e-9 for e in pillow)
     labels = {e.dxf.text for e in _on(msp, "A-ANNO-TEXT", "TEXT")}
-    assert {"bed-single-90x190", "table-120x75", "stove-60x60"} <= labels
+    assert {"Single bed 90x190", "Table 120x75", "Cooker 60x60"} <= labels
     assert not _on(msp, "A-FLOR-FURN", "TEXT")

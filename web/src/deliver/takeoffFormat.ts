@@ -13,7 +13,7 @@ import {
 
 export const PRELIMINARY_NOTE = "Preliminary: not a structural certification";
 
-const CSV_HEADER = "stage,material_id,name,quantity,unit,waste_factor,estimated,recipe_source";
+const CSV_HEADER = "stage,material_id,name,quantity,unit,waste_factor,estimated,recipe_source,purchase_quantity";
 const CSV_EOL = "\r\n";
 
 export interface StageBlock {
@@ -34,6 +34,15 @@ export function formatQuantity(value: number, locale: Locale): string {
   return new Intl.NumberFormat(locale, { maximumFractionDigits: 2, useGrouping: true }).format(value);
 }
 
+const WHOLE_UNITS = ["bag", "piece"];
+const ROUND_EPS = 1e-9;
+
+/** Same rule as the server: whole bags and pieces, 2 decimals for everything else, rounded up. */
+export function purchaseQuantity(quantity: number, unit: string): number {
+  if (WHOLE_UNITS.includes(unit)) return Math.ceil(quantity - ROUND_EPS);
+  return Math.ceil(quantity * 100 - ROUND_EPS) / 100;
+}
+
 function fail(what: string): never {
   throw new Error(`Invalid takeoff: ${what}`);
 }
@@ -44,7 +53,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function parseLine(stage: string, raw: unknown): TakeoffLine {
   if (!isRecord(raw)) fail(`line in stage ${stage} is not an object`);
-  const { material_id, name, name_es_AR, quantity, unit, waste_factor, recipe_source, estimated, width_m, note, note_es_AR } = raw;
+  const { material_id, name, name_es_AR, quantity, unit, waste_factor, recipe_source, estimated, width_m, note, note_es_AR, purchase_quantity } = raw;
   if (typeof material_id !== "string") fail(`material_id in stage ${stage}`);
   // Server takeoff omits name; web fixture carries it. Fall back to material_id for display.
   const resolvedName = typeof name === "string" && name.length > 0 ? name : String(material_id);
@@ -59,6 +68,8 @@ function parseLine(stage: string, raw: unknown): TakeoffLine {
     name: resolvedName,
     ...(nameEs ? { name_es_AR: nameEs } : {}),
     quantity,
+    purchase_quantity:
+      typeof purchase_quantity === "number" && Number.isFinite(purchase_quantity) ? purchase_quantity : purchaseQuantity(quantity, unit),
     unit,
     waste_factor,
     recipe_source,
@@ -155,6 +166,7 @@ export function buildTakeoffCsv(takeoff: Takeoff): string {
         String(line.waste_factor),
         String(line.estimated),
         csvText(line.recipe_source),
+        String(line.purchase_quantity),
       ].join(","),
     ),
   );

@@ -39,7 +39,7 @@ describe("catalog names", () => {
     }
   });
   it("shows the es-AR name in es-AR and falls back to English", () => {
-    const line = { material_id: "sand-m3", name: "Coarse sand", name_es_AR: "Arena gruesa", quantity: 1, unit: "m3", waste_factor: 1, recipe_source: "", estimated: false };
+    const line = { material_id: "sand-m3", name: "Coarse sand", name_es_AR: "Arena gruesa", quantity: 1, purchase_quantity: 1, unit: "m3", waste_factor: 1, recipe_source: "", estimated: false };
     expect(lineName(line, "es-AR")).toBe("Arena gruesa");
     expect(lineName(line, "en")).toBe("Coarse sand");
     expect(lineName({ ...line, name_es_AR: undefined }, "es-AR")).toBe("Coarse sand");

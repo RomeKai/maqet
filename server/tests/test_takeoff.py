@@ -44,6 +44,7 @@ def test_contract_shape() -> None:
                 "material_id",
                 "unit",
                 "quantity",
+                "purchase_quantity",
                 "waste_factor",
                 "recipe_source",
                 "estimated",
@@ -58,7 +59,7 @@ def test_contract_shape() -> None:
     assert isinstance(takeoff.has_estimated, bool)
     header = to_csv(takeoff).splitlines()[0]
     assert header == (
-        "stage,material_id,unit,quantity,waste_factor,recipe_source,estimated"
+        "stage,material_id,unit,quantity,waste_factor,recipe_source,estimated,purchase_quantity"
     )
 
 
@@ -243,7 +244,7 @@ def test_empty_scene_is_zero_takeoff() -> None:
     assert all(len(s.items) == 0 for s in takeoff.stages)
     assert "unknown_soil" not in " ".join(takeoff.professional_flags)
     assert to_csv(takeoff).splitlines() == [
-        "stage,material_id,unit,quantity,waste_factor,recipe_source,estimated"
+        "stage,material_id,unit,quantity,waste_factor,recipe_source,estimated,purchase_quantity"
     ]
 
 

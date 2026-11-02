@@ -23,8 +23,10 @@ export interface TakeoffLine {
   name: string;
   /** es-AR catalog name when the server sent one. */
   name_es_AR?: string;
-  /** Net quantity as computed from the Scene geometry and the catalog recipe. */
+  /** Computed from the Scene geometry and the catalog recipe. Never rounded: calculations and the CSV use it. */
   quantity: number;
+  /** What to buy: `quantity` rounded up (whole bags and pieces, 2 decimals otherwise). Shown on screen. */
+  purchase_quantity: number;
   /** Catalog unit: piece, m3, m2, bag, bar, unit... Unknown units render as-is. */
   unit: string;
   /** Catalog waste multiplier (1.05 = 5%). Informational: `quantity` is not pre-multiplied. */

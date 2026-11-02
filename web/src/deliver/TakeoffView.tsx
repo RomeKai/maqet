@@ -37,7 +37,7 @@ function LineItem({ line, locale, t }: LineItemProps): React.JSX.Element {
           )}
         </div>
         <p className="shrink-0 text-right font-mono leading-tight">
-          <span className="block text-2xl font-bold tabular-nums">{formatQuantity(line.quantity, locale)}</span>
+          <span className="block text-2xl font-bold tabular-nums">{formatQuantity(line.purchase_quantity, locale)}</span>
           <span className="block text-sm text-muted-foreground">{unitLabel(line.unit, locale)}</span>
         </p>
       </div>

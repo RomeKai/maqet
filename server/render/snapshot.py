@@ -15,6 +15,7 @@ import math
 import xml.etree.ElementTree as ET
 
 from server.scene.models import Scene
+from server.scene.names import room_display_name
 
 SUPPORTED_LOCALES = ("en", "es-AR")
 
@@ -238,7 +239,7 @@ def render_snapshot(scene: Scene, locale: str = "en") -> str:
             "text-anchor": "middle",
             "font-size": _fmt(0.28),
         })
-        name_t.text = r.name
+        name_t.text = room_display_name(r.name, locale)
         area_t = _sub(rooms_g, "text", {
             "data-room": r.id,
             "x": X(cx),

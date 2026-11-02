@@ -62,7 +62,7 @@ describe("buildTakeoffCsv", () => {
   const rows = csv.trim().split("\r\n");
 
   it("starts with a header, then one row per line in stage order", () => {
-    expect(rows[0]).toBe("stage,material_id,name,quantity,unit,waste_factor,estimated,recipe_source");
+    expect(rows[0]).toBe("stage,material_id,name,quantity,unit,waste_factor,estimated,recipe_source,purchase_quantity");
     const stages = rows.slice(1, -3).map((r) => r.split(",")[0]);
     expect(stages).toEqual([
       "foundations",
@@ -153,5 +153,31 @@ describe("made-to-size openings keep their real width and flag", () => {
     expect(line.width_m).toBe(1.5);
     expect(lineNote(line, "en")).toContain("No catalog door");
     expect(lineNote(line, "es-AR")).toContain("No hay puerta");
+  });
+});
+
+describe("purchase quantities (phone finding 8)", () => {
+  const line = (unit: string, quantity: number) => ({
+    stages: { walls: [{ material_id: "m", name: "M", quantity, unit, waste_factor: 1.05, recipe_source: "x", estimated: false }] },
+    flags: [], preliminary: true,
+  });
+
+  it("rounds bags and pieces up to whole units and keeps the unrounded quantity", () => {
+    const bag = parseTakeoff(line("bag", 13.2)).stages.walls?.[0];
+    expect(bag?.quantity).toBe(13.2);
+    expect(bag?.purchase_quantity).toBe(14);
+    expect(parseTakeoff(line("piece", 0.2)).stages.walls?.[0]?.purchase_quantity).toBe(1);
+    expect(parseTakeoff(line("m3", 1.234)).stages.walls?.[0]?.purchase_quantity).toBe(1.24);
+  });
+
+  it("prefers the server's purchase_quantity and writes both columns to the CSV", () => {
+    const raw = line("bag", 13.2);
+    (raw.stages.walls[0] as Record<string, unknown>).purchase_quantity = 15;
+    const takeoff = parseTakeoff(raw);
+    expect(takeoff.stages.walls?.[0]?.purchase_quantity).toBe(15);
+    const rows = buildTakeoffCsv(takeoff).split("\r\n");
+    expect(rows[0]).toMatch(/,quantity,.*,purchase_quantity$/);
+    expect(rows[1]).toContain("13.2");
+    expect(rows[1]?.endsWith(",15")).toBe(true);
   });
 });

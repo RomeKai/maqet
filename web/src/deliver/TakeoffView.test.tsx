@@ -34,10 +34,11 @@ describe("TakeoffView", () => {
   });
 
   it("formats quantities per locale", () => {
-    expect(renderToString(<TakeoffView takeoff={takeoff} locale="en" />)).toContain("1,234.5");
+    expect(renderToString(<TakeoffView takeoff={takeoff} locale="en" />)).toContain("1,235"); // 1234.5 pieces: you buy whole pieces
     const es = renderToString(<TakeoffView takeoff={takeoff} locale="es-AR" />);
-    expect(es).toContain("1.234,5");
-    expect(es).not.toContain("1,234.5");
+    expect(es).toContain("1.235");
+    expect(es).not.toContain("1,235");
+    expect(es).not.toContain("1234.5");
   });
 
   it("marks estimated lines and only those", () => {

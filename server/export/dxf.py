@@ -34,6 +34,7 @@ from shapely.geometry import Polygon
 from server.export import dxf_dims, dxf_status, dxf_walls
 from server.export.layers import ensure_layers, level_layer
 from server.export.flag_text import flag_notes
+from server.scene.names import furniture_display_name, room_display_name
 from server.scene.models import Furniture, Opening, Room, Scene, Wall
 from server.scene.validation import ValidationReport, validate_scene
 
@@ -244,7 +245,7 @@ def _add_room(msp: Modelspace, room: Room) -> None:
     )
     center = shape.representative_point()
     label = msp.add_text(
-        room.name,
+        room_display_name(room.name),
         height=_m(ROOM_LABEL_HEIGHT_M),
         dxfattribs={"layer": area_layer},
     )
@@ -340,9 +341,9 @@ def _add_furniture(msp: Modelspace, item: Furniture) -> None:
         msp.add_line(world(*p), world(*q), dxfattribs=attrs)
     for c, r in circles:
         msp.add_circle(world(*c), _m(r), dxfattribs=attrs)
-    name = item.catalog_id or item.concept_id or item.id
+    name = furniture_display_name(item)
     text = msp.add_text(
-        f"{name} CONCEPT" if item.concept else name,
+        name,
         height=_m(FURN_LABEL_HEIGHT_M),
         dxfattribs={"layer": "A-ANNO-TEXT"},
     )

@@ -12,6 +12,7 @@ from shapely.geometry import LineString, Polygon
 from shapely.ops import unary_union
 
 from server.scene.models import Scene
+from server.scene.names import furniture_display_name
 from server.scene.rules import (
     CODE_FURNITURE_DOOR_SWING,
     CODE_FURNITURE_NARROW_PASSAGE,
@@ -64,7 +65,7 @@ def furniture_fit_warnings(scene: Scene) -> list[Finding]:
         if any(fp.intersection(z).area > _EPS for z in zones):
             out.append(
                 Finding(
-                    f"furniture {f.id} blocks a door swing",
+                    f"{furniture_display_name(f)} blocks a door swing",
                     CODE_FURNITURE_DOOR_SWING,
                     {"furniture_id": f.id},
                 )
@@ -89,7 +90,7 @@ def furniture_fit_warnings(scene: Scene) -> list[Finding]:
             near = min(items, key=lambda it: it[1].distance(pocket))[0]
             out.append(
                 Finding(
-                    f"passage next to {near.id} is narrower than {MIN_CORRIDOR_WIDTH_M:.2f} m",
+                    f"passage next to {furniture_display_name(near)} is narrower than {MIN_CORRIDOR_WIDTH_M:.2f} m",
                     CODE_FURNITURE_NARROW_PASSAGE,
                     {"furniture_id": near.id, "room_id": room.id},
                 )
