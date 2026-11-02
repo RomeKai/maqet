@@ -5,6 +5,8 @@ import type { Locale } from "../i18n";
 import { SceneView } from "../view3d/SceneView";
 import { BottomSheet } from "../ui";
 import { ChatSheet } from "../agent/ChatSheet";
+import { AgentErrorNotice } from "../agent/AgentErrorNotice";
+import type { AgentErrorInfo } from "../agent/agentError";
 import type { ChatMessage } from "../agent/agentTypes";
 import {
   NUDGE_M,
@@ -36,7 +38,8 @@ interface DesignScreenProps {
   onSend: (text: string) => void | Promise<void>;
   onAudio: (audio: Blob) => void;
   pending: boolean;
-  agentError: string | null;
+  agentError: AgentErrorInfo | null;
+  onRetry?: () => void;
   onNext: () => void;
   onEdit: (call: EditCall) => Promise<DesignEditResult>;
   realLife: RealLifeState;
@@ -151,7 +154,7 @@ export function DesignScreen(props: DesignScreenProps): React.JSX.Element {
           onNext={props.onNext}
           compact
         />
-        {props.agentError ? <p className="agent-error px-3">{props.agentError}</p> : null}
+        {props.agentError ? <AgentErrorNotice error={props.agentError} locale={locale} onRetry={props.onRetry} busy={props.pending} /> : null}
       </div>
       <BottomSheet open={open} onClose={() => setOpen(false)} title={t["design.sheet"]} closeLabel={t["design.close"]}>
         <div className="space-y-3 font-sans">

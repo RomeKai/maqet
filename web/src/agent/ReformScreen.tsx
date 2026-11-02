@@ -6,6 +6,8 @@ import { SceneView } from "../view3d/SceneView";
 import { getAgentStrings } from "./agent.i18n";
 import type { ChatMessage } from "./agentTypes";
 import { ChatSheet } from "./ChatSheet";
+import { AgentErrorNotice } from "./AgentErrorNotice";
+import type { AgentErrorInfo } from "./agentError";
 import { floorAreaM2 } from "./floorArea";
 import { VariantTabs, formatArea, type VariantsState } from "./VariantTabs";
 import { EditSheet } from "./EditSheet";
@@ -21,7 +23,8 @@ interface ReformScreenProps {
   onSend: (text: string) => void | Promise<void>;
   onAudio: (audio: Blob) => void;
   pending: boolean;
-  agentError: string | null;
+  agentError: AgentErrorInfo | null;
+  onRetry?: () => void;
   onNext: () => void;
   variants: VariantsState;
   /** Apply one deterministic edit; resolves with an error message or null. */
@@ -100,7 +103,7 @@ export function ReformScreen(props: ReformScreenProps): React.JSX.Element {
           onNext={props.onNext}
           compact
         />
-        {props.agentError ? <p className="agent-error px-3">{props.agentError}</p> : null}
+        {props.agentError ? <AgentErrorNotice error={props.agentError} locale={locale} onRetry={props.onRetry} busy={props.pending} /> : null}
       </div>
       {editing !== null && scene !== null ? (
         <EditSheet

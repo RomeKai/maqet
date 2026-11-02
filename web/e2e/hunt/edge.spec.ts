@@ -26,7 +26,6 @@ test.describe("edge cases", () => {
   });
 
   test("replay 409 on a turn shows a friendly one-line error and keeps the user bubble", async ({ browser }) => {
-    test.fail(true, "E2E-005 a 409/500 turn shows 'Agent request failed (N): ...', see docs/E2E_BUGS.md");
     const page = await fresh(browser);
     await page.route("**/api/agent/turn", (r) => r.fulfill({ status: 409, json: { detail: "no recorded response for this request" } }));
     await loadSample(page);
@@ -42,7 +41,6 @@ test.describe("edge cases", () => {
   });
 
   test("server 500 on a turn shows a friendly error, not a raw status line", async ({ browser }) => {
-    test.fail(true, "E2E-005 a 500 turn shows 'Agent request failed (500): ...', see docs/E2E_BUGS.md");
     const page = await fresh(browser);
     await loadSample(page);
     await toReform(page);
@@ -51,6 +49,9 @@ test.describe("edge cases", () => {
     const err = page.locator(".agent-error").first();
     await expect(err).toBeVisible();
     expect(await err.innerText(), "friendly error without 'failed (500)'").not.toMatch(/\(500\)|\b500\b/);
+    await expect(page.getByRole("button", { name: "Try again" }), "a Retry control").toBeVisible();
+    await page.locator(".agent-details summary").first().click();
+    await expect(page.locator(".agent-detail-line").first(), "technical detail behind Details").toContainText("500");
     await shot(page, "edge-turn-500");
     await page.context().close();
   });

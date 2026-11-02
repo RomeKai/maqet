@@ -27,6 +27,8 @@ import type { EditCall } from "./agent/editCall";
 import { splitToolNotes } from "./agent/toolNotes";
 import { useVariants } from "./agent/VariantTabs";
 import { getAgentStrings } from "./agent/agent.i18n";
+import { AgentErrorNotice } from "./agent/AgentErrorNotice";
+import { describeAgentError, plainAgentError, type AgentErrorInfo } from "./agent/agentError";
 import type { AgentStage } from "./agent/agentApi";
 import type { ChatMessage } from "./agent/agentTypes";
 import type { OpRecordIn, Scene } from "./scene/types";
@@ -137,7 +139,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene: seededScene 
   const [pending, setPending] = useState(false);
   const [professionalFlags, setProfessionalFlags] = useState<string[]>(restored?.professionalFlags ?? []);
   const [history, setHistory] = useState<OpRecordIn[]>(restored?.history ?? []);
-  const [agentError, setAgentError] = useState<string | null>(null);
+  const [agentError, setAgentError] = useState<AgentErrorInfo | null>(null);
 
   const t = getStrings(locale);
 
@@ -208,16 +210,18 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene: seededScene 
   }, []);
 
   const handleSend = useCallback(
-    async (text: string) => {
+    async (text: string, retry = false) => {
       if (!intakeScene || !agentStage) return;
       if (stage === "stage.reform" && variants.active === null) {
-        setAgentError(readOnlyMessage);
+        setAgentError(plainAgentError(readOnlyMessage));
         return;
       }
       const key = activeKey; // a late reply lands in the chat it was asked in
-      const conversation = toConversation(messages);
-      const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: "user", text };
-      addMessage(key, userMsg);
+      // A retry resends the failed message without a second bubble or a duplicate in the memory.
+      const last = messages[messages.length - 1];
+      const dropLast = retry && last?.role === "user" && last.text === text;
+      const conversation = toConversation(dropLast ? messages.slice(0, -1) : messages);
+      if (!dropLast) addMessage(key, { id: `u-${Date.now()}`, role: "user", text });
       setPending(true);
       setAgentError(null);
       try {
@@ -261,13 +265,17 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene: seededScene 
           toolEvents,
         });
       } catch (err) {
-        setAgentError(err instanceof Error ? err.message : String(err));
+        setAgentError(describeAgentError(err, locale, text));
       } finally {
         setPending(false);
       }
     },
     [intakeScene, agentStage, history, selectedWallId, stage, variants, readOnlyMessage, activeKey, messages, addMessage, locale],
   );
+
+  const handleRetry = useCallback((): void => {
+    if (agentError?.retryText) void handleSend(agentError.retryText, true);
+  }, [agentError, handleSend]);
 
   const handleEdit = useCallback(
     async (call: EditCall): Promise<string | null> => {
@@ -343,7 +351,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene: seededScene 
         const text = await transcribeClip(audio, locale);
         if (text) await handleSend(text);
       } catch (err) {
-        setAgentError(err instanceof Error ? err.message : String(err));
+        setAgentError(describeAgentError(err, locale, null));
       }
     },
     [handleSend, locale],
@@ -440,6 +448,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene: seededScene 
           onAudio={handleAudio}
           pending={pending}
           agentError={agentError}
+          onRetry={handleRetry}
           onNext={() => setStage(STAGES[stageIndex + 1] ?? "stage.deliver")}
           onEdit={handleEdit}
           variants={variants}
@@ -455,6 +464,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene: seededScene 
           onAudio={handleAudio}
           pending={pending}
           agentError={agentError}
+          onRetry={handleRetry}
           onNext={() => setStage(STAGES[stageIndex + 1] ?? "stage.deliver")}
           onEdit={handleDesignEdit}
           realLife={realLife}
@@ -487,7 +497,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene: seededScene 
         {isAgentStage ? (
           <div className="agent-stage">
             <ChatSheet messages={messages} locale={locale} onSend={handleSend} onAudio={handleAudio} pending={pending} suggestions suggestionStage="design" />
-            {agentError ? <p className="agent-error">{agentError}</p> : null}
+            {agentError ? <AgentErrorNotice error={agentError} locale={locale} onRetry={handleRetry} busy={pending} /> : null}
           </div>
         ) : (
           stage === "stage.capture" && !hasPhoto && <p className="receipt">{t["sheet.receipt"]}</p>

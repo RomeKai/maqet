@@ -360,3 +360,8 @@
     display: none;
   }
 }
+
+.agent-error-box { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.agent-error-box .agent-error { flex: 1 1 100%; }
+.agent-error-box .agent-details { flex: 1 1 100%; }
+.agent-detail-line { margin: 0 0 6px; font-size: 0.8125rem; color: var(--muted-foreground); overflow-wrap: anywhere; }
