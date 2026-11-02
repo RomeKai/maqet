@@ -39,7 +39,7 @@ Sources: Habitat for Humanity, *Vivienda autoconstruida en Argentina* (2022), ci
 | Who | Role in Maqet |
 |---|---|
 | **Technical assistants** (primary): architects, master builders and social-housing technicians at NGOs, municipalities and cooperatives | Drive the session on site with a phone: measure, design with the family, leave with a staged material list and a DXF |
-| **Families** | Watch the proposal in AR on their own table, ask for changes by voice in Spanish, keep a read-only link |
+| **Families** | Watch the proposal in AR on their own table and ask for changes by voice in Spanish |
 | **Licensed professionals and hardware stores** (downstream) | Receive a measured DXF to review and sign; quote the staged material list |
 
 Families are free; the licensing hypothesis is a per-seat licence for programs ([`docs/PRODUCT.md`](docs/PRODUCT.md)).
@@ -56,10 +56,10 @@ AR measure  (agent)                render
 
 | Stage | What happens | Meta model |
 |---|---|---|
-| **Capture** | Three modes ([ADR-025](docs/DECISIONS.md)), one Scene with a measurement and a provenance per wall. **A, AR measure** (Android Chrome, primary path): tap each floor corner, walls come out in meters. **B, room photo + taps** (any phone). **C, hand sketch with written measurements** (fallback): proposed walls and openings, each wall takes its own written length | Muse Spark 1.3 (vision, structured output) for mode C |
-| **Reform** | The family asks by voice; the agent proposes the expansion through validated tools, checked against construction rules | Muse Voice Transcribe · Muse Spark 1.3 (tool calling) |
-| **Design** | Basic furniture, only to check the room is usable | — |
-| **Present** | AR maquette on the family's table + a render of the finished room | Muse Image |
+| **Capture** | Three modes ([ADR-025](docs/DECISIONS.md)), one Scene with a measurement and a provenance per wall. **C, hand sketch with written measurements** (primary, any phone): proposed walls and openings, each wall takes its own written length. **A, AR measure** (Android Chrome): tap each floor corner, walls come out in meters. **B, room photo + taps** (any phone) | Muse Spark 1.3 (vision, structured output) for mode C |
+| **Reform** | The family asks by voice; the agent proposes the expansion through validated tools, checked against construction rules, across comparable variants | Muse Voice Transcribe · Muse Wonder (tool calling) |
+| **Design** | The agent places basic furniture to check the room is usable, and *In real life* renders the room from a guide image of the Scene | Muse Wonder (tool calling) · Muse Image |
+| **Present** | AR maquette on the family's table | — |
 | **Deliver** | Material quantities split by construction stage (foundations, walls, bond beams and roof, openings, finishes) + DXF with AIA layers | — (deterministic) |
 
 **Under the hood**
@@ -80,17 +80,16 @@ tests and demos. The model proposes; deterministic code validates ([ADR-002](doc
 | Model | Where | What it does | Bounded by |
 |---|---|---|---|
 | **Muse Spark 1.3, vision** | Capture, mode C (`server/intake/`) | Reads a messy hand sketch or plan photo into proposed walls, openings, labels and the written measurement of each wall, as JSON | Strict schema, one retry then a loud failure; deterministic cleanup and a per-wall length solver; the technician corrects before anything is confirmed |
-| **Muse Spark 1.3, tool calling** (Responses API) | Reform (`server/agent/`) | The reform agent proposes an expansion by calling stage-scoped tools (`add_room`, `add_opening`, `undo`, ...) | Each tool is a validated Scene op checked against construction rules; the server enforces the toolset per stage; failures return to the model as tool errors |
+| **Muse Wonder, tool calling** (Responses API) | Reform and Design (`server/agent/`) | The agent proposes changes by calling stage-scoped tools (`add_room`, `add_opening`, `furnish_room`, `undo`, ...) | Each tool is a validated Scene op checked against construction rules; the server enforces the toolset per stage; failures return to the model as tool errors; each turn is bounded by rounds and time |
 | **Muse Voice Transcribe** | Reform, push-to-talk (`POST /transcribe`) | Spanish-first speech to text so a family can talk to the model on site | Text only; the transcript goes through the same validated tools |
-| **Muse Image** | Present | Renders the finished room for the family | Generated only from the explicit Render action, from the exact Scene geometry; labelled as a render |
-| **SAM 3.1** (P1) | Capture, wall photos | Segments doors and windows in a photo of a measured wall; opening widths are computed from the mask | Only on a wall already measured in mode A or B; targets the measured weak point of sketches (2 of 5 openings found) |
+| **Muse Image** | Design, *In real life* (`server/render/`) | Renders the finished room for the family, conditioned on a guide image captured from the 3D view | Generated only from the explicit action, from the exact Scene geometry; labelled as a render |
 
 Status of each integration is in the table below. Depth over breadth: the agent is the product, and Spark vision reads
 the input a family really has, a hand sketch, not only clean plans.
 
 ## What you can run today
 
-Status as of 2026-10-28 (Day 3). This table is updated as features land; the demo script
+Status as of 2026-11-02. This table is updated as features land; the demo script
 ([`docs/DEMO.md`](docs/DEMO.md)) lists what the video will show.
 
 | You want to | Status |
@@ -98,13 +97,15 @@ Status as of 2026-10-28 (Day 3). This table is updated as features land; the dem
 | Run the API and the full server test suite offline | **Works.** See [Run it](#run-it). |
 | Read a plan or a hand sketch into a proposed Scene (`POST /intake`) | **Works** in replay with the recorded inputs; live with your own Meta key. |
 | Upload a plan or sketch on the phone, correct walls, mark doors and windows, set the scale | **Works** (Capture screen → `POST /intake`). |
-| Measure a room in AR on Android (mode A): corners, ceiling height, door and window taps | **In progress.** Needs HTTPS and an Android phone with Google Play Services for AR ([`docs/HARDENING.md`](docs/HARDENING.md) I14, I18); stays "In progress" until it passes a phone test. |
+| Measure a room in AR on Android (mode A): corners, ceiling height, door and window taps | **Works, not the primary path.** Needs HTTPS and an Android phone with Google Play Services for AR ([`docs/HARDENING.md`](docs/HARDENING.md) I14, I18). |
 | Transcribe Spanish or English speech (`POST /transcribe`) | **Works** (Muse Voice Transcribe, replay or live). |
 | Export a measured DXF of the walls | **Works.** Blocked until the scale is confirmed. |
-| Ask the agent for an expansion by voice | **In progress.** Stage-scoped tools and executor exist; the chat route and UI are next. |
-| Get the staged construction takeoff | **Planned** ([ADR-024](docs/DECISIONS.md)). |
-| See the room as an AR maquette and as a render | **Planned.** |
-| Read-only family link | **Planned.** |
+| Ask the agent for an expansion or for furniture, by voice or text | **Works** with a Meta key. In replay, a turn with no recording fails loudly with a 409. |
+| Compare variants and undo or redo edits | **Works.** |
+| Keep the project after a reload | **Works**, stored on the device. |
+| Get the staged construction takeoff (table and CSV) | **Works.** |
+| See the room as an AR maquette on a table | **Works** through WebXR on Android; needs a current Google Play Services for AR. |
+| See a render of the room (*In real life*) | **Works** with a Meta key. |
 
 Known limits and the hardening backlog are in [`docs/HARDENING.md`](docs/HARDENING.md).
 
@@ -190,8 +191,8 @@ The demo opens with that line and shows only Maqet. AI usage is disclosed in [`d
 
 ## Roadmap
 
-- **Before the Nov 4 deadline:** the reform agent by voice, the staged takeoff, AR presentation and render (see the status table above).
-- **Next:** rule sets per jurisdiction, reviewed by professionals; recipes validated with builders.
+- **Next:** a read-only link for the family; SAM 3.1 to find doors and windows in wall photos.
+- **Then:** rule sets per jurisdiction, reviewed by professionals; recipes validated with builders.
 - **Later:** a version for NGO and municipal programs, free for families, with privacy-first models for real homes.
 
 ## Licence
