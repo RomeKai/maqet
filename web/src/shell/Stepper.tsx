@@ -60,7 +60,7 @@ export function Stepper({ locale, stage, onSelect }: StepperProps) {
                   {t[key]}
                 </span>
                 {skippable && (
-                  <span className="-mt-0.5 text-xs font-semibold leading-none text-muted-foreground">{t["stage.optional"]}</span>
+                  <span className="stage-skip-note -mt-0.5 text-xs font-semibold leading-none text-muted-foreground">{t["stage.optional"]}</span>
                 )}
               </button>
             </li>

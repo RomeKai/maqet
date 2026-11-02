@@ -156,7 +156,7 @@ export function VariantTabs({ state, locale }: VariantTabsProps): React.JSX.Elem
     : a["variants.nowCaption"];
 
   return (
-    <div className="space-y-1 px-3 py-2 font-sans" data-testid="variant-tabs">
+    <div className="variant-bar space-y-1 px-3 py-2 font-sans" data-testid="variant-tabs">
       <div className="flex items-center gap-1">
         <Segmented<string>
           className="flex-1"

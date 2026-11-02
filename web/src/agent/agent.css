@@ -361,6 +361,15 @@
   }
 }
 
+/* Landscape phone (e.g. 915x412): the chrome above the chat leaves ~240 px, so trim it and keep the input on screen. */
+@media (max-height: 500px) and (orientation: landscape) {
+  .app > header { padding-top: 4px; padding-bottom: 4px; }
+  .stage-skip-note { display: none; }
+  .stage-screen .agent-card { display: none; }
+  .stage-screen .variant-bar { padding-top: 0; padding-bottom: 0; }
+  .stage-screen .agent-suggestions { display: none; }
+}
+
 .agent-error-box { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .agent-error-box .agent-error { flex: 1 1 100%; }
 .agent-error-box .agent-details { flex: 1 1 100%; }

@@ -120,7 +120,6 @@ test.describe("edge cases", () => {
   });
 
   test("rotating the viewport mid-flow keeps the chat usable in both orientations", async ({ browser }) => {
-    test.fail(true, "E2E-012 in landscape the chat input is pushed below the 412 px viewport, see docs/E2E_BUGS.md");
     const page = await fresh(browser);
     await loadSample(page);
     await toReform(page);

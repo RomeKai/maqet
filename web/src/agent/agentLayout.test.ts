@@ -44,3 +44,13 @@ describe("dock structure: only the message list scrolls (bug L)", () => {
     expect(rule(".agent-stage")).toMatch(/max-height:\s*55dvh/);
   });
 });
+
+describe("agent chat dock layout (landscape phone)", () => {
+  it("trims the chrome and hides the 3D hero so the chat input stays on screen at 412 px high", () => {
+    const media = /@media \(max-height: 500px\) and \(orientation: landscape\)\s*\{([\s\S]*?)\n\}/.exec(css);
+    expect(media, "missing short-landscape media block").not.toBeNull();
+    const block = media![1];
+    expect(block).toMatch(/\.stage-screen \.agent-card\s*\{\s*display:\s*none/);
+    expect(block).toMatch(/\.stage-skip-note\s*\{\s*display:\s*none/);
+  });
+});
