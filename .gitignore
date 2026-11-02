@@ -16,3 +16,13 @@ __pycache__/
 
 web/test-results/
 web/playwright-report/
+
+web/e2e/screenshots/hunt/*
+!web/e2e/screenshots/hunt/pixel7-capture-check.png
+!web/e2e/screenshots/hunt/pixel7-capture-walls.png
+!web/e2e/screenshots/hunt/pixel7-deliver.png
+!web/e2e/screenshots/hunt/edge-turn-500.png
+!web/e2e/screenshots/hunt/edge-turn-409.png
+!web/e2e/screenshots/hunt/edge-offline-turn.png
+!web/e2e/screenshots/hunt/edge-turn-slow-pending.png
+!web/e2e/screenshots/hunt/edge-rotate-landscape.png
