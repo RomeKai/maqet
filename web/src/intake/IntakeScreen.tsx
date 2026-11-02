@@ -44,7 +44,10 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
   const [scene, setScene] = useState<Scene>(history.scene);
   /** The Scene as the sketch reading returned it: target of "Reset to sketch reading". */
   const readingRef = useRef<Scene | null>(null);
-  const [photo, setPhoto] = useState<{ url: string | null; width: number; height: number } | null>(null);
+  const [photo, setPhoto] = useState<{ url: string | null; width: number; height: number } | null>(
+    // A restored project already has its plan: open the editor on it (no photo, as with the sample) instead of the upload step.
+    (initialScene?.walls ?? []).length > 0 ? { url: null, width: 0, height: 0 } : null,
+  );
   const [proposalDims, setProposalDims] = useState<IntakeProposalDimension[]>([]);
   const [proposal, setProposal] = useState<IntakeProposal | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
