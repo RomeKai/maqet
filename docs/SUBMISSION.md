@@ -82,7 +82,7 @@ Kickoff was 2026-10-26 12:00 GMT-5 = 14:00 ART.
 - [x] **MME: answered (point 1).** The reply responds to a message describing MME as a separate dev-tooling repo. MME is an
       open-source package (MIT, https://github.com/RomeKai/mme, development started 2026-10-22, GitHub repo published
       2026-10-28) that Maqet uses as a library for the Meta API client and replay cache (`server/intake/read_plan.py`,
-      `server/intake/voice.py`). **Pinned to commit `e24c418` in `server/requirements.txt`, which has no `image_edit`: see the blocker below.** Disclosed in
+      `server/intake/voice.py`). Pinned to commit `8ff59c6` in `server/requirements.txt`. Disclosed in
       the README.
 - [ ] **Product built in the window.** Every product commit starts at `33d3db3` (2026-10-26 14:35 ART, after kickoff).
       Check `git log --reverse` on the final commit and make sure no history was rewritten or imported.
@@ -99,12 +99,6 @@ Kickoff was 2026-10-26 12:00 GMT-5 = 14:00 ART.
       above. They are disclosed, identified by commit and time, and contain no product code, but the reply does not say that
       keeping them is acceptable. Fallback if an organizer rules otherwise: a fresh public repo holding only the product
       history from `33d3db3` onward, with MME as a pip dependency and the planning docs and agent config left out.
-
-## Blocker: MME pin
-
-- [ ] **A fresh clone cannot render *In real life* with a guide image.** `server/render/real_life.py` calls
-      `client.image_edit`, added in MME `8ff59c6`. That commit is not pushed, and `server/requirements.txt` pins `e24c418`.
-      Fix: push MME, update the pin, rerun the fresh clone test.
 
 ## Banned projects
 

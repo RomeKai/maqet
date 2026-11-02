@@ -10,4 +10,4 @@ pytest>=8
 python-multipart>=0.0.9
 pyyaml>=6
 # Meta Model API client + replay cache (pre-existing dev-tooling harness, public: github.com/RomeKai/mme)
-mme-harness @ git+https://github.com/RomeKai/mme@e24c4184ba96eca897206c804f58a28fbf599c13
+mme-harness @ git+https://github.com/RomeKai/mme@8ff59c6d6e95ad88618186972c339f4b3d9a2c5f
