@@ -1,0 +1,334 @@
+{
+ "stages": [
+  {
+   "name": "foundations",
+   "items": [
+    {
+     "material_id": "gravel-m3",
+     "unit": "m3",
+     "quantity": 4.0656,
+     "purchase_quantity": 4.07,
+     "waste_factor": 1.1,
+     "recipe_source": "provisional: estimate, to be reviewed by a master builder",
+     "estimated": true,
+     "name": "Crushed stone 6-20 (granite)",
+     "name_es_AR": "Canto rodado / piedra partida 6-20",
+     "width_m": null,
+     "note": "",
+     "note_es_AR": ""
+    },
+    {
+     "material_id": "sand-m3",
+     "unit": "m3",
+     "quantity": 2.6136000000000004,
+     "purchase_quantity": 2.62,
+     "waste_factor": 1.1,
+     "recipe_source": "provisional 1:2:3 concrete yield, rule of thumb, unverified - to be confirmed by a licensed professional",
+     "estimated": true,
+     "name": "Coarse sand",
+     "name_es_AR": "Arena gruesa",
+     "width_m": null,
+     "note": "",
+     "note_es_AR": ""
+    },
+    {
+     "material_id": "cement-bag-50kg",
+     "unit": "bag",
+     "quantity": 38.808,
+     "purchase_quantity": 39.0,
+     "waste_factor": 1.05,
+     "recipe_source": "provisional 1:2:3 concrete yield, rule of thumb, unverified - to be confirmed by a licensed professional",
+     "estimated": true,
+     "name": "Portland cement, 50 kg bag",
+     "name_es_AR": "Cemento Portland, bolsa de 50 kg",
+     "width_m": null,
+     "note": "",
+     "note_es_AR": ""
+    }
+   ]
+  },
+  {
+   "name": "walls",
+   "items": [
+    {
+     "material_id": "brick-solid-common-20",
+     "unit": "piece",
+     "quantity": 5979.015,
+     "purchase_quantity": 5980.0,
+     "waste_factor": 1.05,
+     "recipe_source": "provisional estimate (~100-120 pieces/m2 for a 0.20 m solid common-brick wall); no verified Argentine yield table cited - confirm with mason",
+     "estimated": false,
+     "name": "Solid common brick wall, 0.20 m",
+     "name_es_AR": "Ladrillo com\u00fan macizo, muro de 0,20 m",
+     "width_m": null,
+     "note": "",
+     "note_es_AR": ""
+    },
+    {
+     "material_id": "mortar-13",
+     "unit": "m3",
+     "quantity": 1.7399250000000002,
+     "purchase_quantity": 1.74,
+     "waste_factor": 1.1,
+     "recipe_source": "provisional: estimate, to be reviewed by a master builder",
+     "estimated": false,
+     "name": "Laying mortar 1:3 (cement:sand)",
+     "name_es_AR": "Mortero de asiento 1:3 (cemento:arena)",
+     "width_m": null,
+     "note": "",
+     "note_es_AR": ""
+    },
+    {
+     "material_id": "cement-bag-50kg",
+     "unit": "bag",
+     "quantity": 14.9475375,
+     "purchase_quantity": 15.0,
+     "waste_factor": 1.05,
+     "recipe_source": "provisional: estimate, to be reviewed by a master builder",
+     "estimated": false,
+     "name": "Portland cement, 50 kg bag",
+     "name_es_AR": "Cemento Portland, bolsa de 50 kg",
+     "width_m": null,
+     "note": "",
+     "note_es_AR": ""
+    },
+    {
+     "material_id": "sand-m3",
+     "unit": "m3",
+     "quantity": 1.9139175000000004,
+     "purchase_quantity": 1.92,
+     "waste_factor": 1.1,
+     "recipe_source": "provisional: estimate, to be reviewed by a master builder",
+     "estimated": false,
+     "name": "Coarse sand",
+     "name_es_AR": "Arena gruesa",
+     "width_m": null,
+     "note": "",
+     "note_es_AR": ""
+    }
+   ]
+  },
+  {
+   "name": "bond_beams_roof",
+   "items": [
+    {
+     "material_id": "steel-bar-6mm",
+     "unit": "m",
+     "quantity": 121.00000000000001,
+     "purchase_quantity": 121.0,
+     "waste_factor": 1.1,
+     "recipe_source": "provisional: estimate, to be reviewed by a master builder",
+     "estimated": false,
+     "name": "Steel bar ADN 420, 6 mm (stirrups)",
+     "name_es_AR": "Barra de acero ADN 420 de 6 mm (estribos)",
+     "width_m": null,
+     "note": "",
+     "note_es_AR": ""
+    },
+    {
+     "material_id": "steel-bar-8mm",
+     "unit": "m",
+     "quantity": 96.80000000000001,
+     "purchase_quantity": 96.8,
+     "waste_factor": 1.1,
+     "recipe_source": "provisional: estimate, to be reviewed by a master builder",
+     "estimated": false,
+     "name": "Steel bar ADN 420, 8 mm (bond beam)",
+     "name_es_AR": "Barra de acero ADN 420 de 8 mm (encadenado)",
+     "width_m": null,
+     "note": "",
+     "note_es_AR": ""
+    },
+    {
+     "material_id": "roofing-sheet-galv",
+     "unit": "m2",
+     "quantity": 28.98,
+     "purchase_quantity": 28.98,
+     "waste_factor": 1.05,
+     "recipe_source": "provisional: estimate, to be reviewed by a master builder",
+     "estimated": false,
+     "name": "Galvanized corrugated roofing sheet",
+     "name_es_AR": "Chapa galvanizada acanalada para techo",
+     "width_m": null,
+     "note": "",
+     "note_es_AR": ""
+    }
+   ]
+  },
+  {
+   "name": "openings",
+   "items": [
+    {
+     "material_id": "door-150",
+     "unit": "piece",
+     "quantity": 1.0,
+     "purchase_quantity": 1.0,
+     "waste_factor": 1.0,
+     "recipe_source": "provisional: width taken from the plan; no catalog item of this size, to be reviewed by a master builder",
+     "estimated": true,
+     "name": "Door 1.50 m (made to size)",
+     "name_es_AR": "Puerta de 1,50 m (a medida)",
+     "width_m": 1.5,
+     "note": "No catalog door of 1.50 m: ordered to size, not the standard 0.90 m piece.",
+     "note_es_AR": "No hay puerta de cat\u00e1logo de 1,50 m: se pide a medida, no la est\u00e1ndar de 0,90 m,"
+    },
+    {
+     "material_id": "window-100",
+     "unit": "piece",
+     "quantity": 1.0,
+     "purchase_quantity": 1.0,
+     "waste_factor": 1.0,
+     "recipe_source": "provisional: width taken from the plan; no catalog item of this size, to be reviewed by a master builder",
+     "estimated": true,
+     "name": "Window 1.00 m (made to size)",
+     "name_es_AR": "Ventana de 1,00 m (a medida)",
+     "width_m": 1.0,
+     "note": "No catalog window of 1.00 m: ordered to size, not the standard 1.20 m piece.",
+     "note_es_AR": "No hay ventana de cat\u00e1logo de 1,00 m: se pide a medida, no la est\u00e1ndar de 1,20 m,"
+    }
+   ]
+  },
+  {
+   "name": "finishes",
+   "items": [
+    {
+     "material_id": "unspecified",
+     "unit": "m2",
+     "quantity": 24.0,
+     "purchase_quantity": 24.0,
+     "waste_factor": 1.0,
+     "recipe_source": "geometric area, no catalog recipe",
+     "estimated": false,
+     "name": "Surface without a chosen material (area only)",
+     "name_es_AR": "Superficie sin material elegido (solo \u00e1rea)",
+     "width_m": null,
+     "note": "",
+     "note_es_AR": ""
+    },
+    {
+     "material_id": "unspecified",
+     "unit": "m2",
+     "quantity": 7.800000000000001,
+     "purchase_quantity": 7.8,
+     "waste_factor": 1.0,
+     "recipe_source": "geometric area, no catalog recipe",
+     "estimated": false,
+     "name": "Surface without a chosen material (area only)",
+     "name_es_AR": "Superficie sin material elegido (solo \u00e1rea)",
+     "width_m": null,
+     "note": "",
+     "note_es_AR": ""
+    },
+    {
+     "material_id": "unspecified",
+     "unit": "m2",
+     "quantity": 7.800000000000001,
+     "purchase_quantity": 7.8,
+     "waste_factor": 1.0,
+     "recipe_source": "geometric area, no catalog recipe",
+     "estimated": false,
+     "name": "Surface without a chosen material (area only)",
+     "name_es_AR": "Superficie sin material elegido (solo \u00e1rea)",
+     "width_m": null,
+     "note": "",
+     "note_es_AR": ""
+    },
+    {
+     "material_id": "unspecified",
+     "unit": "m2",
+     "quantity": 19.400000000000002,
+     "purchase_quantity": 19.4,
+     "waste_factor": 1.0,
+     "recipe_source": "geometric area, no catalog recipe",
+     "estimated": false,
+     "name": "Surface without a chosen material (area only)",
+     "name_es_AR": "Superficie sin material elegido (solo \u00e1rea)",
+     "width_m": null,
+     "note": "",
+     "note_es_AR": ""
+    },
+    {
+     "material_id": "unspecified",
+     "unit": "m2",
+     "quantity": 19.400000000000002,
+     "purchase_quantity": 19.4,
+     "waste_factor": 1.0,
+     "recipe_source": "geometric area, no catalog recipe",
+     "estimated": false,
+     "name": "Surface without a chosen material (area only)",
+     "name_es_AR": "Superficie sin material elegido (solo \u00e1rea)",
+     "width_m": null,
+     "note": "",
+     "note_es_AR": ""
+    },
+    {
+     "material_id": "unspecified",
+     "unit": "m2",
+     "quantity": 7.800000000000001,
+     "purchase_quantity": 7.8,
+     "waste_factor": 1.0,
+     "recipe_source": "geometric area, no catalog recipe",
+     "estimated": false,
+     "name": "Surface without a chosen material (area only)",
+     "name_es_AR": "Superficie sin material elegido (solo \u00e1rea)",
+     "width_m": null,
+     "note": "",
+     "note_es_AR": ""
+    },
+    {
+     "material_id": "unspecified",
+     "unit": "m2",
+     "quantity": 7.800000000000001,
+     "purchase_quantity": 7.8,
+     "waste_factor": 1.0,
+     "recipe_source": "geometric area, no catalog recipe",
+     "estimated": false,
+     "name": "Surface without a chosen material (area only)",
+     "name_es_AR": "Superficie sin material elegido (solo \u00e1rea)",
+     "width_m": null,
+     "note": "",
+     "note_es_AR": ""
+    },
+    {
+     "material_id": "unspecified",
+     "unit": "m2",
+     "quantity": 17.725,
+     "purchase_quantity": 17.73,
+     "waste_factor": 1.0,
+     "recipe_source": "geometric area, no catalog recipe",
+     "estimated": false,
+     "name": "Surface without a chosen material (area only)",
+     "name_es_AR": "Superficie sin material elegido (solo \u00e1rea)",
+     "width_m": null,
+     "note": "",
+     "note_es_AR": ""
+    },
+    {
+     "material_id": "unspecified",
+     "unit": "m2",
+     "quantity": 17.725,
+     "purchase_quantity": 17.73,
+     "waste_factor": 1.0,
+     "recipe_source": "geometric area, no catalog recipe",
+     "estimated": false,
+     "name": "Surface without a chosen material (area only)",
+     "name_es_AR": "Superficie sin material elegido (solo \u00e1rea)",
+     "width_m": null,
+     "note": "",
+     "note_es_AR": ""
+    }
+   ]
+  }
+ ],
+ "built_m": 22.0,
+ "demolished_m": 0.0,
+ "built_m2": 57.2,
+ "demolished_m2": 0.0,
+ "professional_flags": [
+  "needs_professional:span_over_limit:w1",
+  "needs_professional:span_over_limit:w3",
+  "needs_professional:unknown_soil"
+ ],
+ "has_estimated": true,
+ "preliminary": true
+}
