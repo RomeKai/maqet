@@ -93,3 +93,44 @@ for (const size of SIZES) {
     });
   });
 }
+
+type Pt = [number, number];
+interface TurnBody { scene: { walls: { id: string; a: Pt; b: Pt }[] } }
+
+/** Every wall endpoint coincides with an endpoint of another wall (closed outline, nothing detached). */
+function disconnected(walls: TurnBody["scene"]["walls"]): string[] {
+  const near = (p: Pt, q: Pt) => Math.hypot(p[0] - q[0], p[1] - q[1]) < 1e-6;
+  const bad: string[] = [];
+  for (const w of walls) {
+    for (const [end, p] of [["a", w.a], ["b", w.b]] as const) {
+      if (!walls.some((o) => o.id !== w.id && (near(p, o.a) || near(p, o.b)))) bad.push(`${w.id}.${end}`);
+    }
+  }
+  return bad;
+}
+
+for (const size of SIZES) {
+  test(`finding 2: dragging a corner keeps walls joined (one undo) at ${size.width}x${size.height}`, async ({ page }) => {
+    await page.setViewportSize(size);
+    const mock = await mockTurns(page);
+    await loadSample(page);
+    const editor = page.locator(".capture-editor");
+    await editor.getByRole("button", { name: "Next" }).click(); // walls step
+    const handle = page.locator(".handle-btn").first();
+    const box = await handle.boundingBox();
+    if (!box) throw new Error("no handle");
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    await page.mouse.move(cx, cy);
+    await page.mouse.down();
+    // Far more than the 12 px cluster tolerance, in several moves like a finger.
+    for (let i = 1; i <= 6; i++) await page.mouse.move(cx + i * 12, cy + i * 6);
+    await page.mouse.up();
+    await toReform(page);
+    await page.getByLabel("Message to the assistant").fill("hello");
+    await page.getByRole("button", { name: "Send" }).click();
+    await expect.poll(() => mock.bodies.length).toBe(1);
+    const moved = mock.bodies[0]!.scene as TurnBody["scene"];
+    expect(disconnected(moved.walls), "walls detached after the drag").toEqual([]);
+  });
+}

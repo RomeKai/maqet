@@ -182,6 +182,8 @@ export interface DragPreview {
   wallId: string;
   end: "a" | "b";
   point: Point;
+  /** Every endpoint of the grabbed corner, captured at pointer-down: they all follow the finger and are all committed. */
+  members?: { wallId: string; end: "a" | "b" }[];
 }
 
 export interface SharedHandle {
@@ -252,8 +254,9 @@ export function previewEndpoint(
   end: "a" | "b",
   preview: DragPreview | null,
 ): [number, number] {
-  if (preview !== null && preview.wallId === wall.id && preview.end === end) {
-    return [preview.point.x, preview.point.y];
+  if (preview !== null) {
+    const grabbed = preview.members ?? [{ wallId: preview.wallId, end: preview.end }];
+    if (grabbed.some((m) => m.wallId === wall.id && m.end === end)) return [preview.point.x, preview.point.y];
   }
   return end === "a" ? wall.a : wall.b;
 }
@@ -505,11 +508,9 @@ export function CornerEditor({
     }
   }
 
-  function handleEndpointDragEnd(wallIdValue: string, end: "a" | "b", clientX: number, clientY: number): void {
+  function handleEndpointDragEnd(members: { wallId: string; end: "a" | "b" }[], clientX: number, clientY: number): void {
     const p = toSceneCoords(clientX, clientY);
-    // Shared corner: every wall meeting at this handle moves together.
-    const members = handleMembersFor(handles, wallIdValue, end)?.members
-      ?? [{ wallId: wallIdValue, end }];
+    // Shared corner: every wall meeting at this handle (captured at pointer-down) moves together.
     const snapped = snapToEndpoint([p.x, p.y], walls, toDisplay, ENDPOINT_SNAP_PX * unitsPerPx, members);
     const target: [number, number] = snapped ?? [p.x, p.y];
     const ops: SceneOp[] = members.map((m) => ({
@@ -849,6 +850,7 @@ export function CornerEditor({
                   wallId: first.wallId,
                   end: first.end,
                   point: toSceneCoords(e.clientX, e.clientY),
+                  members: h.members,
                 });
               }}
               onPointerUp={(e) => {
@@ -856,7 +858,7 @@ export function CornerEditor({
                 const moved = preview !== null;
                 setPreview(null);
                 // A bare tap (no move) must not nudge the corner.
-                if (moved) handleEndpointDragEnd(first.wallId, first.end, e.clientX, e.clientY);
+                if (moved) handleEndpointDragEnd(h.members, e.clientX, e.clientY);
               }}
               onPointerCancel={() => setPreview(null)}
             />
