@@ -21,7 +21,7 @@ Notes: the git worktree reuses `../maqet/web/node_modules` through a junction, w
 | E2E-002 Edit measures 422 on sample room | Fixed: Edit measures 4x8 gives 32.0 m2 and Undo gives 24.0 m2 |
 | E2E-003 DXF blocked "confirm scale" | Fixed: Download DXF saves a file with A-WALL, A-DOOR, A-GLAZ, A-FLOR-FURN |
 | E2E-004 AR-unavailable notice racy on desktop | Not re-tested here (ar-flow.spec covers the AR card on a fake WebXR) |
-| E2E-005 agent turn 500 shown raw | **Still open**, widened below (409, 500) |
+| E2E-005 agent turn 500 shown raw | Fixed in `1f35dca` (see below) |
 | KB-1 variants lose edits | Not reproduced: conversation and scene edits survive switching Now/A/fork in the mocked flow |
 | KB-2 second turn does nothing | Not reproduced: two consecutive mocked turns both render |
 | KB-3 / KB-4 | Need a live agent / AR device; not reproducible with mocks |
@@ -29,6 +29,7 @@ Notes: the git worktree reuses `../maqet/web/node_modules` through a junction, w
 ## Bugs, ranked by demo impact
 
 ### E2E-008 Capture Check: "Looks right" is covered by the 3D sheet (suspected demo-blocking)
+- **Status:** Fixed in `a7ba3e2` (marker removed from the e2e test).
 - **Severity:** demo-blocking (confirm on a device: the test shows the centre of the button is not hit-testable)
 - **Screen:** Capture > Check, both phones
 - **Steps:** sample sketch > Next, Next (Check step).
@@ -39,6 +40,7 @@ Notes: the git worktree reuses `../maqet/web/node_modules` through a junction, w
 - **Test:** `journey: Check step keeps its list and Looks right reachable above the 3D sheet` (test.fail).
 
 ### E2E-005 Agent turn errors are shown raw (409 and 500)
+- **Status:** Fixed in `1f35dca` (marker removed from the e2e test).
 - **Severity:** major (the demo's likely failure mode)
 - **Screen:** Reform / Design chat
 - **Steps:** a turn answers 409 (replay miss) or 500.
@@ -49,6 +51,7 @@ Notes: the git worktree reuses `../maqet/web/node_modules` through a junction, w
 - **Tests:** `edge: replay 409 ...`, `edge: server 500 ...` (test.fail).
 
 ### E2E-007 Reload mid-flow drops the whole project
+- **Status:** Fixed in `8362c79` (marker removed from the e2e test).
 - **Severity:** major (Home promises "Changes are saved on this phone")
 - **Screen:** any stage after Capture
 - **Steps:** sample sketch > Reform > reload the page.
@@ -58,6 +61,7 @@ Notes: the git worktree reuses `../maqet/web/node_modules` through a junction, w
 - **Test:** `journey: reload mid-flow keeps the project` (test.fail).
 
 ### E2E-013 Offline turn shows the raw "Failed to fetch"
+- **Status:** Fixed in `33ecfe8` (marker removed from the e2e test).
 - **Severity:** major (Home advertises that it works offline)
 - **Screen:** Reform chat, `context.setOffline(true)`
 - **Expected:** a friendly "no connection, try again" message.
@@ -66,6 +70,7 @@ Notes: the git worktree reuses `../maqet/web/node_modules` through a junction, w
 - **Test:** `edge: offline ...` (test.fail).
 
 ### E2E-011 A pending agent turn cannot be cancelled
+- **Status:** Fixed in `ee50b55` (marker removed from the e2e test).
 - **Severity:** major
 - **Screen:** Reform chat with a 30 s turn
 - **Expected:** "Working on it..." plus a Cancel/Stop control.
@@ -75,6 +80,7 @@ Notes: the git worktree reuses `../maqet/web/node_modules` through a junction, w
 - **Test:** `edge: a slow turn ...` (test.fail).
 
 ### E2E-012 Landscape: the chat input leaves the viewport
+- **Status:** Fixed in `dafdb97` (marker removed from the e2e test).
 - **Severity:** minor (rotation mid-demo)
 - **Screen:** Reform, 915x412
 - **Actual:** the message input's bottom edge is at 508 px in a 412 px viewport.
@@ -83,6 +89,7 @@ Notes: the git worktree reuses `../maqet/web/node_modules` through a junction, w
 - **Test:** `edge: rotating the viewport ...` (test.fail).
 
 ### E2E-010 Deliver "Plan snapshot" intermittently never appears
+- **Status:** Fixed (fix is by construction: SVG namespace + revoke-on-replace; the race was never deterministic, so only a phone confirms it) in `81959cd` (marker removed from the e2e test).
 - **Severity:** minor
 - **Screen:** Deliver
 - **Steps:** reach Deliver (with or without furniture).
@@ -91,6 +98,7 @@ Notes: the git worktree reuses `../maqet/web/node_modules` through a junction, w
 - **Tests:** the two `deliver: Plan snapshot ...` tests are `test.fixme` because the failure is not deterministic.
 
 ### E2E-009 Corner handles: wrong label, overlap with stepper/toolbar, undraggable on 360 px
+- **Status:** Fixed in `5b736dc` (marker removed from the e2e test).
 - **Severity:** minor
 - **Screen:** Capture walls / check / 3D
 - **Actual:** every corner handle button is named "Plan editor" (same as the canvas), handle buttons overlap the Wall/Window toolbar buttons (48x5/7 px) and, on Check/3D, the "Reform" stepper tab (48x15 px) because they are not clipped with the canvas; on 360 px the first handle cannot be dragged.
@@ -99,18 +107,24 @@ Notes: the git worktree reuses `../maqet/web/node_modules` through a junction, w
 - **Tests:** `screen checks pixel7 capture-walls|capture-check|capture-3d: overlap`, `journey small360: dragging a corner` (test.fail).
 
 ### E2E-006 No Redo in the plan editor
+- **Status:** Fixed in `ebf7b2a` (marker removed from the e2e test).
 - **Severity:** minor
 - **Screen:** Capture editor toolbar (Undo exists, Redo does not).
 - **Suspected files:** `web/src/intake/IntakeScreen.tsx`, history hook.
 - **Test:** `journey: capture C: undo, redo` (test.fail).
 
 ### E2E-014 "Needs a licensed professional" disclosure is 36 px tall
+- **Status:** Fixed in `e088876` (marker removed from the e2e test).
 - **Severity:** minor (tap target)
 - **Screen:** Deliver, both phones, when flags are present (appears once furniture is placed).
 - **Actual:** `summary` 360x36 px.
 - **Screenshot:** `web/e2e/screenshots/hunt/pixel7-deliver.png`
 - **Suspected files:** `web/src/deliver/DeliverView.tsx` / `ProBanner.tsx`.
 - **Test:** `screen checks ... deliver: targets` (test.fail).
+
+## Open
+
+E2E-004 was not reproduced on `day/bugfix`. In a full parallel `npm run e2e` run, `scene-continuity` (variant switch) fails intermittently; it fails the same way on the base commit 683bd2c (shared server variant state across workers) and passes with `--workers=1` (327 passed).
 
 ## Verified working (no bug found)
 
