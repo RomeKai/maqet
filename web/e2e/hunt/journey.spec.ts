@@ -386,7 +386,6 @@ for (const profile of PROFILES) {
     });
 
     test("deliver: Plan snapshot is shown once furniture is placed", async () => {
-      test.fixme(true, "E2E-010 intermittent: the Plan snapshot card sometimes never appears although /scene/snapshot.svg answers 200, see docs/E2E_BUGS.md");
       await toDesign();
       await placeFurniture();
       await tab(/Deliver/).click();
@@ -395,7 +394,6 @@ for (const profile of PROFILES) {
     });
 
     test("deliver: Plan snapshot is shown without furniture", async () => {
-      test.fixme(true, "E2E-010 intermittent, see docs/E2E_BUGS.md");
       await toReform();
       await tab(/Deliver/).click();
       await expect(page.getByRole("img", { name: "Plan snapshot" })).toBeVisible({ timeout: 15_000 });

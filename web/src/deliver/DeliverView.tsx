@@ -9,6 +9,7 @@ import { NextSteps } from "./NextSteps";
 import { TakeoffView } from "./TakeoffView";
 import type { Takeoff } from "./takeoffTypes";
 import { downloadCsv } from "./takeoffFormat";
+import { dropFailedSnapshot, withSvgNamespace } from "./snapshotState";
 
 function apiBase(): string {
   const configured: unknown = import.meta.env.VITE_API_URL;
@@ -24,7 +25,8 @@ async function fetchSnapshotUrl(scene: Scene, locale: Locale): Promise<string | 
       body: JSON.stringify(scene),
     });
     if (!res.ok) return null;
-    return URL.createObjectURL(await res.blob());
+    const svg = withSvgNamespace(await res.text());
+    return URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
   } catch {
     return null;
   }
@@ -52,17 +54,21 @@ export function DeliverView({ scene, takeoff, locale }: DeliverViewProps): React
       return;
     }
     let live = true;
-    let created: string | null = null;
     void fetchSnapshotUrl(scene, locale).then((url) => {
-      created = url;
       if (live) setSnapshot(url);
       else if (url) URL.revokeObjectURL(url);
     });
     return () => {
-      live = false;
-      if (created) URL.revokeObjectURL(created);
+      live = false; // the URL on screen is revoked below, only once it has been replaced
     };
   }, [scene, locale]);
+  // Revoking in the fetch effect's cleanup pulled the URL out from under the <img> that still showed it;
+  // revoke the previous URL only after React has rendered its replacement.
+  useEffect(() => {
+    return () => {
+      if (snapshot) URL.revokeObjectURL(snapshot);
+    };
+  }, [snapshot]);
 
   async function downloadCsvFile(): Promise<void> {
     if (!scene) return;
@@ -150,7 +156,7 @@ export function DeliverView({ scene, takeoff, locale }: DeliverViewProps): React
 
         {snapshot ? (
           <div className="overflow-hidden rounded-xl border-2 border-border bg-card">
-            <img src={snapshot} alt={t["snapshot.alt"]} className="block w-full" onError={() => setSnapshot(null)} />
+            <img src={snapshot} alt={t["snapshot.alt"]} className="block w-full" onError={() => setSnapshot((current) => dropFailedSnapshot(current, snapshot))} />
           </div>
         ) : null}
 
