@@ -228,7 +228,6 @@ for (const profile of PROFILES) {
     });
 
     test("capture C: Check step keeps its list and Looks right reachable above the 3D sheet", async () => {
-      test.fail(true, "E2E-008 Looks right is covered by the expanded 3D sheet, see docs/E2E_BUGS.md");
       await toEditor();
       const editor = page.locator(".capture-editor");
       for (let i = 0; i < 2; i++) await editor.getByRole("button", { name: "Next" }).click();

@@ -1062,7 +1062,8 @@ export function CornerEditor({
       {step === "walls" && wallsExtras}
 
       {step !== "photo" && (
-        <div className="flex gap-2">
+        // Sticky: the 3D sheet shrinks the editor on Check, the step actions must stay inside the scroll viewport.
+        <div className="step-actions sticky bottom-0 z-10 flex gap-2 bg-background py-2">
           {stepIndex > 1 && (
             <Button variant="secondary" onClick={() => setUserStep(STEP_ORDER[stepIndex - 1] ?? "walls")}>
               {t["intake.prevStep"]}
