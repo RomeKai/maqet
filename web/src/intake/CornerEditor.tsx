@@ -29,6 +29,7 @@ import { buildChecks } from "./checks";
 import { Button, cn } from "../ui";
 import { WallLengthSheet } from "./WallLengthSheet";
 import { OpeningSheet } from "./OpeningSheet";
+import { openingSelectedLabel, wallSelectedLabel } from "./selectionLabels";
 import { STEP_ORDER, type CaptureStepKey } from "./captureSteps";
 import { pillMetrics, provenanceKind, type ProvenanceKind } from "./wallPill";
 
@@ -398,6 +399,7 @@ export function CornerEditor({
   const selectedWallObj = selectedWall !== null
     ? walls.find((w) => w.id === selectedWall) ?? null
     : null;
+  const placingWall = placing !== null ? walls.find((w) => w.id === placing.wallId) : undefined;
   const selectedOpeningObj = selectedOpening !== null
     ? openings.find((o) => o.id === selectedOpening) ?? null
     : null;
@@ -774,7 +776,7 @@ export function CornerEditor({
                   <line x1={s0.x} y1={s0.y} x2={s1.x} y2={s1.y} className="opening-door-gap" />
                   <line x1={s0.x} y1={s0.y} x2={s1.x} y2={s1.y} className={doorCls} onClick={(e) => { e.stopPropagation(); setSelectedOpening(o.id); setSelectedWall(wall.id); if (placing === null) setOpeningSheetId(o.id); }} />
                   <path d={arcD} className="opening-door-arc" />
-                  {selectedOpening === o.id && (<text x={(s0.x + s1.x) / 2} y={(s0.y + s1.y) / 2} className="wall-label">{`${t["intake.selected.door"]} · ${formatLengthM(o.width_m)}`}</text>)}
+                  {selectedOpening === o.id && (<text x={(s0.x + s1.x) / 2} y={(s0.y + s1.y) / 2} className="wall-label">{openingSelectedLabel(t["intake.selected.door"], formatLengthM(o.width_m))}</text>)}
                 </g>
               );
             }
@@ -795,7 +797,7 @@ export function CornerEditor({
               <g key={o.id}>
                 <line x1={wA0.x} y1={wA0.y} x2={wA1.x} y2={wA1.y} className={winCls} onClick={(e) => { e.stopPropagation(); setSelectedOpening(o.id); setSelectedWall(wall.id); if (placing === null) setOpeningSheetId(o.id); }} />
                 <line x1={wB0.x} y1={wB0.y} x2={wB1.x} y2={wB1.y} className={winCls} onClick={(e) => { e.stopPropagation(); setSelectedOpening(o.id); setSelectedWall(wall.id); if (placing === null) setOpeningSheetId(o.id); }} />
-                {selectedOpening === o.id && (<text x={(s0.x + s1.x) / 2} y={(s0.y + s1.y) / 2} className="wall-label">{`${t["intake.selected.window"]} · ${formatLengthM(o.width_m)}`}</text>)}
+                {selectedOpening === o.id && (<text x={(s0.x + s1.x) / 2} y={(s0.y + s1.y) / 2} className="wall-label">{openingSelectedLabel(t["intake.selected.window"], formatLengthM(o.width_m))}</text>)}
               </g>
             );
           })}
@@ -868,9 +870,7 @@ export function CornerEditor({
 
       {selectedWallObj !== null && (
         <p className="intake-selected-label" role="status">
-          {t["intake.selected.wall"]
-            .replace("{n}", String(wallNumber(walls, selectedWallObj.id)))
-            .replace("{length}", formatLengthM(wallDisplayLengthM(selectedWallObj)))}
+          {wallSelectedLabel(t["intake.selected.wall"], wallNumber(walls, selectedWallObj.id), formatLengthM(wallDisplayLengthM(selectedWallObj)))}
         </p>
       )}
       {openingToolKind !== null && (
@@ -880,10 +880,10 @@ export function CornerEditor({
       )}
       {selectedOpeningObj !== null && (
         <p className="intake-selected-label" role="status">
-          {(selectedOpeningObj.kind === "door"
-            ? t["intake.selected.door"]
-            : t["intake.selected.window"]
-          ).replace("{width}", formatLengthM(selectedOpeningObj.width_m))}
+          {openingSelectedLabel(
+            selectedOpeningObj.kind === "door" ? t["intake.selected.door"] : t["intake.selected.window"],
+            formatLengthM(selectedOpeningObj.width_m),
+          )}
           {selectedOpeningObj.kind === "door" && selectedOpeningObj.width_m < DOOR_MIN_WIDTH_M ? ` · ${t["intake.opening.narrowDoor"]}` : ""}
         </p>
       )}
@@ -912,7 +912,7 @@ export function CornerEditor({
         <div className="intake-opening">
           <p className="intake-hint" role="status">
             {placing.firstTap === null
-              ? `${t["intake.opening.tapPrompt"]} — ${t["intake.selected.wall"].replace("{n}", String(wallNumber(walls, placing.wallId)))}`
+              ? `${t["intake.opening.tapPrompt"]} — ${wallSelectedLabel(t["intake.selected.wall"], wallNumber(walls, placing.wallId), formatLengthM(placingWall !== undefined ? wallDisplayLengthM(placingWall) : 0))}`
               : `${t["intake.opening.tapPrompt"]} (1/2)`}
           </p>
           {openingError !== null && (
