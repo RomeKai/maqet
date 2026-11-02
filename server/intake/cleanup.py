@@ -55,6 +55,8 @@ _PARALLEL_COS = 0.9659  # cos(15 deg): sketches wobble, walls do not bend
 # units, ~15% of image width): further is a guess, and guesses are the
 # human's job (ADR-002).
 _NULL_ASSIGN_MAX_DIST = 0.15
+# Second pass: a label this far from the nearest parallel wall still measures it when that wall has no measure at all.
+_NULL_ASSIGN_LOOSE_DIST = 0.30
 # A dimension belongs to an opening span (not the wall) when their 1D overlap
 # covers most of BOTH: a wall-length line crossing an opening is long, an
 # opening label is short. One-sided overlap is not enough.
@@ -494,12 +496,12 @@ def build_scaled_plan(
             opening_widths.setdefault(old_to_new[op.wall_index], []).append((pos, op.t0, op.t1))
     opening_labels: dict[int, float] = {}  # opening pos -> width in meters
 
-    def _assign_null(value: float, dim: object) -> int | None:
+    def _assign_null(value: float, dim: object, max_dist: float = _NULL_ASSIGN_MAX_DIST) -> int | None:
         dim_a = (dim.a[0], dim.a[1])  # type: ignore[attr-defined]
         dim_b = (dim.b[0], dim.b[1])  # type: ignore[attr-defined]
         dux, duy = _unit(dim_b[0] - dim_a[0], dim_b[1] - dim_a[1])
         best: int | None = None
-        best_dist = _NULL_ASSIGN_MAX_DIST
+        best_dist = max_dist
         for j, ((ax, ay), (bx, by), _kind) in enumerate(fused):
             wux, wuy = _unit(bx - ax, by - ay)
             if abs(dux * wux + duy * wuy) < _PARALLEL_COS:
@@ -533,6 +535,7 @@ def build_scaled_plan(
     # leftover short dim can be told apart from a wall measure afterwards.
     # (value, text, lo, hi, dim_len) in fused-wall projection units.
     wall_dim_entries: dict[int, list[tuple[float, str, float, float, float]]] = {}
+    unassigned_dims: list[tuple[float, object]] = []
     for dim in proposal.dimensions:
         value = parse_dimension_meters(dim.text)
         if value is None:
@@ -541,10 +544,7 @@ def build_scaled_plan(
         if dim.wall_index is None:
             new_idx = _assign_null(value, dim)
             if new_idx is None:
-                warnings.append(
-                    f"unassigned: '{dim.text}' is parallel to no wall, "
-                    "confirm with human"
-                )
+                unassigned_dims.append((value, dim))
                 continue
         elif dim.wall_index >= len(proposal.walls):
             continue
@@ -588,6 +588,29 @@ def build_scaled_plan(
         wall_dim_entries.setdefault(new_idx, []).append(
             (value, dim.text, lo, hi, dim_len)
         )
+
+    # Second pass for labels no wall claimed: live readings draw the wall a little off the written length, so a label
+    # up to _NULL_ASSIGN_LOOSE_DIST from its nearest parallel wall measures that wall, but only when the wall has no
+    # measure yet (it can never fight a real one). Otherwise it stays unassigned and the human is told.
+    for value, dim in unassigned_dims:
+        loose = _assign_null(value, dim, _NULL_ASSIGN_LOOSE_DIST)
+        if loose is not None and loose not in wall_dim_entries:
+            (ax, ay), (bx, by), _kind = fused[loose]
+            seg_len = math.hypot(bx - ax, by - ay)
+            wux, wuy = ((bx - ax) / seg_len, (by - ay) / seg_len) if seg_len > 0 else (0.0, 0.0)
+            lo = (dim.a[0] - ax) * wux + (dim.a[1] - ay) * wuy  # type: ignore[attr-defined]
+            hi = (dim.b[0] - ax) * wux + (dim.b[1] - ay) * wuy  # type: ignore[attr-defined]
+            lo, hi = min(lo, hi), max(lo, hi)
+            wall_dim_entries[loose] = [(value, dim.text, lo, hi, hi - lo)]  # type: ignore[attr-defined]
+            warnings.append(
+                f"assigned: '{dim.text}' written away from its wall was matched to wall {loose + 1} "  # type: ignore[attr-defined]
+                "(it had no length), verify with human"
+            )
+        else:
+            warnings.append(
+                f"unassigned: '{dim.text}' is parallel to no wall, "  # type: ignore[attr-defined]
+                "confirm with human"
+            )
 
     # Leftover short dims: a value that is a fraction of BOTH the anchor
     # guess and the wall's own largest measure, and sits on no opening span

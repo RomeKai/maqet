@@ -607,3 +607,25 @@ def test_leftover_short_dim_surfaces_possible_opening() -> None:
     assert scaled.walls[0].measured_m == pytest.approx(8.0)
     assert any("possible opening" in w for w in scaled.warnings)
     assert not any("contradiction" in w for w in scaled.warnings)
+
+
+def test_label_just_outside_the_wall_radius_still_measures_a_wall_with_no_measure() -> None:
+    """Finding 4: a written '8.00' ~0.18 from its wall (live readings drift) was dropped, leaving W4 estimated."""
+    import json
+    import math
+    from pathlib import Path
+
+    from server.intake.cleanup import build_scaled_plan, to_scene
+    from server.intake.schemas import IntakeProposal
+
+    data = json.loads((Path(__file__).resolve().parents[2] / "samples/plans/croquis_3x8_door_window.proposal.json").read_text("utf-8"))
+    for dim in data["proposal"]["dimensions"]:
+        if dim["text"] == "8.00":
+            dim["a"][0] += 0.05
+            dim["b"][0] += 0.05
+    plan = build_scaled_plan(IntakeProposal.model_validate(data["proposal"]), data["image"]["w"], data["image"]["h"])
+    scene = to_scene(plan)
+    lengths = [round(math.dist(w.a, w.b), 2) for w in scene.walls]
+    assert lengths == [3.0, 8.0, 3.0, 8.0]
+    assert all(w.provenance == "written_on_sketch" for w in scene.walls)
+    assert any("assigned" in w and "8.00" in w for w in plan.warnings), plan.warnings

@@ -42,10 +42,26 @@ export function wallGeometryLengthM(wall: Wall): number {
 /** Display length: the confirmed measure when present, else the geometry. */
 export function wallDisplayLengthM(wall: Wall): number {
   const measured = wall.measured_length_m;
-  if (typeof measured === "number" && Number.isFinite(measured) && measured > 0) {
+  const geometry = wallGeometryLengthM(wall);
+  // A measure that no longer matches the drawn wall is stale: what the Scene (3D, takeoff, DXF) uses is the geometry.
+  if (typeof measured === "number" && Number.isFinite(measured) && measured > 0 && Math.abs(measured - geometry) <= MEASURE_TOLERANCE_M) {
     return measured;
   }
-  return wallGeometryLengthM(wall);
+  return geometry;
+}
+
+/** A confirmed measure within this of the geometry is the same length (rounding in the stored coordinates). */
+const MEASURE_TOLERANCE_M = 0.02;
+
+const SAME_POINT_M = 1e-6;
+
+/** Room outlines are derived from wall endpoints: a vertex sitting on the old endpoint follows it. */
+function moveRoomVertices(rooms: Room[] | undefined, from: [number, number], to: [number, number]): Room[] | undefined {
+  if (rooms === undefined) return rooms;
+  return rooms.map((r) => ({
+    ...r,
+    polygon: r.polygon.map((v) => (Math.hypot(v[0] - from[0], v[1] - from[1]) <= SAME_POINT_M ? to : v)),
+  }));
 }
 
 /** True when the wall still needs a human-confirmed measure (ADR-025 mode C). */
@@ -79,15 +95,27 @@ export function applySceneOp(scene: Scene, op: SceneOp): Scene {
         openings: openings.filter((o) => o.wall_id !== op.wallId),
       };
 
-    case "moveWallEndpoint":
+    case "moveWallEndpoint": {
+      const target = walls.find((w) => w.id === op.wallId);
+      if (target === undefined) return { ...scene, version, walls };
+      const from = op.end === "a" ? target.a : target.b;
       return {
         ...scene,
         version,
         walls: walls.map((w) => {
           if (w.id !== op.wallId) return w;
-          return op.end === "a" ? { ...w, a: op.point } : { ...w, b: op.point };
+          const moved = op.end === "a" ? { ...w, a: op.point } : { ...w, b: op.point };
+          const measured = moved.measured_length_m;
+          // Dragging a corner invalidates the wall's written/measured length: back to estimated until re-confirmed.
+          if (typeof measured === "number" && Math.abs(measured - wallGeometryLengthM(moved)) > MEASURE_TOLERANCE_M) {
+            const { measured_length_m: _stale, ...rest } = moved;
+            return { ...rest, provenance: "estimated" as WallProvenance };
+          }
+          return moved;
         }),
+        rooms: moveRoomVertices(scene.rooms, from, op.point),
       };
+    }
 
     case "markOpening":
       return { ...scene, version, openings: [...openings, op.opening] };
@@ -101,19 +129,21 @@ export function applySceneOp(scene: Scene, op: SceneOp): Scene {
 
     case "setWallLength": {
       if (!Number.isFinite(op.lengthM) || op.lengthM <= 0) return scene;
+      const target = walls.find((w) => w.id === op.wallId);
+      if (target === undefined) return scene;
+      const geoLen = wallGeometryLengthM(target);
+      if (!(geoLen > 0)) {
+        return { ...scene, version, walls: walls.map((w) => (w.id === op.wallId ? { ...w, measured_length_m: op.lengthM, provenance: op.provenance } : w)) };
+      }
+      const b: [number, number] = [
+        target.a[0] + ((target.b[0] - target.a[0]) / geoLen) * op.lengthM,
+        target.a[1] + ((target.b[1] - target.a[1]) / geoLen) * op.lengthM,
+      ];
       return {
         ...scene,
         version,
-        walls: walls.map((w) => {
-          if (w.id !== op.wallId) return w;
-          const geoLen = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]);
-          if (!(geoLen > 0)) {
-            return { ...w, measured_length_m: op.lengthM, provenance: op.provenance };
-          }
-          const dir: [number, number] = [(w.b[0] - w.a[0]) / geoLen, (w.b[1] - w.a[1]) / geoLen];
-          const b: [number, number] = [w.a[0] + dir[0] * op.lengthM, w.a[1] + dir[1] * op.lengthM];
-          return { ...w, b, measured_length_m: op.lengthM, provenance: op.provenance };
-        }),
+        walls: walls.map((w) => (w.id === op.wallId ? { ...w, b, measured_length_m: op.lengthM, provenance: op.provenance } : w)),
+        rooms: moveRoomVertices(scene.rooms, target.b, b),
       };
     }
 
