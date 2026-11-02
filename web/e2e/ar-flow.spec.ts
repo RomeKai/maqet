@@ -355,3 +355,97 @@ test.describe("Present AR card", () => {
     expect(logs.some((l) => l.includes("[ar-status]"))).toBe(true);
   });
 });
+
+test.describe("Existing project + AR measure (phone finding 3)", () => {
+  // The same AR taps twice: taken as is, the second room lands exactly on top of the first.
+  async function captureRoom(page: Page): Promise<void> {
+    const pill = page.locator(".ar-hud-pill");
+    await expect(pill).toBeVisible();
+    const tap = (x: number, z: number) =>
+      page.evaluate(([px, pz]) => (window as unknown as { __xr: Xr }).__xr.tap({ x: px as number, y: -1.2, z: pz as number }), [x, z]);
+    await tap(0, -2);
+    await expect(pill).toContainText("Tap the other end");
+    await tap(3, -2);
+    await expect(pill).toContainText("Tap where the wall meets the ceiling");
+    await expect(pill).toContainText("2.60");
+    await tap(3, -2); // height: confirm the ray
+    await expect(pill).toContainText("Wall 2: tap the next corner");
+    await tap(3, -5);
+    await expect(pill).toContainText("Wall 3");
+    await tap(0, -5);
+    await expect(pill).toContainText("Wall 4");
+    await tap(0.05, -2.05);
+    await expect(pill).toContainText("Room captured");
+    await page.getByRole("button", { name: "Done" }).click();
+    await page.getByRole("button", { name: "Looks right" }).click(); // review
+  }
+
+  for (const size of [{ width: 412, height: 915 }, { width: 360, height: 740 }]) {
+    test(`Add places the new room beside the old one, Replace starts clean (${size.width}x${size.height})`, async ({ page }) => {
+      await page.setViewportSize(size);
+      await mockWebXr(page, "live");
+      const bodies: { scene: { walls: { id: string; a: [number, number]; b: [number, number] }[] } }[] = [];
+      await page.route("**/api/agent/turn", async (route) => {
+        const body = route.request().postDataJSON() as (typeof bodies)[number];
+        bodies.push(body);
+        await route.fulfill({ json: { reply: "ok", scene: body.scene, ops_applied: [], history: [], professional_flags: [], tool_errors: [], tool_warnings: [] } });
+      });
+      await openMethods(page);
+      await page.locator('[data-method="ar"]').click();
+      await page.getByRole("button", { name: "Measure (AR)" }).click();
+      await captureRoom(page);
+      await expect(page.getByText("4 walls measured")).toBeVisible();
+      await expect(page.locator(".receipt")).toHaveCount(0); // a loaded project never asks for a plan photo
+
+      // Measure again on a project that already has walls: ask first.
+      await page.getByRole("button", { name: "Measure again" }).click();
+      const dialog = page.getByRole("dialog", { name: "This project already has a plan" });
+      await expect(dialog).toBeVisible();
+      for (const name of ["Replace project", "Add beside it", "Cancel"]) {
+        expect((await dialog.getByRole("button", { name }).boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(47);
+      }
+      await dialog.getByRole("button", { name: "Add beside it" }).click();
+      await page.getByRole("button", { name: "Measure (AR)" }).click();
+      await captureRoom(page);
+      await expect(page.getByText("8 walls measured")).toBeVisible();
+
+      await page.getByRole("button", { name: "Looks right" }).click();
+      await page.getByLabel("Message to the assistant").fill("hello");
+      await page.getByRole("button", { name: "Send" }).click();
+      await expect.poll(() => bodies.length).toBe(1);
+      const walls = bodies[0]!.scene.walls;
+      expect(walls).toHaveLength(8);
+      expect(new Set(walls.map((w) => w.id)).size).toBe(8);
+      const xs = (ws: typeof walls) => ws.flatMap((w) => [w.a[0], w.b[0]]);
+      const first = walls.slice(0, 4);
+      const second = walls.slice(4);
+      expect(Math.min(...xs(second)), "second room clear of the first").toBeGreaterThanOrEqual(Math.max(...xs(first)) + 0.4);
+    });
+  }
+
+  test("Replace starts clean", async ({ page }) => {
+    await page.setViewportSize({ width: 412, height: 915 });
+    await mockWebXr(page, "live");
+    await openMethods(page);
+    await page.locator('[data-method="ar"]').click();
+    await page.getByRole("button", { name: "Measure (AR)" }).click();
+    await captureRoom(page);
+    await page.getByRole("button", { name: "Measure again" }).click();
+    await page.getByRole("dialog", { name: "This project already has a plan" }).getByRole("button", { name: "Replace project" }).click();
+    await page.getByRole("button", { name: "Measure (AR)" }).click();
+    await captureRoom(page);
+    await expect(page.getByText("4 walls measured")).toBeVisible();
+  });
+
+  test("Cancel from the choice keeps the project", async ({ page }) => {
+    await page.setViewportSize({ width: 412, height: 915 });
+    await mockWebXr(page, "live");
+    await openMethods(page);
+    await page.locator('[data-method="ar"]').click();
+    await page.getByRole("button", { name: "Measure (AR)" }).click();
+    await captureRoom(page);
+    await page.getByRole("button", { name: "Measure again" }).click();
+    await page.getByRole("dialog", { name: "This project already has a plan" }).getByRole("button", { name: "Cancel" }).click();
+    await expect(page.getByText("4 walls measured")).toBeVisible();
+  });
+});

@@ -10,6 +10,7 @@ import { weldOp } from "./weld";
 import { captureStepFromScene, type CaptureStepKey } from "./captureSteps";
 import { ScaleTool } from "./ScaleTool";
 import { ArMeasure } from "../measure/ArMeasure";
+import { mergeCaptureBeside } from "../measure/addToProject";
 import { isARSupported } from "../measure/xrAdapter";
 import type { IntakeKind, IntakeProposal, IntakeProposalDimension, IntakeResult } from "./api";
 
@@ -48,7 +49,17 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
   const [proposal, setProposal] = useState<IntakeProposal | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [scaling, setScaling] = useState(false);
-  const [measuringAR, setMeasuringAR] = useState(startInAr);
+  /** idle -> (project already has walls) choose replace/add -> measure. AR always runs on its own empty Scene. */
+  const hasWalls = (initialScene?.walls ?? []).length > 0;
+  const [arPhase, setArPhase] = useState<"idle" | "choose" | "measure">(startInAr ? (hasWalls ? "choose" : "measure") : "idle");
+  const [arMode, setArMode] = useState<"replace" | "add">("replace");
+  const measuringAR = arPhase === "measure";
+  const requestAr = (): void => setArPhase((scene.walls ?? []).length > 0 ? "choose" : "measure");
+  // "Measure in AR" chosen from the method list while this screen is already mounted.
+  useEffect(() => {
+    if (startInAr && arPhase === "idle") setArPhase((history.scene.walls ?? []).length > 0 ? "choose" : "measure");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startInAr]);
   const [error, setError] = useState<string | null>(null);
   // Mode A entry before any photo (ADR-025): auto-detect WebXR immersive-ar
   // support on mount; the test seam overrides detection.
@@ -71,6 +82,7 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
     };
   }, [arSupported]);
 
+  const arBase = useMemo(() => createEmptyScene(scene.id), [scene.id]);
   const scaleConfirmed = useMemo(() => scene.scale_confirmed === true, [scene]);
 
   function handleSceneDraft(draft: Scene, result: IntakeResult): void {
@@ -136,7 +148,26 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
     <div className="flex min-h-0 flex-1 flex-col gap-3 p-3 font-sans">
       {!hideScaleBadge && <ScaleBadge locale={locale} scaleConfirmed={scaleConfirmed} />}
 
-      {photo === null && !measuringAR && arCaptured && (
+      {arPhase === "choose" && (
+        <section className="ar-choice" role="dialog" aria-label={t["measure.ar.choice.title"]}>
+          <h2 className="intake-title">{t["measure.ar.choice.title"]}</h2>
+          <p className="intake-hint">{t["measure.ar.choice.body"].replace("{n}", String((scene.walls ?? []).length))}</p>
+          <div className="intake-scale-foot">
+            <button type="button" className="btn-primary min-h-12" onClick={() => { setArMode("replace"); setArPhase("measure"); }}>
+              {t["measure.ar.choice.replace"]}
+            </button>
+            <button type="button" className="chip min-h-12" onClick={() => { setArMode("add"); setArPhase("measure"); }}>
+              {t["measure.ar.choice.add"]}
+            </button>
+            <button type="button" className="chip min-h-12" onClick={() => setArPhase("idle")}>
+              {t["measure.ar.cancel"]}
+            </button>
+          </div>
+          <p className="intake-hint">{t["measure.ar.choice.addNote"]}</p>
+        </section>
+      )}
+
+      {photo === null && !measuringAR && arPhase !== "choose" && arCaptured && (
         <section className="ar-captured" aria-label={t["measure.ar.captured.title"]}>
           <h2 className="intake-title">{t["measure.ar.captured.title"]}</h2>
           <p className="intake-hint">
@@ -146,14 +177,14 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
             <button type="button" className="btn-primary" onClick={() => onLooksRight?.()}>
               {t["intake.looksRight"]}
             </button>
-            <button type="button" className="chip" onClick={() => { setArCaptured(false); setMeasuringAR(true); }}>
+            <button type="button" className="chip" onClick={requestAr}>
               {t["measure.ar.captured.again"]}
             </button>
           </div>
         </section>
       )}
 
-      {photo === null && !measuringAR && !arCaptured && (
+      {photo === null && !measuringAR && arPhase !== "choose" && !arCaptured && (
         <>
           <div className="flex gap-2" role="radiogroup" aria-label={t["intake.step.capture"]}>
             {(["plan", "sketch"] as const).map((value) => (
@@ -175,7 +206,7 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
               <button
                 type="button"
                 className="min-h-12 flex-1 rounded-xl border-2 border-foreground bg-card px-3 text-base font-bold"
-                onClick={() => setMeasuringAR(true)}
+                onClick={requestAr}
               >
                 {t["intake.capture.ar"]}
               </button>
@@ -217,7 +248,7 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
                   </button>
                 )}
                 {!scaleConfirmed && (
-                  <button type="button" className="min-h-11 text-sm font-semibold text-muted-foreground underline" onClick={() => setMeasuringAR(true)}>
+                  <button type="button" className="min-h-11 text-sm font-semibold text-muted-foreground underline" onClick={requestAr}>
                     {t["measure.ar.title"]}
                   </button>
                 )}
@@ -248,22 +279,31 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
       {measuringAR && (
         <ArMeasure
           locale={locale}
-          scene={scene}
-          onChange={handleChange}
-          onDone={(next) => {
-            setScene(next);
-            onSceneChange?.({ ...next });
-            setMeasuringAR(false);
-            setArCaptured((next.walls ?? []).length > 0);
+          scene={arBase}
+          onChange={() => undefined}
+          onDone={(captured) => {
+            const gotWalls = (captured.walls ?? []).length > 0;
+            if (gotWalls && arMode === "add" && (scene.walls ?? []).length > 0) {
+              // Beside the existing plan, as one undoable step: never on top of it.
+              const merged = history.apply(mergeCaptureBeside(scene, captured));
+              setScene({ ...merged });
+              onSceneChange?.({ ...merged });
+            } else if (gotWalls) {
+              history.reset(captured);
+              setScene({ ...captured });
+              onSceneChange?.({ ...captured });
+            }
+            setArPhase("idle");
+            setArCaptured(gotWalls);
           }}
-          onCancel={() => setMeasuringAR(false)}
+          onCancel={() => setArPhase("idle")}
           onSessionChange={onArSessionChange}
           onFallbackB={() => {
-            setMeasuringAR(false);
+            setArPhase("idle");
             setScaling(false);
           }}
           onFallbackC={() => {
-            setMeasuringAR(false);
+            setArPhase("idle");
             setScaling(true);
           }}
         />

@@ -895,3 +895,7 @@ body {
   box-sizing: border-box;
 }
 .review-field-bad input { border-color: #b3261e; }
+
+/* Replace / add choice for AR measure on an existing project: thumb-sized targets. */
+.ar-choice { display: flex; flex-direction: column; gap: 12px; }
+.ar-choice button { min-height: 48px; }

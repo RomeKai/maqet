@@ -522,7 +522,7 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene: seededScene 
             {agentError ? <AgentErrorNotice error={agentError} locale={locale} onRetry={handleRetry} busy={pending} /> : null}
           </div>
         ) : (
-          stage === "stage.capture" && !hasPhoto && <p className="receipt">{t["sheet.receipt"]}</p>
+          stage === "stage.capture" && !hasPhoto && wallsCount === 0 && <p className="receipt">{t["sheet.receipt"]}</p>
         )}
         </>)}
 
