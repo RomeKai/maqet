@@ -49,6 +49,7 @@ export const esAR = {
   "intake.selected.window": "Ventana · {width}",
   "intake.tapSecond": "Tocá el segundo punto de la pared.",
   "intake.undo": "Deshacer",
+  "intake.redo": "Rehacer",
   "intake.upload.hint": "Sacá una foto del plano o del croquis con las medidas escritas.",
   "intake.upload.cta": "Sacar foto del plano",
   "intake.upload.busy": "Procesando foto…",

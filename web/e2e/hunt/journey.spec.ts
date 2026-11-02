@@ -154,7 +154,6 @@ for (const profile of PROFILES) {
     });
 
     test("capture C: undo, redo", async () => {
-      test.fail(true, "E2E-006 no Redo control in the plan editor, see docs/E2E_BUGS.md");
       await toEditor();
       const editor = page.locator(".capture-editor");
       await editor.getByRole("button", { name: "Next" }).click();

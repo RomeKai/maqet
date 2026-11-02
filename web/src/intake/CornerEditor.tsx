@@ -6,6 +6,7 @@ import {
   wallDisplayLengthM,
   type SceneOp,
 } from "../scene/store";
+import { Redo2 } from "lucide-react";
 import { getStrings, type Locale } from "../i18n";
 import type { IntakeProposal } from "./api";
 import {
@@ -48,6 +49,9 @@ interface CornerEditorProps {
   onChange: (scene: Scene, op: SceneOp) => void;
   onUndo: () => void;
   canUndo: boolean;
+  /** Redo what Undo took back; the Redo button shows only when given. */
+  onRedo?: () => void;
+  canRedo?: boolean;
   /** Reading notices from the server (Check step list). */
   warnings?: string[];
   /** Fired whenever the Photo > Walls > Openings > Check step changes. */
@@ -271,6 +275,8 @@ export function CornerEditor({
   onChange,
   onUndo,
   canUndo,
+  onRedo,
+  canRedo = false,
   initialSelectedWallId = null,
   initialPreview = null,
   warnings = [],
@@ -1037,7 +1043,7 @@ export function CornerEditor({
               key={b.tool}
               type="button"
               className={cn(
-                "min-h-12 flex-1 rounded-xl px-1 text-[15px] font-bold",
+                "min-h-12 min-w-12 flex-1 rounded-xl px-1 text-[15px] font-bold",
                 tool === b.tool ? "bg-foreground text-background" : "text-foreground",
               )}
               aria-pressed={tool === b.tool}
@@ -1050,12 +1056,23 @@ export function CornerEditor({
           ))}
           <button
             type="button"
-            className="min-h-12 flex-1 rounded-xl px-1 text-[15px] font-bold text-foreground disabled:opacity-40"
+            className="min-h-12 min-w-12 flex-1 rounded-xl px-1 text-[15px] font-bold text-foreground disabled:opacity-40"
             onClick={onUndo}
             disabled={!canUndo}
           >
             {t["intake.undo"]}
           </button>
+          {onRedo ? (
+            <button
+              type="button"
+              className="min-h-12 min-w-12 flex-1 rounded-xl px-1 text-[15px] font-bold text-foreground disabled:opacity-40"
+              aria-label={t["intake.redo"]}
+              onClick={onRedo}
+              disabled={!canRedo}
+            >
+              <Redo2 className="mx-auto size-5" aria-hidden />
+            </button>
+          ) : null}
         </div>
       )}
 

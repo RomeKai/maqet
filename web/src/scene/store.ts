@@ -144,6 +144,8 @@ export function applySceneOp(scene: Scene, op: SceneOp): Scene {
 
 export class SceneHistory {
   private past: Scene[] = [];
+  /** Scenes taken back by undo, newest first; any new edit drops them. */
+  private future: Scene[] = [];
   private current: Scene;
 
   constructor(initial: Scene) {
@@ -158,9 +160,14 @@ export class SceneHistory {
     return this.past.length > 0;
   }
 
+  get canRedo(): boolean {
+    return this.future.length > 0;
+  }
+
   apply(op: SceneOp): Scene {
     const next = applySceneOp(this.current, op);
     this.past.push(this.current);
+    this.future = [];
     this.current = next;
     return next;
   }
@@ -168,6 +175,7 @@ export class SceneHistory {
   /** Replace the scene with `next` as an undoable step (e.g. "reset to sketch reading"). */
   restore(next: Scene): Scene {
     this.past.push(this.current);
+    this.future = [];
     this.current = next;
     return next;
   }
@@ -175,13 +183,26 @@ export class SceneHistory {
   /** Replace the draft (e.g. with the Scene returned by POST /intake). */
   reset(next: Scene): Scene {
     this.past = [];
+    this.future = [];
     this.current = next;
     return next;
   }
 
   undo(): Scene {
     const previous = this.past.pop();
-    if (previous !== undefined) this.current = previous;
+    if (previous !== undefined) {
+      this.future.push(this.current);
+      this.current = previous;
+    }
+    return this.current;
+  }
+
+  redo(): Scene {
+    const next = this.future.pop();
+    if (next !== undefined) {
+      this.past.push(this.current);
+      this.current = next;
+    }
     return this.current;
   }
 }

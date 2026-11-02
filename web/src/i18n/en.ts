@@ -50,6 +50,7 @@ export const en: Record<keyof typeof esAR, string> = {
   "intake.selected.window": "Window · {width}",
   "intake.tapSecond": "Tap the second wall point.",
   "intake.undo": "Undo",
+  "intake.redo": "Redo",
   "intake.upload.hint": "Take a photo of the plan or sketch with written measurements.",
   "intake.upload.cta": "Take plan photo",
   "intake.upload.busy": "Processing photo…",

@@ -258,6 +258,17 @@ describe("shared corner handles", () => {
     expect(count).toBe(4);
   });
 
+  it("offers Redo next to Undo, disabled until something was undone (E2E-006)", () => {
+    const redoTag = (html: string): string => /<button[^>]*aria-label="Redo"[^>]*>/.exec(html)?.[0] ?? "";
+    expect(redoTag(renderEditor({ canUndo: true, onRedo: noopUndo, canRedo: false }))).toContain('disabled=""');
+    const enabled = redoTag(renderEditor({ canUndo: true, onRedo: noopUndo, canRedo: true }));
+    expect(enabled).not.toBe("");
+    expect(enabled).not.toContain('disabled=""');
+    expect(enabled).toContain("min-h-12");
+    expect(renderEditor({ locale: "es-AR", onRedo: noopUndo, canRedo: true })).toContain('aria-label="Rehacer"');
+    expect(renderEditor()).not.toContain('aria-label="Redo"');
+  });
+
   it("labels every corner handle uniquely instead of repeating the canvas name (E2E-009)", () => {
     const html = renderEditor();
     const handleLabels = [...html.matchAll(/<button[^>]*class="handle-btn[^"]*"[^>]*>/g)].map((m) => /aria-label="([^"]*)"/.exec(m[0])?.[1]);

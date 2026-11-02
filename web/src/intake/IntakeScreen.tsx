@@ -119,8 +119,17 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
     onSceneChange?.({ ...restored });
   }
 
+  // Undo and Redo also tell the app: its 3D sheet and the saved project must follow the plan editor.
   function handleUndo(): void {
-    setScene({ ...history.undo() });
+    const undone = { ...history.undo() };
+    setScene(undone);
+    onSceneChange?.({ ...undone });
+  }
+
+  function handleRedo(): void {
+    const redone = { ...history.redo() };
+    setScene(redone);
+    onSceneChange?.({ ...redone });
   }
 
   return (
@@ -194,6 +203,8 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
             onChange={handleChange}
             onUndo={handleUndo}
             canUndo={history.canUndo}
+            onRedo={handleRedo}
+            canRedo={history.canRedo}
             warnings={warnings}
             onStepChange={onStepChange}
             onLooksRight={onLooksRight}
