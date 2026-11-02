@@ -25,16 +25,26 @@ describe("RealLifeCard", () => {
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>(?:(?!<\/button>).)*Creating the image/s);
   });
   it("shows the image with no extra concept label, and the present wording", () => {
-    const html = renderToString(<RealLifeCard scene={scene} locale="en" state={{ image: "data:image/png;base64,AA", pending: false, error: null }} onGenerate={noop} variant="present" />);
+    const html = renderToString(<RealLifeCard scene={scene} locale="en" state={{ images: ["data:image/png;base64,AA"], pending: false, error: null }} onGenerate={noop} variant="present" />);
     expect(html).toContain("data:image/png;base64,AA");
     expect(html).toContain("See it in real life");
     expect(html.toLowerCase()).not.toContain("concept");
   });
 });
 
+describe("RealLifeCard views", () => {
+  it("shows every generated view and says what a tap costs", () => {
+    const images = ["data:image/png;base64,AA", "data:image/png;base64,BB", "data:image/png;base64,CC"];
+    const html = renderToString(<RealLifeCard scene={scene} locale="en" state={{ images, pending: false, error: null }} onGenerate={noop} />);
+    for (const src of images) expect(html).toContain(src);
+    expect(html).toContain("$0.03");
+    expect(getDesignStrings("es-AR")["real.cost"]).toContain("0,03");
+  });
+});
+
 describe("RealLifeCard placement", () => {
   it("compact strip keeps the style chips and the button inline and leaves the image to the screen", () => {
-    const html = renderToString(<RealLifeCard scene={scene} locale="en" state={{ image: "data:image/png;base64,AA", pending: false, error: null }} onGenerate={noop} compact />);
+    const html = renderToString(<RealLifeCard scene={scene} locale="en" state={{ images: ["data:image/png;base64,AA"], pending: false, error: null }} onGenerate={noop} compact />);
     expect(html).toContain("overflow-x-auto");
     expect(html).toContain("Show it in real life");
     expect(html).not.toContain("data:image/png");

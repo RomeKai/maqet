@@ -70,6 +70,21 @@ function longestWallStandPoint(polygon: readonly P2[], c: P2): [number, number] 
   return stand;
 }
 
+/** Corner far from the views already taken: the one whose nearest taken view is farthest away. */
+function farthestCorner(polygon: readonly P2[], c: P2, taken: readonly P2[]): [number, number] {
+  let best = -1;
+  let spot: [number, number] = [c[0], c[1]];
+  for (const p of polygon) {
+    const corner = inward(p, c);
+    const nearest = Math.min(...taken.map((t) => Math.hypot(t[0] - corner[0], t[1] - corner[1])));
+    if (nearest > best) {
+      best = nearest;
+      spot = corner;
+    }
+  }
+  return spot;
+}
+
 /** Camera for one room, or null when the room is unknown. Door first; otherwise the midpoint of the longest wall. */
 export function guideCamera(scene: Scene, roomId: string): GuideCamera | null {
   const room = (scene.rooms ?? []).find((r) => r.id === roomId);
@@ -78,4 +93,16 @@ export function guideCamera(scene: Scene, roomId: string): GuideCamera | null {
   const c = centroid(polygon);
   const eye = doorStandPoint(scene, polygon, c) ?? longestWallStandPoint(polygon, c);
   return { position: [eye[0], eye[1], GUIDE_EYE_HEIGHT_M], target: [c[0], c[1], LOOK_HEIGHT_M], fovDeg: GUIDE_FOV_DEG };
+}
+
+/** The door view plus two views from the corners farthest from it, all aimed at the room center. Empty for an unknown room. */
+export function guideCameras(scene: Scene, roomId: string): GuideCamera[] {
+  const first = guideCamera(scene, roomId);
+  if (first === null) return [];
+  const polygon = (scene.rooms ?? []).find((r) => r.id === roomId)!.polygon as readonly P2[];
+  const c = centroid(polygon);
+  const spots: P2[] = [[first.position[0], first.position[1]]];
+  spots.push(farthestCorner(polygon, c, spots));
+  spots.push(farthestCorner(polygon, c, spots));
+  return spots.map((s) => ({ ...first, position: [s[0], s[1], GUIDE_EYE_HEIGHT_M] }));
 }

@@ -9,18 +9,18 @@ export const STYLE_IDS = ["minimalist", "modern", "cozy", "rustic", "industrial"
 export type StyleId = (typeof STYLE_IDS)[number];
 
 export interface RealLifeState {
-  image: string | null;
+  images: string[];
   pending: boolean;
   error: string | null;
 }
 
-export const EMPTY_REAL_LIFE: RealLifeState = { image: null, pending: false, error: null };
+export const EMPTY_REAL_LIFE: RealLifeState = { images: [], pending: false, error: null };
 
 interface RealLifeCardProps {
   scene: Scene | null;
   locale: Locale;
   state: RealLifeState;
-  /** Explicit tap only: one image, about $0.01. */
+  /** Explicit tap only: three views, about $0.03. */
   onGenerate: (roomId: string, style: StyleId) => void;
   /** Present uses "See it in real life". */
   variant?: "design" | "present";
@@ -67,7 +67,13 @@ export function RealLifeCard({ scene, locale, state, onGenerate, variant = "desi
           {state.error}
         </p>
       ) : null}
-      {!compact && state.image !== null ? <img src={state.image} alt="" className="w-full rounded-xl border-2 border-foreground" /> : null}
+      {!compact && state.images.length > 0 ? (
+        <div className="flex snap-x snap-mandatory gap-2 overflow-x-auto" data-testid="real-life-views">
+          {state.images.map((src, i) => (
+            <img key={src} src={src} alt={`${t["real.view"]} ${i + 1}`} className={`snap-center rounded-xl border-2 border-foreground ${state.images.length > 1 ? "w-[85%] shrink-0" : "w-full"}`} />
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }

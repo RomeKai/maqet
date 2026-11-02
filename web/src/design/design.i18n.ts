@@ -35,8 +35,10 @@ const en = {
   "real.style.industrial": "Industrial",
   "real.button": "Show it in real life",
   "real.seeIt": "See it in real life",
-  "real.pending": "Creating the image…",
-  "real.cost": "One image per tap, about $0.01.",
+  "real.pending": "Creating the images…",
+  "real.view": "View",
+  "real.partial": "{n} of the views could not be created.",
+  "real.cost": "Three views of the room per tap, about $0.03.",
   "design.brighterHint": "Want it brighter? Pick a light wall finish, or add a window in Reform.",
 } as const;
 
@@ -75,8 +77,10 @@ const esAR: Record<keyof typeof en, string> = {
   "real.style.industrial": "Industrial",
   "real.button": "Mostrarlo en la vida real",
   "real.seeIt": "Verlo en la vida real",
-  "real.pending": "Creando la imagen…",
-  "real.cost": "Una imagen por toque, unos US$ 0,01.",
+  "real.pending": "Creando las imágenes…",
+  "real.view": "Vista",
+  "real.partial": "{n} de las vistas no se pudieron crear.",
+  "real.cost": "Tres vistas del ambiente por toque, unos US$ 0,03.",
   "design.brighterHint": "¿Más luz? Elegí un acabado de muro claro, o sumá una ventana en Reforma.",
 };
 

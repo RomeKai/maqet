@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Scene } from "../scene/types";
 import { GuideScene } from "./GuideCapture";
 import { SceneMeshesView } from "./SceneView";
-import { GUIDE_EYE_HEIGHT_M, GUIDE_FOV_DEG, GUIDE_SIZE_PX, guideCamera } from "./guideCamera";
+import { GUIDE_EYE_HEIGHT_M, GUIDE_FOV_DEG, GUIDE_SIZE_PX, guideCamera, guideCameras } from "./guideCamera";
 
 const scene = {
   id: "s",
@@ -39,6 +39,37 @@ describe("guide camera", () => {
     expect(guideCamera(scene, "nope")).toBeNull();
     const noDoor = { ...scene, openings: [] } as unknown as Scene;
     expect(guideCamera(noDoor, "r1")).not.toBeNull();
+  });
+});
+
+describe("guide cameras", () => {
+  it("gives three distinct views of the same room, the door view first", () => {
+    const views = guideCameras(scene, "r1");
+    expect(views).toHaveLength(3);
+    expect(views[0]).toEqual(guideCamera(scene, "r1"));
+    const spots = new Set(views.map((v) => `${v.position[0].toFixed(2)},${v.position[1].toFixed(2)}`));
+    expect(spots.size).toBe(3);
+  });
+  it("stands inside the room at eye level and looks at the same point from every view", () => {
+    for (const v of guideCameras(scene, "r1")) {
+      expect(v.position[0]).toBeGreaterThan(0);
+      expect(v.position[0]).toBeLessThan(4);
+      expect(v.position[1]).toBeGreaterThan(0);
+      expect(v.position[1]).toBeLessThan(3);
+      expect(v.position[2]).toBe(GUIDE_EYE_HEIGHT_M);
+      expect(v.target).toEqual(guideCameras(scene, "r1")[0].target);
+    }
+  });
+  it("is deterministic and empty for an unknown room", () => {
+    expect(guideCameras(scene, "r1")).toEqual(guideCameras(scene, "r1"));
+    expect(guideCameras(scene, "nope")).toEqual([]);
+  });
+  it("spreads the extra views across the room instead of bunching them by the door", () => {
+    const [door, a, b] = guideCameras(scene, "r1");
+    const dist = (p: typeof door, q: typeof door): number => Math.hypot(p.position[0] - q.position[0], p.position[1] - q.position[1]);
+    expect(dist(door, a)).toBeGreaterThan(2);
+    expect(dist(door, b)).toBeGreaterThan(2);
+    expect(dist(a, b)).toBeGreaterThan(2);
   });
 });
 

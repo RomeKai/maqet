@@ -128,9 +128,9 @@ export function DesignScreen(props: DesignScreenProps): React.JSX.Element {
           <Sparkles className="size-5" aria-hidden />
           {t["real.title"]}
         </button>
-        {props.realLife.image !== null ? (
+        {props.realLife.images[0] !== undefined ? (
           <button type="button" aria-label={t["real.title"]} className="size-12 shrink-0 overflow-hidden rounded-xl border-2 border-foreground" onClick={() => setRealOpen(true)}>
-            <img src={props.realLife.image} alt="" className="size-full object-cover" />
+            <img src={props.realLife.images[0]} alt="" className="size-full object-cover" />
           </button>
         ) : null}
       </div>

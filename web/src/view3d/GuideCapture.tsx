@@ -3,7 +3,7 @@ import { useLayoutEffect } from "react";
 import { createRoot } from "react-dom/client";
 import type * as THREE from "three";
 import type { Scene } from "../scene/types";
-import { GUIDE_SIZE_PX, guideCamera, type GuideCamera } from "./guideCamera";
+import { GUIDE_SIZE_PX, guideCameras, type GuideCamera } from "./guideCamera";
 import { SceneMeshesView } from "./SceneView";
 import { planToThree } from "./sceneToMeshes";
 
@@ -31,12 +31,11 @@ function FixedCamera({ view }: { view: GuideCamera }): null {
 }
 
 /**
- * Renders the Design scene once from the fixed door-height camera on an off-screen canvas and
- * returns the PNG as base64 (no data: prefix), 1024 px wide. Null when there is no room or no WebGL.
+ * Renders the Design scene once from one fixed camera on an off-screen canvas and returns the PNG as
+ * base64 (no data: prefix), 1024 px wide. Null when there is no WebGL.
  */
-export async function captureGuideImage(scene: Scene, roomId: string): Promise<string | null> {
-  const view = guideCamera(scene, roomId);
-  if (view === null || typeof document === "undefined") return null;
+async function captureGuideImage(scene: Scene, view: GuideCamera): Promise<string | null> {
+  if (typeof document === "undefined") return null;
   const host = document.createElement("div");
   host.setAttribute("aria-hidden", "true");
   host.style.cssText = `position:fixed;left:-10000px;top:0;width:${GUIDE_SIZE_PX.width}px;height:${GUIDE_SIZE_PX.height}px;pointer-events:none`;
@@ -82,4 +81,11 @@ export async function captureGuideImage(scene: Scene, roomId: string): Promise<s
     root.unmount();
     host.remove();
   }
+}
+
+/** One capture per guide camera, one at a time: phones limit how many WebGL contexts can be alive. */
+export async function captureGuideImages(scene: Scene, roomId: string): Promise<(string | null)[]> {
+  const guides: (string | null)[] = [];
+  for (const view of guideCameras(scene, roomId)) guides.push(await captureGuideImage(scene, view));
+  return guides;
 }

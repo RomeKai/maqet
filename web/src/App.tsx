@@ -14,7 +14,9 @@ import { MaquetteSheet } from "./view3d/MaquetteSheet";
 import { ChatSheet } from "./agent/ChatSheet";
 import { transcribeClip } from "./agent/transcribe";
 import { ProBanner } from "./agent/ProBanner";
-import { captureGuideImage } from "./view3d/GuideCapture";
+import { captureGuideImages } from "./view3d/GuideCapture";
+import { renderRealLifeViews } from "./design/realLifeViews";
+import { getDesignStrings } from "./design/design.i18n";
 import { ReformScreen } from "./agent/ReformScreen";
 import { DesignScreen, type DesignEditResult } from "./design/DesignScreen";
 import { EMPTY_REAL_LIFE, type RealLifeState, type StyleId } from "./design/RealLifeCard";
@@ -345,21 +347,26 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene: seededScene 
       if (!intakeScene || realLife.pending) return;
       setRealLife((s) => ({ ...s, pending: true, error: null }));
       try {
-        // Fixed door-height capture of the Design scene keeps the layout; null falls back to text-only.
-        const guide = await captureGuideImage(intakeScene, roomId);
-        const res = await fetch(`${baseUrl()}/render/real-life`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ scene: intakeScene, room_id: roomId, style, guide_image_b64: guide }),
+        // Fixed captures of the Design scene keep the layout from each angle; no capture falls back to text-only.
+        const guides = await captureGuideImages(intakeScene, roomId);
+        const { images, failed, firstError } = await renderRealLifeViews(guides, async (guide) => {
+          const res = await fetch(`${baseUrl()}/render/real-life`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ scene: intakeScene, room_id: roomId, style, guide_image_b64: guide }),
+          });
+          if (!res.ok) throw new Error((await res.text().catch(() => "")) || `render ${res.status}`);
+          const body = (await res.json()) as { image_b64: string };
+          return `data:image/png;base64,${body.image_b64}`;
         });
-        if (!res.ok) throw new Error((await res.text().catch(() => "")) || `render ${res.status}`);
-        const body = (await res.json()) as { image_b64: string };
-        setRealLife({ image: `data:image/png;base64,${body.image_b64}`, pending: false, error: null });
+        if (images.length === 0) throw new Error(firstError ?? "render failed");
+        const partial = failed > 0 ? getDesignStrings(locale)["real.partial"].replace("{n}", String(failed)) : null;
+        setRealLife({ images, pending: false, error: partial });
       } catch (err) {
         setRealLife((s) => ({ ...s, pending: false, error: err instanceof Error ? err.message : String(err) }));
       }
     },
-    [intakeScene, realLife.pending],
+    [intakeScene, realLife.pending, locale],
   );
 
   const handleAudio = useCallback(
