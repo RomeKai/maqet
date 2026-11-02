@@ -3,7 +3,7 @@ import { ChevronDown, TriangleAlert } from "lucide-react";
 import type { Locale } from "../i18n";
 import { Banner, Button, Chip, cn } from "../ui";
 import { getDeliverStrings, unitLabel, type DeliverStrings } from "./deliver.i18n";
-import { buildTakeoffCsv, downloadCsv, flagLabel, formatQuantity, lineName, orderedStages, uniqueFlagCodes } from "./takeoffFormat";
+import { buildTakeoffCsv, downloadCsv, flagLabel, formatQuantity, lineName, lineNote, orderedStages, uniqueFlagCodes } from "./takeoffFormat";
 import type { Takeoff, TakeoffLine, TakeoffStage } from "./takeoffTypes";
 
 const CSV_FILENAME = "maqet-takeoff.csv";
@@ -28,6 +28,7 @@ function LineItem({ line, locale, t }: LineItemProps): React.JSX.Element {
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-base font-semibold leading-snug">{lineName(line, locale)}</p>
+          {lineNote(line, locale) !== null && <p className="text-sm text-muted-foreground" data-testid="line-note">{lineNote(line, locale)}</p>}
           {line.estimated && (
             <Chip tone="warning" className="mt-1 border-2 border-dashed border-warning-foreground/70">
               <TriangleAlert className="size-3.5" aria-hidden />

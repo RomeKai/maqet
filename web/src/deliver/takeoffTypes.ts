@@ -33,6 +33,11 @@ export interface TakeoffLine {
   recipe_source: string;
   /** True when the recipe is a provisional estimate rather than a verified yield. */
   estimated: boolean;
+  /** Real width of an opening the catalog does not stock; such a line is made to size. */
+  width_m?: number;
+  /** Why the line is flagged (en / es-AR), e.g. "No catalog door of 1.50 m". */
+  note?: string;
+  note_es_AR?: string;
 }
 
 export interface ProfessionalFlag {

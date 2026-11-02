@@ -629,3 +629,44 @@ def test_label_just_outside_the_wall_radius_still_measures_a_wall_with_no_measur
     assert lengths == [3.0, 8.0, 3.0, 8.0]
     assert all(w.provenance == "written_on_sketch" for w in scene.walls)
     assert any("assigned" in w and "8.00" in w for w in plan.warnings), plan.warnings
+
+
+def _sample_scene(mutate):  # type: ignore[no-untyped-def]
+    import json
+    from pathlib import Path
+
+    from server.intake.cleanup import build_scaled_plan, to_scene
+    from server.intake.schemas import IntakeProposal
+
+    data = json.loads((Path(__file__).resolve().parents[2] / "samples/plans/croquis_3x8_door_window.proposal.json").read_text("utf-8"))
+    mutate(data["proposal"])
+    plan = build_scaled_plan(IntakeProposal.model_validate(data["proposal"]), data["image"]["w"], data["image"]["h"])
+    return plan, to_scene(plan)
+
+
+def test_written_door_width_wins_even_when_its_label_sits_off_the_opening() -> None:
+    """Finding 5: the '1.50m' label drawn beside, not over, the door must still be the door width (never t1-t0 of the drawing)."""
+
+    def move_label(p: dict) -> None:  # type: ignore[type-arg]
+        for dim in p["dimensions"]:
+            if dim["text"] == "1.50m":
+                dim["a"][1] -= 0.30  # far above the door span along the wall
+                dim["b"][1] -= 0.30
+        # The model also drew the door much wider than the written 1.50 m.
+        for op in p["openings"]:
+            if op["kind"] == "door":
+                op["t0"], op["t1"] = 0.20, 0.80
+
+    plan, scene = _sample_scene(move_label)
+    door = next(o for o in scene.openings if o.kind == "door")
+    window = next(o for o in scene.openings if o.kind == "window")
+    assert door.width_m == pytest.approx(1.5, abs=0.01)
+    assert window.width_m == pytest.approx(1.0, abs=0.01)
+
+
+def test_unlabeled_opening_width_is_flagged_as_taken_from_the_drawing() -> None:
+    def drop_labels(p: dict) -> None:  # type: ignore[type-arg]
+        p["dimensions"] = [d for d in p["dimensions"] if d["text"] not in ("1.50m", "1m")]
+
+    plan, _scene = _sample_scene(drop_labels)
+    assert any(w.startswith("opening_estimated") for w in plan.warnings), plan.warnings

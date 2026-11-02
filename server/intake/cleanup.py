@@ -620,6 +620,7 @@ def build_scaled_plan(
     # wall's only measure stays a measure: on a non-proportional sketch the
     # anchor guess can dwarf a real side wall.
     wall_measures: dict[int, list[float]] = {}
+    stray_short: list[tuple[int, float, float, float]] = []  # (wall, value, lo, hi) short dims on no opening span
     for new_idx, entries in wall_dim_entries.items():
         (ax, ay), (bx, by), _kind = fused[new_idx]
         seg_len = math.hypot(bx - ax, by - ay)
@@ -635,8 +636,25 @@ def build_scaled_plan(
                     f"possible opening: wall {new_idx + 1} {value:.2f} m "
                     f"from '{text}', confirm with human"
                 )
+                stray_short.append((new_idx, value, lo, hi))
                 continue
             wall_measures.setdefault(new_idx, []).append(value)
+
+    # A short written length beside (not over) an opening is still that opening's width: the nearest opening on the
+    # same wall that no label has claimed takes it. The width is the written value, never the drawn t1 - t0.
+    for new_idx, value, lo, hi in stray_short:
+        (ax, ay), (bx, by), _kind = fused[new_idx]
+        seg_len = math.hypot(bx - ax, by - ay)
+        centre = (lo + hi) / 2
+        free = [(pos, t0, t1) for pos, t0, t1 in opening_widths.get(new_idx, []) if pos not in opening_labels]
+        if not free or seg_len <= 0:
+            continue
+        pos, t0, t1 = min(free, key=lambda f: abs((f[1] + f[2]) / 2 * seg_len - centre))
+        opening_labels[pos] = value
+        warnings.append(
+            f"opening: wall {new_idx + 1} {proposal.openings[pos].kind} width {value:.2f} m "
+            "from written label, verify with human"
+        )
 
     def _opposite_parallel_wall(new_idx: int) -> int | None:
         (ax, ay), (bx, by), _kind = fused[new_idx]
@@ -735,6 +753,11 @@ def build_scaled_plan(
         wall = walls[new_idx]
         length = math.dist(wall.a, wall.b)
         width = opening_labels.get(pos, (op.t1 - op.t0) * length)
+        if pos not in opening_labels:
+            warnings.append(
+                f"opening_estimated: wall {new_idx + 1} {op.kind} width {width:.2f} m comes from the drawing, "
+                "not from a written length, verify with human"
+            )
         openings.append(
             ScaledOpening(
                 wall_index=new_idx,

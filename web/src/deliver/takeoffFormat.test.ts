@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import fixture from "./__fixtures__/takeoff.sample.json";
-import { PRELIMINARY_NOTE, buildTakeoffCsv, downloadCsv, flagLabel, formatQuantity, orderedStages, parseTakeoff } from "./takeoffFormat";
+import { PRELIMINARY_NOTE, buildTakeoffCsv, downloadCsv, flagLabel, formatQuantity, lineNote, orderedStages, parseTakeoff } from "./takeoffFormat";
 import { TAKEOFF_STAGES } from "./takeoffTypes";
 
 const takeoff = parseTakeoff(fixture);
@@ -132,5 +132,26 @@ describe("downloadCsv", () => {
     expect(revoke).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1000);
     expect(revoke).toHaveBeenCalledWith("blob:x");
+  });
+});
+
+describe("made-to-size openings keep their real width and flag", () => {
+  const raw = {
+    preliminary: true,
+    flags: [],
+    stages: [{
+      name: "openings",
+      items: [{
+        material_id: "door-150", unit: "piece", quantity: 1, waste_factor: 1, recipe_source: "provisional", estimated: true,
+        name: "Door 1.50 m (made to size)", name_es_AR: "Puerta de 1,50 m (a medida)", width_m: 1.5,
+        note: "No catalog door of 1.50 m: ordered to size, not the standard 0.90 m piece.", note_es_AR: "No hay puerta de catálogo de 1,50 m.",
+      }],
+    }],
+  };
+  it("parses width and note and picks the locale", () => {
+    const line = parseTakeoff(raw).stages.openings![0]!;
+    expect(line.width_m).toBe(1.5);
+    expect(lineNote(line, "en")).toContain("No catalog door");
+    expect(lineNote(line, "es-AR")).toContain("No hay puerta");
   });
 });

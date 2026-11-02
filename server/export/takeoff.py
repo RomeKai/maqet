@@ -82,6 +82,10 @@ class TakeoffItem(BaseModel):
     # Display names from assets/catalog.json (en and es-AR); the id stays the key.
     name: str = ""
     name_es_AR: str = ""
+    # Openings of a size the catalog does not stock: the real width from the plan, and why it is flagged.
+    width_m: float | None = None
+    note: str = ""
+    note_es_AR: str = ""
 
     @model_validator(mode="after")
     def _fill_names(self) -> "TakeoffItem":
@@ -177,6 +181,10 @@ def _brick_for_thickness(thickness_m: float) -> str:
         if abs(thickness_m - nominal) <= _EPS:
             return material_id
     return min(known, key=lambda pair: abs(thickness_m - pair[1]))[0]
+
+
+# A written/measured width within this of a catalog piece counts on that piece (door-90, window-120).
+OPENING_MATCH_TOL_M = 0.05
 
 
 def _recipe_line(
@@ -343,26 +351,49 @@ def compute_takeoff(scene: Scene, base: Scene | None = None) -> Takeoff:
         )
 
     # --- openings: pieces on built walls --------------------------------------
-    # Provisional: counts only (door-90 / window-120 per piece regardless of
-    # actual width). Removed openings ride inside demolished wall metres.
-    doors = sum(
-        1 for ops in openings_by_wall.values() for o in ops if o.kind == "door"
-    )
-    windows = sum(
-        1 for ops in openings_by_wall.values() for o in ops if o.kind == "window"
-    )
+    # Grouped by real width. A width the catalog stocks (door-90 / window-120, within OPENING_MATCH_TOL_M) counts on
+    # that item; any other width gets its own line with the real width and a flag, never a silent substitute.
+    # Removed openings ride inside demolished wall metres.
     openings_estimated = any(
         is_estimated(w)
         for w in built
         if w.id in openings_by_wall and openings_by_wall[w.id]
     )
-    openings: list[TakeoffItem] = []
-    if doors > 0:
-        openings.append(_recipe_line("door-90", float(doors), openings_estimated))
-    if windows > 0:
-        openings.append(
-            _recipe_line("window-120", float(windows), openings_estimated)
+    stocked = {"door": ("door-90", 0.90), "window": ("window-120", 1.20)}
+    counts: dict[tuple[str, float], int] = {}
+    for ops in openings_by_wall.values():
+        for o in ops:
+            key = (o.kind, round(o.width_m, 2))
+            counts[key] = counts.get(key, 0) + 1
+    stocked_counts: dict[str, int] = {}
+    custom: list[TakeoffItem] = []
+    for (kind, width), count in sorted(counts.items()):
+        material_id, nominal = stocked[kind]
+        if abs(width - nominal) <= OPENING_MATCH_TOL_M:
+            stocked_counts[material_id] = stocked_counts.get(material_id, 0) + count
+            continue
+        label_en = "Door" if kind == "door" else "Window"
+        label_es = "Puerta" if kind == "door" else "Ventana"
+        custom.append(
+            TakeoffItem(
+                material_id=f"{kind}-{round(width * 100)}",
+                unit="piece",
+                quantity=float(count),
+                waste_factor=1.0,
+                recipe_source="provisional: width taken from the plan; no catalog item of this size, to be reviewed by a master builder",
+                estimated=True,
+                name=f"{label_en} {width:.2f} m (made to size)",
+                name_es_AR=f"{label_es} de {width:.2f} m (a medida)".replace(".", ","),
+                width_m=width,
+                note=f"No catalog {kind} of {width:.2f} m: ordered to size, not the standard {nominal:.2f} m piece.",
+                note_es_AR=f"No hay {'puerta' if kind == 'door' else 'ventana'} de catálogo de {width:.2f} m: se pide a medida, no la estándar de {nominal:.2f} m.".replace(".", ","),
+            )
         )
+    openings: list[TakeoffItem] = [
+        _recipe_line(material_id, float(count), openings_estimated)
+        for material_id, count in sorted(stocked_counts.items())
+    ]
+    openings.extend(custom)
 
     # --- finishes: geometric areas even with empty surfaces -------------------
     # Floors: one line per room (floor-surface material else 'unspecified').

@@ -49,6 +49,9 @@ def test_contract_shape() -> None:
                 "estimated",
                 "name",
                 "name_es_AR",
+                "width_m",
+                "note",
+                "note_es_AR",
             }
     assert takeoff.preliminary is True
     assert isinstance(takeoff.professional_flags, list)
@@ -99,8 +102,27 @@ def test_croquis_openings() -> None:
     scene = _load("croquis_ampliacion.truth.json")
     takeoff = compute_takeoff(scene)
     items = _items_by_material(takeoff, "openings")
-    assert items["door-90"] == pytest.approx(2.0)
-    assert items["window-120"] == pytest.approx(3.0)
+    # Doors 0.90 / 0.80 and windows 1.50 / 1.20 / 1.00: only the stocked sizes land on the catalog items.
+    assert items["door-90"] == pytest.approx(1.0)
+    assert items["window-120"] == pytest.approx(1.0)
+    # Every other width keeps its real size on its own flagged line (never silently swapped for door-90 / window-120).
+    assert items["door-80"] == pytest.approx(1.0)
+    assert items["window-150"] == pytest.approx(1.0)
+    assert items["window-100"] == pytest.approx(1.0)
+
+
+def test_written_widths_reach_the_takeoff_with_a_flag() -> None:
+    """Finding 5: a 1.50 m door and a 1.00 m window are not door-90 / window-120."""
+    scene = _load("croquis_3x8_door_window.truth.json")
+    takeoff = compute_takeoff(scene)
+    st = next(s for s in takeoff.stages if s.name == "openings")
+    by_id = {i.material_id: i for i in st.items}
+    assert "door-90" not in by_id and "window-120" not in by_id
+    assert by_id["door-150"].width_m == pytest.approx(1.5)
+    assert by_id["window-100"].width_m == pytest.approx(1.0)
+    for item in by_id.values():
+        assert item.estimated is True and item.note and item.note_es_AR
+        assert "1.50" in item.name or "1.00" in item.name
 
 
 def test_croquis_finishes_empty_surfaces() -> None:

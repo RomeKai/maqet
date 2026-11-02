@@ -44,7 +44,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function parseLine(stage: string, raw: unknown): TakeoffLine {
   if (!isRecord(raw)) fail(`line in stage ${stage} is not an object`);
-  const { material_id, name, name_es_AR, quantity, unit, waste_factor, recipe_source, estimated } = raw;
+  const { material_id, name, name_es_AR, quantity, unit, waste_factor, recipe_source, estimated, width_m, note, note_es_AR } = raw;
   if (typeof material_id !== "string") fail(`material_id in stage ${stage}`);
   // Server takeoff omits name; web fixture carries it. Fall back to material_id for display.
   const resolvedName = typeof name === "string" && name.length > 0 ? name : String(material_id);
@@ -54,7 +54,19 @@ function parseLine(stage: string, raw: unknown): TakeoffLine {
   if (typeof recipe_source !== "string") fail(`recipe_source of ${material_id}`);
   if (typeof estimated !== "boolean") fail(`estimated of ${material_id}`);
   const nameEs = typeof name_es_AR === "string" && name_es_AR.length > 0 ? name_es_AR : undefined;
-  return { material_id, name: resolvedName, ...(nameEs ? { name_es_AR: nameEs } : {}), quantity, unit, waste_factor, recipe_source, estimated };
+  return {
+    material_id,
+    name: resolvedName,
+    ...(nameEs ? { name_es_AR: nameEs } : {}),
+    quantity,
+    unit,
+    waste_factor,
+    recipe_source,
+    estimated,
+    ...(typeof width_m === "number" && Number.isFinite(width_m) ? { width_m } : {}),
+    ...(typeof note === "string" && note.length > 0 ? { note } : {}),
+    ...(typeof note_es_AR === "string" && note_es_AR.length > 0 ? { note_es_AR } : {}),
+  };
 }
 
 function isStage(key: string): key is TakeoffStage {
@@ -64,6 +76,12 @@ function isStage(key: string): key is TakeoffStage {
 /** Localised material name: the catalog es-AR name in es-AR, else the English one. */
 export function lineName(line: TakeoffLine, locale: Locale): string {
   return locale === "es-AR" && line.name_es_AR ? line.name_es_AR : line.name;
+}
+
+/** Localised flag note of a made-to-size line, or null. */
+export function lineNote(line: TakeoffLine, locale: Locale): string | null {
+  const note = locale === "es-AR" && line.note_es_AR ? line.note_es_AR : line.note;
+  return note !== undefined && note.length > 0 ? note : null;
 }
 
 /** Localised flag text. Server codes (needs_professional:*) share ProBanner's labels; unknown codes get the generic label. */
