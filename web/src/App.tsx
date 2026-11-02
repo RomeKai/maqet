@@ -144,6 +144,11 @@ export function App({ initialLocale = DEFAULT_LOCALE, initialScene: seededScene 
 
   const t = getStrings(locale);
 
+  // An error belongs to the stage that raised it: "Try again" would resend its message to another stage's agent.
+  useEffect(() => {
+    setAgentError(null);
+  }, [stage]);
+
   function handleIntakeScene(scene: Scene): void {
     setIntakeScene(scene);
     if (scene.professional_flags) setProfessionalFlags(scene.professional_flags);

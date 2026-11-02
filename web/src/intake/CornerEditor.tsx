@@ -311,7 +311,16 @@ export function CornerEditor({
   const walls = useMemo(() => scene.walls ?? [], [scene.walls]);
   const openings = useMemo(() => scene.openings ?? [], [scene.openings]);
   // Step is user-driven (Next / Back); an empty scene always means Photo.
-  const [userStep, setUserStep] = useState<CaptureStepKey>(initialStep);
+  const [userStep, setUserStepRaw] = useState<CaptureStepKey>(initialStep);
+  /** Leaving a step drops its half-finished opening placement, so no "tap the two ends" hint leaks into the next one. */
+  function setUserStep(next: CaptureStepKey): void {
+    setPlacing(null);
+    setTapPreview(null);
+    setShowForm(false);
+    setOpeningError(null);
+    setTool("select");
+    setUserStepRaw(next);
+  }
   const step: CaptureStepKey = walls.length === 0 ? "photo" : userStep;
   useEffect(() => {
     onStepChange?.(step);
@@ -730,6 +739,8 @@ export function CornerEditor({
                   className={cls}
                   onClick={(e) => {
                     e.stopPropagation();
+                    // With a door/window tool armed the tap places the opening; it must not also open the length sheet.
+                    if (openingToolKind !== null) return;
                     setSelectedWall(w.id);
                     setSelectedOpening(null);
                     setWallSheetId(w.id);
@@ -742,7 +753,7 @@ export function CornerEditor({
                   kind={provenanceKind(w)}
                   badge={t[`intake.prov.${provenanceKind(w)}` as const]}
                   unitsPerPx={unitsPerPx}
-                  onSelect={() => { setSelectedWall(w.id); setWallSheetId(w.id); }}
+                  onSelect={() => { if (openingToolKind !== null) return; setSelectedWall(w.id); setWallSheetId(w.id); }}
                 />
               </g>
             );
