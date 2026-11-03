@@ -31,7 +31,13 @@ from server.agent.addressing import (
     wall_on_side,
     wall_table,
 )
-from server.agent.placement import PlacementError, place_on_wall
+from server.agent.placement import (
+    PlacementError,
+    largest_ground_room,
+    move_over_ground,
+    place_on_wall,
+    place_over_anchor,
+)
 from server.agent.room_walls import enclosing_walls
 from server.scene import ops
 from server.scene.models import Furniture, Opening, Room, Scene, Surface, Wall
@@ -130,12 +136,38 @@ def _free_side(
     return None
 
 
+def _clear_of_upper_rooms(
+    scene: Scene, poly: list[tuple[float, float]], level: int
+) -> tuple[list[tuple[float, float]], list[str]]:
+    """A storey already holds a room where the new one would stand: slide the new
+    room (shape and size untouched) to the first free side of that room."""
+    probe = Room(id="_probe", name="_probe", polygon=poly, level=level)
+    taken = next(
+        (r for r in scene.rooms if r.level == level and rooms_overlap_m2(probe, r) > 0.0), None
+    )
+    if taken is None:
+        return poly, []
+    xs = [p[0] for p in poly]
+    ys = [p[1] for p in poly]
+    free = _free_side(scene, taken, (max(xs) - min(xs), max(ys) - min(ys)), level)
+    if free is None:
+        return poly, []  # let the overlap rule report it
+    dx, dy = min(p[0] for p in free) - min(xs), min(p[1] for p in free) - min(ys)
+    return [(x + dx, y + dy) for x, y in poly], [
+        f"level {level} already has {taken.name!r} there, so the new room sits next to it"
+    ]
+
+
 def _handle_add_room(
     scene: Scene, history: list, a: tool_contracts.AddRoomInput
 ) -> tuple[Scene, ToolResult]:
     placement_notes: list[str] = []
     if a.polygon is not None:
         poly = [(float(x), float(y)) for x, y in a.polygon]
+        if a.level > 1:
+            poly, placement_notes = move_over_ground(scene, poly, a.level, None)
+            poly, extra = _clear_of_upper_rooms(scene, poly, a.level)
+            placement_notes = [*placement_notes, *extra]
     else:
         ref = a.next_to or a.room
         if ref is None and a.selected is not None:
@@ -160,6 +192,10 @@ def _handle_add_room(
                     "anchor.ambiguous",
                     f"{len(matches)} rooms match {ref!r}; say which one; Scene unchanged",
                 )
+            if a.level > matches[0].level:  # a storey goes directly over its anchor
+                free, placement_notes = place_over_anchor(matches[0], a.size_m)
+                free, extra = _clear_of_upper_rooms(scene, free, a.level)
+                return _commit_room(scene, history, a, free, [*placement_notes, *extra])
             wall_ref = a.wall
             if wall_ref is None and a.side is not None:
                 side_wall, side_err = wall_on_side(scene, matches[0], a.side)
@@ -182,9 +218,23 @@ def _handle_add_room(
                     "say where it should go; Scene unchanged",
                 )
             poly = free
+        elif a.level > 1 and largest_ground_room(scene) is not None:
+            poly, placement_notes = place_over_anchor(largest_ground_room(scene), a.size_m)
+            poly, extra = _clear_of_upper_rooms(scene, poly, a.level)
+            placement_notes = [*placement_notes, *extra]
         else:
             w, h = a.size_m
             poly = [(0.0, 0.0), (w, 0.0), (w, h), (0.0, h)]
+    return _commit_room(scene, history, a, poly, placement_notes)
+
+
+def _commit_room(
+    scene: Scene,
+    history: list,
+    a: tool_contracts.AddRoomInput,
+    poly: list[tuple[float, float]],
+    placement_notes: list[str],
+) -> tuple[Scene, ToolResult]:
     rid = a.room_id or _unique_id("r", [r.id for r in scene.rooms])
     room = Room(
         id=rid, name=a.name or a.function, polygon=poly, function=a.function, level=a.level

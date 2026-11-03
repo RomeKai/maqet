@@ -123,3 +123,71 @@ def place_on_wall(
             "say another wall; Scene unchanged",
         )
     return None
+
+
+# --- Upper storeys sit ON the home (never beside it) --------------------------------
+
+
+def _bbox(poly) -> tuple[float, float, float, float]:
+    xs = [float(p[0]) for p in poly]
+    ys = [float(p[1]) for p in poly]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def _bbox_area(room: Room) -> float:
+    x0, y0, x1, y1 = _bbox(room.polygon)
+    return (x1 - x0) * (y1 - y0)
+
+
+def largest_ground_room(scene: Scene) -> Room | None:
+    """Biggest level-1 room by bounding box; the default anchor of a storey."""
+    ground = [r for r in scene.rooms if r.level == 1]
+    return max(ground, key=_bbox_area) if ground else None
+
+
+def _fit_note(anchor: Room, w: float, h: float) -> list[str]:
+    x0, y0, x1, y1 = _bbox(anchor.polygon)
+    if w <= x1 - x0 + 1e-9 and h <= y1 - y0 + 1e-9:
+        return []
+    return [
+        f"the {w:g} x {h:g} m upper room is larger than the footprint of {anchor.name!r} "
+        f"({x1 - x0:.2f} x {y1 - y0:.2f} m): kept at the requested size, centered on it, "
+        "so it overhangs the ground floor; a professional must check the structure"
+    ]
+
+
+def place_over_anchor(
+    anchor: Room, size_m: tuple[float, float] | list[float]
+) -> tuple[list[PlanPoint], list[str]]:
+    """w x h rectangle centered on the anchor's footprint. The size is never
+    changed; when it does not fit inside, the note says it overhangs."""
+    w, h = float(size_m[0]), float(size_m[1])
+    x0, y0, x1, y1 = _bbox(anchor.polygon)
+    cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+    left, bottom = cx - w / 2.0, cy - h / 2.0
+    poly = [(left, bottom), (left + w, bottom), (left + w, bottom + h), (left, bottom + h)]
+    return poly, _fit_note(anchor, w, h)
+
+
+def move_over_ground(
+    scene: Scene, poly: list[PlanPoint], level: int, anchor: Room | None
+) -> tuple[list[PlanPoint], list[str]]:
+    """An explicit upper-level polygon that overlaps no ground room floats in
+    mid-air: translate it (shape and size untouched) to center on the anchor and
+    say so. A polygon already over the home is returned as is."""
+    probe = Room(id="_probe", name="_probe", polygon=poly, level=1)
+    if any(rooms_overlap_m2(probe, r) > 0.0 for r in scene.rooms if r.level == 1):
+        return poly, []
+    anchor = anchor or largest_ground_room(scene)
+    if anchor is None:
+        return poly, []
+    px0, py0, px1, py1 = _bbox(poly)
+    ax0, ay0, ax1, ay1 = _bbox(anchor.polygon)
+    dx = (ax0 + ax1) / 2.0 - (px0 + px1) / 2.0
+    dy = (ay0 + ay1) / 2.0 - (py0 + py1) / 2.0
+    moved = [(float(x) + dx, float(y) + dy) for x, y in poly]
+    notes = [
+        f"the level-{level} room did not sit over any ground room, so it was moved "
+        f"onto {anchor.name!r} (shape and size unchanged); a storey must stand on the home"
+    ]
+    return moved, notes + _fit_note(anchor, px1 - px0, py1 - py0)
