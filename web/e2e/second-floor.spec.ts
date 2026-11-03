@@ -4,11 +4,14 @@ import { expect, test } from "@playwright/test";
 const SHOT_DIR = process.env.PHONEPASS_SHOTS ?? "";
 
 // View-only check: a level-2 room must render upstairs. Needs WebGL; skipped where the browser has none.
-test("a level-2 room renders as a second floor", async ({ page }) => {
-  await page.setViewportSize({ width: 375, height: 812 });
+for (const [width, height] of [[360, 707], [375, 812]] as const) {
+test(`a level-2 room renders as a second floor at ${width}x${height}`, async ({ page }) => {
+  await page.setViewportSize({ width, height });
   await page.route("**/api/agent/turn", async (route) => {
-    const body = route.request().postDataJSON() as { scene: { walls: { a: [number, number] }[]; rooms?: unknown[] } };
-    const [x, y] = body.scene.walls[0].a;
+    const body = route.request().postDataJSON() as { scene: { walls: { a: [number, number]; b: [number, number] }[]; rooms?: unknown[] } };
+    // A 3x3 room over the south-west corner of the house, i.e. inside the ground footprint.
+    const x = Math.min(...body.scene.walls.flatMap((w) => [w.a[0], w.b[0]]));
+    const y = Math.min(...body.scene.walls.flatMap((w) => [w.a[1], w.b[1]]));
     const rooms = [...(body.scene.rooms ?? []), { id: "upper", name: "Second floor", polygon: [[x, y], [x + 3, y], [x + 3, y + 3], [x, y + 3]], level: 2 }];
     await route.fulfill({
       json: { reply: "Added a 3x3 second floor.", scene: { ...body.scene, rooms }, ops_applied: [], history: [], professional_flags: ["second_floor"], tool_errors: [], tool_warnings: [] },
@@ -27,6 +30,7 @@ test("a level-2 room renders as a second floor", async ({ page }) => {
   await page.waitForTimeout(800);
   if (SHOT_DIR) {
     mkdirSync(SHOT_DIR, { recursive: true });
-    await page.screenshot({ path: `${SHOT_DIR}/second-floor-375x812-${process.env.PHONEPASS_TAG ?? "run"}.png` });
+    await page.screenshot({ path: `${SHOT_DIR}/second-floor-${width}x${height}-${process.env.PHONEPASS_TAG ?? "run"}.png` });
   }
 });
+}

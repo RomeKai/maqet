@@ -520,6 +520,15 @@ export function sceneBoundingBox(scene: Scene): SceneBoundingBox | null {
   }
   if (!found) return null;
   maxZ = Math.max(maxZ, upperTopM(scene)); // view-only upper storeys
+  for (const room of scene.rooms ?? []) {
+    if (roomLevel(room) < 2) continue;
+    for (const p of floorMesh(room)?.points ?? []) {
+      minX = Math.min(minX, p[0]);
+      maxX = Math.max(maxX, p[0]);
+      minY = Math.min(minY, p[1]);
+      maxY = Math.max(maxY, p[1]);
+    }
+  }
   if (
     !(
       Number.isFinite(minX) &&
@@ -537,6 +546,9 @@ export function sceneBoundingBox(scene: Scene): SceneBoundingBox | null {
     max: [maxX, maxY, maxZ],
   };
 }
+
+/** Camera distance margin over the bbox sphere. */
+const FIT_HEADROOM = 1.25;
 
 /** Default vertical field of view in degrees (matches the <Canvas> camera). */
 export const DEFAULT_FOV_DEG = 50;
@@ -581,9 +593,9 @@ export function cameraForBoundingBox(
   ) {
     halfMin = Math.min(halfV, Math.atan(Math.tan(halfV) * (w / h)));
   }
-  // Fit the bbox sphere with 10% headroom so the whole scene stays in frame
+  // Fit the bbox sphere with 25% headroom (the card has overlay buttons in its corners) so the whole scene stays in frame
   // on narrow phone viewports too.
-  const distance = Math.max((radius / Math.sin(halfMin)) * 1.1, 1);
+  const distance = Math.max((radius / Math.sin(halfMin)) * FIT_HEADROOM, 1);
   const dir: readonly [number, number, number] = [1, 1, 0.75];
   const dirLen = Math.sqrt(dir[0] ** 2 + dir[1] ** 2 + dir[2] ** 2);
   const position: WorldPoint = [

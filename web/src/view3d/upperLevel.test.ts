@@ -52,3 +52,12 @@ describe("upperLevelMeshes (view-only second floor)", () => {
     expect(sceneBoundingBox(sc)?.max[2]).toBeCloseTo(5.2);
   });
 });
+
+describe("camera box with an upper storey", () => {
+  it("also spans an upper room that overhangs the ground walls", () => {
+    const sc = scene({ rooms: [{ id: "r2", name: "Up", polygon: [[2, 0], [7, 0], [7, 3], [2, 3]], level: 2 }] });
+    const box = sceneBoundingBox(sc);
+    expect(box?.max[0]).toBeCloseTo(7);
+    expect(box?.max[1]).toBeCloseTo(3);
+  });
+});

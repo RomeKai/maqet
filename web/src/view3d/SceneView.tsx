@@ -182,7 +182,7 @@ export function SceneMeshesView({
         </mesh>
       ))}
       {upper.floors.map((floor, i) => (
-        <mesh key={floor.id} geometry={upperGeometries[i]} rotation={[-Math.PI / 2, 0, 0]} position={[0, floor.elevationM, 0]}>
+        <mesh key={floor.id} geometry={upperGeometries[i]} rotation={[-Math.PI / 2, 0, 0]} position={[0, floor.elevationM - UPPER_SLAB_M, 0]}>
           <meshStandardMaterial color={floor.color ?? "#d9d2c5"} side={THREE.DoubleSide} />
         </mesh>
       ))}
@@ -190,11 +190,14 @@ export function SceneMeshesView({
   );
 }
 
-function upperFloorGeometry(points: readonly (readonly [number, number])[]): THREE.ShapeGeometry {
+/** Thickness of the slab under an upper-level room, so the storey visibly rests on the house. */
+const UPPER_SLAB_M = 0.2;
+
+function upperFloorGeometry(points: readonly (readonly [number, number])[]): THREE.ExtrudeGeometry {
   const shape = new THREE.Shape();
   points.forEach(([x, y], i) => (i === 0 ? shape.moveTo(x, y) : shape.lineTo(x, y)));
   shape.closePath();
-  return new THREE.ShapeGeometry(shape);
+  return new THREE.ExtrudeGeometry(shape, { depth: UPPER_SLAB_M, bevelEnabled: false });
 }
 
 function labelTexture(text: string): THREE.CanvasTexture {
