@@ -1,115 +1,135 @@
 1
-00:00:00,000 --> 00:00:06,236
+00:00:00,000 --> 00:00:05,664
 Before the event: planning docs, agent skills and my open-source MME harness.
 
 2
-00:00:06,286 --> 00:00:10,950
+00:00:05,714 --> 00:00:09,950
 Everything you'll see in Maqet was built this week.
 
 3
-00:00:11,000 --> 00:00:18,007
-Four million people in Argentina build their homes with their own hands, in stages, as they save.
+00:00:10,000 --> 00:00:15,830
+Four million people in Argentina build their own homes, in stages, as they save.
 
 4
-00:00:18,057 --> 00:00:26,724
-An architect or a designer from day one is rarely within reach, and a mistake is paid for with their savings.
+00:00:15,880 --> 00:00:24,650
+An architect or a designer from day one is rarely within reach, and a mistake gets paid for with their savings.
 
 5
-00:00:26,774 --> 00:00:32,950
-Picture Rosa: she wants to add a bedroom, and all she has is this drawing.
+00:00:24,700 --> 00:00:25,490
+Picture Rosa.
 
 6
-00:00:33,000 --> 00:00:41,950
-Maqet turns that drawing into a measured project: how it looks, what to buy at each stage, and a drawing for the professional.
+00:00:25,540 --> 00:00:30,950
+She wants to add a bedroom, and all she has is this drawing.
 
 7
-00:00:42,000 --> 00:00:44,584
-A technician visits with a phone.
+00:00:31,000 --> 00:00:39,950
+Maqet turns that drawing into a measured project: how it looks, what to buy at each stage, and a drawing for the professional.
 
 8
-00:00:44,634 --> 00:00:52,048
-First Meta model: Muse Spark reads the drawing and the written measurements, for less than a cent.
+00:00:40,000 --> 00:00:42,859
+A technician visits with a phone.
 
 9
-00:00:52,098 --> 00:00:57,316
-Each wall takes its own length, and what is estimated says so.
+00:00:42,909 --> 00:00:51,102
+First Meta model: Muse Spark reads the drawing and the written measurements, for less than a cent.
 
 10
-00:00:57,366 --> 00:00:59,950
-The AI proposes, a person decides.
+00:00:51,152 --> 00:00:53,041
+What's estimated says so.
 
 11
-00:01:00,000 --> 00:01:05,126
-Add a three-by-four bedroom for my daughter, on the north side.
+00:00:53,091 --> 00:00:55,950
+The AI proposes, a person decides.
 
 12
-00:01:05,176 --> 00:01:07,950
-Rosa asks with her own voice.
+00:00:56,000 --> 00:00:56,891
+No drawing?
 
 13
-00:01:08,000 --> 00:01:22,068
-Muse Voice Transcribe hears her, and Muse Wonder edits the home, but it doesn't draw: it only uses validated tools, and every change goes through construction rules written in code.
+00:00:56,941 --> 00:01:03,950
+The technician measures the room in augmented reality: corners, doors and windows, with real measurements.
 
 14
-00:01:22,118 --> 00:01:24,421
-And add a second floor.
+00:01:04,000 --> 00:01:08,772
+Add a three-by-four bedroom for my daughter, on the north side.
 
 15
-00:01:24,471 --> 00:01:25,362
-Undo that.
+00:01:08,822 --> 00:01:10,087
+Back to Rosa.
 
 16
-00:01:25,412 --> 00:01:29,597
-And when something needs a professional, it says so.
+00:01:10,137 --> 00:01:13,594
+She asks in Spanish, with her own voice.
 
 17
-00:01:29,647 --> 00:01:31,950
-Maqet never certifies a structure.
+00:01:13,644 --> 00:01:18,416
+Muse Voice Transcribe hears her, and Muse Wonder edits the home.
 
 18
-00:01:32,000 --> 00:01:40,950
-Muse Image shows how the room could look, starting from the measured geometry, not from the model's imagination.
+00:01:18,466 --> 00:01:26,745
+But it doesn't draw: it only uses validated tools, and every change goes through construction rules written in code.
 
 19
-00:01:41,000 --> 00:01:46,950
-And in augmented reality, she sees her extension on her own table.
+00:01:26,795 --> 00:01:28,936
+And add a second floor.
 
 20
-00:01:47,000 --> 00:01:51,205
-And now what no image app gives you.
+00:01:28,986 --> 00:01:29,813
+Undo that.
 
 21
-00:01:51,255 --> 00:01:58,652
-A material list by stage, to buy as she saves: bricks, cement, sand, steel.
+00:01:29,863 --> 00:01:33,758
+And when something needs a professional, it says so.
 
 22
-00:01:58,702 --> 00:02:06,631
-And a DXF with real measurements, for the professional who will review and sign it.
+00:01:33,808 --> 00:01:35,950
+Maqet never certifies a structure.
 
 23
-00:02:06,681 --> 00:02:11,950
-No model writes these numbers: they come from deterministic code.
+00:01:36,000 --> 00:01:44,950
+Muse Image shows how the room could look, starting from the measured geometry, not from the model's imagination.
 
 24
-00:02:12,000 --> 00:02:18,825
-Four Meta models, each in its place: Spark reads, Voice listens, Wonder edits, Image shows.
+00:01:45,000 --> 00:01:50,950
+And in augmented reality, she sees her extension on her own table.
 
 25
-00:02:18,875 --> 00:02:30,283
-And none of them is in charge: one measured scene is the source of truth, and 3D, AR, materials and DXF all derive from it.
+00:01:51,000 --> 00:01:55,035
+And now, what no image app gives you.
 
 26
-00:02:30,333 --> 00:02:33,950
-More than 1,500 automated tests, all open source.
+00:01:55,085 --> 00:02:02,184
+A material list by stage, to buy as she saves: bricks, cement, sand, steel.
 
 27
-00:02:34,000 --> 00:02:36,774
-Everything is preliminary, and says so.
+00:02:02,234 --> 00:02:09,844
+And a DXF with real measurements, for the professional who will review and sign it.
 
 28
-00:02:36,824 --> 00:02:46,185
-Maqet doesn't replace the architect: it gives people who could never afford one a first measured project, from day one.
+00:02:09,894 --> 00:02:14,950
+No model writes these numbers: they come from deterministic code.
 
 29
-00:02:46,235 --> 00:02:49,950
-Next: validating it with builders and housing programs.
+00:02:15,000 --> 00:02:21,512
+Four Meta models, each in its place: Spark reads, Voice listens, Wonder edits, Image shows.
+
+30
+00:02:21,562 --> 00:02:32,450
+And none of them is in charge: one measured scene is the source of truth, and 3D, AR, materials and DXF all derive from it.
+
+31
+00:02:32,500 --> 00:02:35,950
+More than 1,500 automated tests, all open source.
+
+32
+00:02:36,000 --> 00:02:39,181
+Everything is preliminary, and says so.
+
+33
+00:02:39,231 --> 00:02:41,873
+Maqet doesn't replace the architect.
+
+34
+00:02:41,923 --> 00:02:49,950
+It gives people who could never afford one a first measured project, from day one.

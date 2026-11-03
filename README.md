@@ -6,7 +6,7 @@ From a hand-drawn sketch to a staged shopping list of bricks, in one visit.
 technical assistant help many more of them: measure the home, design the next room with the family, show it in AR on
 their own table, and leave a construction takeoff they can buy stage by stage.
 
-> **Demo video (3 min):** _link coming on submission day_ · **Built for** the Meta Global AI Developer Hackathon, Indie track
+> **Demo video (3 min):** [watch on YouTube](https://www.youtube.com/watch?v=H9fffIhcALY) · **Built for** the Meta Global AI Developer Hackathon, Indie track
 > · Demo script: [`docs/DEMO.md`](docs/DEMO.md) · Submission checklist: [`docs/SUBMISSION.md`](docs/SUBMISSION.md)
 
 **Reads a hand sketch for a tenth of a cent.** In our test set, Muse Spark transcribed the written measurements on all

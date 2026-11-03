@@ -48,7 +48,7 @@ submission text.
 
 - [ ] **Repository public.** Contains source, `LICENSE` (MIT, present) and a README that runs in replay mode without a key.
 - [ ] **Demo video, 3:00 maximum**, publicly viewable at a link (YouTube, Loom, Vimeo or Drive; the rules only ask for a
-      working link). Spoken Spanish, English subtitles burned in. **It opens with one line stating what was pre-existing
+      working link). English voice-over with captions; Spanish requests captioned. **It opens with one line stating what was pre-existing
       and what was built this week** (organizers' reply). See [`DEMO.md`](DEMO.md).
 - [ ] **README links the video**: replace the placeholder under the title. The Day 9 gate greps for
       `youtu|loom|vimeo|drive.google`, `muse` and `preliminary|not a structural` (`mme/milestones.yaml`); today the link

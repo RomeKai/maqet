@@ -22,6 +22,22 @@ h2{font-size:50px;font-weight:800}.sub{font-size:34px;color:#5b5346}
 .model.none{background:var(--brick)}
 .bound{font-size:34px;line-height:1.3;color:#4a4338;max-width:1040px}
 .foot{position:absolute;left:660px;bottom:40px;font-size:22px;color:#6d6455}
+.slot.cam{width:540px}
+.frame.vert .info{left:760px;width:1040px}
+.frame.vert .foot{left:760px}
+.slot.mid{left:690px;width:540px}
+.side{position:absolute;top:60px;height:960px;width:570px;display:flex;flex-direction:column;justify-content:center;gap:24px}
+.side.l{left:60px;text-align:right}
+.side.r{left:1290px}
+.thanks{font-size:92px;font-weight:800;line-height:1.05}
+.brand{font-size:92px;font-weight:800;letter-spacing:-1px;line-height:1}
+.repo{font-size:30px;font-family:Consolas,monospace;color:#4a4338}
+.slot.center{left:740px}
+.frame .wide{width:620px}
+.frame .wide.l{left:60px}
+.frame .wide.r{left:1240px;align-items:flex-start}
+.frame .wide .model{font-size:32px}
+.frame .foot.r{left:1240px}
 </style>
 <section class="card dark" id="opening"><p class="line">Before the event: planning docs, agent skills and my open-source MME harness.</p><p class="line"><b>Everything you'll see in Maqet was built this week.</b></p></section>
 <section class="card light" id="architecture"><h2>One measured Scene. Four Meta models, each bounded by code.</h2>
@@ -38,4 +54,10 @@ h2{font-size:50px;font-weight:800}.sub{font-size:34px;color:#5b5346}
 <section class="frame" id="frame-reform"><div class="slot"></div><div class="info"><div class="step">Stage</div><div class="stage">Reform</div><div class="model">Muse Voice Transcribe + Muse Wonder</div><div class="bound">Hears the request. Edits the home only through validated tools, checked by construction rules in code.</div></div><div class="foot">Preliminary. Waits trimmed, results unedited.</div></section>
 <section class="frame" id="frame-present"><div class="slot"></div><div class="info"><div class="step">Stage</div><div class="stage">Present</div><div class="model">Muse Image</div><div class="bound">Starts from measured guide views of the home. Always labelled as a render.</div></div><div class="foot">Preliminary. Waits trimmed, results unedited.</div></section>
 <section class="frame" id="frame-deliver"><div class="slot"></div><div class="info"><div class="step">Stage</div><div class="stage">Deliver</div><div class="model none">No model here, on purpose</div><div class="bound">Material list and DXF come from the measured Scene through deterministic code.</div></div><div class="foot">Preliminary. Waits trimmed, results unedited.</div></section>
+<section class="frame" id="frame-measure"><div class="slot"></div><div class="info"><div class="step">Stage</div><div class="stage">Capture, AR measure</div><div class="model none">No model here: WebXR and your taps</div><div class="bound">Corners, doors and windows measured on site. Each wall records how it was measured.</div></div><div class="foot">Preliminary. Waits trimmed, results unedited.</div></section>
+<section class="frame vert" id="frame-sketch"><div class="slot cam"></div><div class="info"><div class="step">The starting point</div><div class="stage">A drawing on paper</div><div class="bound">No architect, no software. Just the home, with its measurements written by hand.</div></div><div class="foot">Illustrative family.</div></section>
+<section class="frame vert" id="frame-filmed"><div class="slot cam"></div><div class="info"><div class="step">On site</div><div class="stage">Maqet on a real phone</div><div class="bound">Filmed from a second phone while the app runs.</div></div><div class="foot">Preliminary. Waits trimmed, results unedited.</div></section>
+<section class="frame" id="frame-thanks"><div class="side l"><div class="thanks">Thanks for watching</div></div><div class="slot cam mid"></div><div class="side r"><div class="brand">Maqet</div><div class="repo">github.com/RomeKai/maqet</div></div></section>
+<section class="frame" id="frame-reform-center"><div class="side l wide"><div class="step">Stage</div><div class="stage">Reform</div></div><div class="slot center"></div><div class="side r wide"><div class="model">Muse Voice Transcribe</div><div class="model">Muse Wonder</div><div class="bound">Hears the request. Edits the home only through validated tools, checked by construction rules in code.</div></div><div class="foot r">Preliminary. Waits trimmed, results unedited.</div></section>
+<section class="frame" id="frame-design-center"><div class="side l wide"><div class="step">Stage</div><div class="stage">Design</div></div><div class="slot center"></div><div class="side r wide"><div class="model">Muse Wonder</div><div class="bound">Names a catalog item and a room. Code finds the spot: inside the room, clear of walls, other items and door swings.</div></div><div class="foot r">Preliminary. Waits trimmed, results unedited.</div></section>
 </html>
