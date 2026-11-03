@@ -69,7 +69,7 @@ AR measure  (agent)                render
 - **Vision with a strict contract.** Muse Spark returns JSON validated against a strict schema, coordinates normalized 0..1, one retry, then a loud failure. Images are downscaled to 2048 px. ([`server/intake/`](server/intake))
 - **Deterministic cleanup.** Snapping, merging collinear walls, closing rooms with shapely, scale. ([`server/intake/cleanup.py`](server/intake/cleanup.py))
 - **CAD that opens in AutoCAD.** ezdxf, meters, AIA layers, audited and re-opened in tests, compared to shapely geometry. ([`server/export/`](server/export))
-- **Offline tests.** Every Meta call is recorded once and replayed, so the test suite costs $0.
+- **Offline tests.** More than 1,500 automated tests (640 server, 875 web) run offline: model calls are replayed or faked, so the suite costs $0.
 - **Budget-safe development.** All AI traffic goes through a local gateway with daily caps and a spend watchdog. ([`docs/AI_USAGE.md`](docs/AI_USAGE.md))
 
 ## How Meta models are used
@@ -89,7 +89,7 @@ the input a family really has, a hand sketch, not only clean plans.
 
 ## What you can run today
 
-Status as of 2026-11-02. This table is updated as features land; the demo script
+Status as of 2026-11-03. This table is updated as features land; the demo script
 ([`docs/DEMO.md`](docs/DEMO.md)) lists what the video will show.
 
 | You want to | Status |
@@ -105,7 +105,7 @@ Status as of 2026-11-02. This table is updated as features land; the demo script
 | Keep the project after a reload | **Works**, stored on the device. |
 | Get the staged construction takeoff (table and CSV) | **Works.** |
 | See the room as an AR maquette on a table | **Works** through WebXR on Android; needs a current Google Play Services for AR. |
-| See a render of the room (*In real life*) | **Works** with a Meta key. |
+| See a render of the room (*In real life*): three views per tap, about $0.03 | **Works** with a Meta key. |
 
 Known limits and the hardening backlog are in [`docs/HARDENING.md`](docs/HARDENING.md).
 
@@ -171,8 +171,9 @@ There is **no product code** in those commits: no `server/`, `web/` or `assets/`
 
 **Built this week.** The product (`server/`, `web/`, `assets/`, `samples/`) was built between Oct 26 and Nov 4, 2026.
 Every product commit starts at `33d3db3` (14:35 ART on 2026-10-26, after kickoff). The synthetic sample generator
-(`samples/tools/make_samples.py`) first appears in `2cb8896` (14:44 ART, after kickoff); the organizers asked that any
-pre-kickoff script be rewritten after kickoff rather than copied in, and that rewrite is in progress.
+(`samples/tools/make_samples.py`) first appears in `2cb8896` (14:44 ART, after kickoff). It is a new script, as the
+organizers asked: the pre-event generator (`make_plans.py`, 222 lines) is not in this repo, and the two share 5 of the
+new script's 399 substantive lines.
 
 **Pre-existing open-source dependency: [MME](https://github.com/RomeKai/mme)** (MIT, `mme-harness`). It is a dev-tooling
 package whose development started on 2026-10-22, before kickoff (earliest commit in its public history; the GitHub

@@ -18,65 +18,95 @@ subtitle text. Record with the server in live mode: voice takes never hash the s
 ## Timeline
 
 Target 2:50, hard cap 3:00. "Say" is the spoken Spanish; "Subtitle" is burned in. Rosa is an illustrative family, and the
-video says so ("Pensá en Rosa"): no real family, house or address appears.
+video says so ("Pensá en Rosa"): no real family, house or address appears. Two messages carry the video: Maqet is for
+families who cannot have an architect or a designer from day one, and each Meta model does one bounded job. Source tags:
+**[HANDS]** camera on the table, **[PHONE]** phone screen recording inside a stage frame, **[PC]** laptop screen,
+**[CARD]** rendered card. See "How to record".
 
 ### 0:00 to 0:11: opening line (mandatory, nothing before it)
-- **Screen:** black card with the line, on screen for the whole beat.
+- **Screen:** [CARD] `card-opening.png`, for the whole beat.
 - **Say:** "Antes del evento: documentos de planificación, skills de agentes y mi harness open source MME. Todo lo que van a ver de Maqet se construyó esta semana."
 - **Subtitle:** "Before the event: planning docs, agent skills and my open-source MME harness. Everything you'll see in Maqet was built this week."
 
-### 0:11 to 0:30: the problem, and where it ends
-- **Screen:** a paper sketch on a table. Hard cut to the staged material list, then the DXF in a CAD viewer.
-- **Say:** "Cuatro millones de personas en Argentina construyen su casa solas, por etapas, a medida que ahorran. Hay muy pocos técnicos para ayudarlas. Pensá en Rosa: quiere sumar un dormitorio, y todo lo que tiene es este dibujo. Con Maqet, un técnico le deja esto, en una sola visita."
-- **Subtitle:** "Four million people in Argentina build their own homes, in stages, as they save. There are too few technicians to help them. Picture Rosa: she wants to add a bedroom, and all she has is this drawing. With Maqet, a technician leaves her this, in one visit."
+### 0:11 to 0:33: who it is for
+- **Screen:** [HANDS] a hand finishes the paper sketch on a table: walls, door, window, written measurements. Hold on the finished drawing.
+- **Say:** "Cuatro millones de personas en Argentina construyen su casa con sus propias manos, por etapas, a medida que ahorran. Casi nunca hay un arquitecto o un diseñador desde el día uno, y un error se paga con sus ahorros. Pensá en Rosa: quiere sumar un dormitorio, y todo lo que tiene es este dibujo."
+- **Subtitle:** "Four million people in Argentina build their homes with their own hands, in stages, as they save. An architect or a designer from day one is rarely within reach, and a mistake is paid for with their savings. Picture Rosa: she wants to add a bedroom, and all she has is this drawing."
 
-### 0:30 to 0:53: 1. Capture, Mode C (the door, not the product)
-- **Screen:** the phone photographs the paper sketch. Caption: "Muse Spark 1.3". Proposed walls appear with their lengths and provenance. Tap a wall, correct its length. Show one *estimated* flag. Tap *Looks right*.
-- **Say:** "El técnico saca una foto. Muse Spark lee el dibujo y las medidas escritas, por una décima de centavo de dólar. Pero los croquis nunca están a escala, así que cada pared toma su propia medida. Y lo que es estimado, dice que es estimado. El técnico corrige y confirma: la IA propone, la persona decide."
-- **Subtitle:** "The technician takes a photo. Muse Spark reads the drawing and the written measurements, for a tenth of a cent. But sketches are never to scale, so each wall takes its own length. What is estimated says so. The technician corrects and confirms: the AI proposes, a person decides."
+### 0:33 to 0:42: the promise
+- **Screen:** three hard cuts, three seconds each, from the finished take: [PHONE] the home in 3D, [PHONE] the material list, [PC] the DXF.
+- **Say:** "Maqet convierte ese dibujo en un proyecto medido: cómo queda, qué comprar en cada etapa, y un plano para el profesional."
+- **Subtitle:** "Maqet turns that drawing into a measured project: how it looks, what to buy at each stage, and a drawing for the professional."
 
-### 0:53 to 1:30: 2. Reform (hero beat, the longest)
-- **Screen:** hold the mic and say the first request. Caption: "Muse Voice Transcribe, Muse Wonder". The transcript appears, the validated operations show in the chat, the 3D view grows the room, a rule warning shows.
-- **Request 1:** "Agregá un dormitorio de tres por cuatro para mi hija, del lado norte."
-- **Say:** "Rosa lo pide en su idioma, con su voz. El agente no dibuja: solo puede cambiar la casa con herramientas validadas, y cada cambio pasa por reglas de construcción escritas en código, no en un prompt."
-- **Subtitle:** "Rosa asks in her own language, with her own voice. The agent doesn't draw: it can only change the home through validated tools, and every change goes through construction rules written in code, not in a prompt."
+### 0:42 to 1:00: 1. Capture (Muse Spark 1.3)
+- **Screen:** [HANDS] the phone photographs the sketch. [PHONE] in `frame-capture.png`: proposed walls with their lengths and provenance, tap a wall, correct a length, one *estimated* flag, *Looks right*.
+- **Say:** "Un técnico la visita con el celular. Primer modelo de Meta: Muse Spark lee el dibujo y las medidas escritas, por menos de un centavo de dólar. Cada pared toma su propia medida, y lo estimado dice que es estimado. La IA propone, la persona decide."
+- **Subtitle:** "A technician visits with a phone. First Meta model: Muse Spark reads the drawing and the written measurements, for less than a cent. Each wall takes its own length, and what is estimated says so. The AI proposes, a person decides."
+
+### 1:00 to 1:32: 2. Reform (Muse Voice Transcribe, Muse Wonder; hero beat)
+- **Screen:** [PHONE] in `frame-reform.png`, with the request audio live: hold the mic, the transcript appears, the validated operations show in the chat, the 3D view grows the room.
+- **Request 1 (live audio):** "Agregá un dormitorio de tres por cuatro para mi hija, del lado norte."
+- **Subtitle:** "Add a three-by-four bedroom for my daughter, on the north side."
+- **Say:** "Rosa lo pide con su voz. Muse Voice Transcribe la escucha, y Muse Wonder edita la casa, pero no dibuja: solo usa herramientas validadas, y cada cambio pasa por reglas de construcción escritas en código."
+- **Subtitle:** "Rosa asks with her own voice. Muse Voice Transcribe hears her, and Muse Wonder edits the home, but it doesn't draw: it only uses validated tools, and every change goes through construction rules written in code."
 - **Expect a flag already here:** the existing 8 m wall exceeds the 4 m span rule of thumb, so the banner shows one professional flag after this request. That is the rule working, not a bug. It goes up to two on request 2.
-- **Request 2:** "Y agregá un segundo piso." The red **needs a licensed professional** flag appears. Then "Deshacé eso", and the home goes back.
-- **Say:** "Y esto es lo más importante: cuando algo necesita a un profesional, lo dice. Maqet nunca certifica una estructura."
-- **Subtitle:** "And this matters most: when something needs a professional, it says so. Maqet never certifies a structure."
+- **Request 2 (live audio):** "Y agregá un segundo piso." The red **needs a licensed professional** flag appears. Then "Deshacé eso", and the home goes back.
+- **Subtitle:** "And add a second floor. Undo that."
+- **Say:** "Y cuando algo necesita un profesional, lo dice. Maqet nunca certifica una estructura."
+- **Subtitle:** "And when something needs a professional, it says so. Maqet never certifies a structure."
 
-### 1:30 to 1:48: 3. Present
-- **Screen:** the *In real life* views, labelled as renders. Caption: "Muse Image". Then the phone on a real table: the AR maquette with the new room.
-- **Say:** "Rosa ve cómo podría quedar el cuarto, y ve su ampliación sobre su propia mesa. La imagen sale de la geometría medida, no de la imaginación del modelo."
-- **Subtitle:** "Rosa sees how the room could look, and sees her extension on her own table. The image starts from the measured geometry, not from the model's imagination."
+### 1:32 to 1:47: 3. Present (Muse Image)
+- **Screen:** [PHONE] in `frame-present.png`: the *In real life* views, labelled as renders. Then [HANDS] over the shoulder: the phone on a real table with the AR maquette and the new room, walking around it.
+- **Say:** "Muse Image le muestra cómo podría quedar el cuarto, partiendo de la geometría medida, no de la imaginación del modelo. Y en realidad aumentada, ve su ampliación sobre su propia mesa."
+- **Subtitle:** "Muse Image shows how the room could look, starting from the measured geometry, not from the model's imagination. And in augmented reality, she sees her extension on her own table."
 
-### 1:48 to 2:18: 4. Deliver (what no pretty-picture app gives you)
-- **Screen:** scroll the staged takeoff: foundations, walls, bond beams and roof, openings, finishes. Hold on bricks and cement. Show the *Preliminary* label. Then the DXF in a CAD viewer, with its layers.
-- **Say:** "Y ahora lo que ninguna app de imágenes te da. Una lista de materiales por etapa, para comprar a medida que ahorra: ladrillos, cemento, arena, hierro. Y un DXF con medidas reales, para el profesional que va a revisarlo y firmarlo. Ningún modelo escribe estos números: salen de la geometría medida, con código determinista."
-- **Subtitle:** "And now what no image app gives you. A material list by stage, to buy as she saves: bricks, cement, sand, steel. And a DXF with real measurements, for the professional who will review and sign it. No model writes these numbers: they come from the measured geometry, through deterministic code."
+### 1:47 to 2:12: 4. Deliver (no model on purpose)
+- **Screen:** [PHONE] in `frame-deliver.png`: scroll the staged takeoff, hold on bricks and cement, show the *Preliminary* label. Then [PC] the DXF in a CAD viewer, turning layers on and off.
+- **Say:** "Y ahora lo que ninguna app de imágenes te da. Una lista de materiales por etapa, para comprar a medida que ahorra: ladrillos, cemento, arena, hierro. Y un DXF con medidas reales, para el profesional que lo revise y lo firme. Ningún modelo escribe estos números: salen de código determinista."
+- **Subtitle:** "And now what no image app gives you. A material list by stage, to buy as she saves: bricks, cement, sand, steel. And a DXF with real measurements, for the professional who will review and sign it. No model writes these numbers: they come from deterministic code."
 
-### 2:18 to 2:38: 5. How it is built (the judges' beat)
-- **Screen:** one card: a single measured Scene in the center, with 3D, AR, render, takeoff and DXF derived from it; four Meta models around it, each with its bound. Then the repo for two seconds.
-- **Say:** "Una sola escena medida es la fuente de verdad: el 3D, el AR, el render, los materiales y el DXF salen de ahí. Cuatro modelos de Meta trabajan alrededor, cada uno limitado por código. Casi mil quinientos tests automáticos, y todo open source."
-- **Subtitle:** "One measured scene is the source of truth: 3D, AR, render, materials and DXF all derive from it. Four Meta models work around it, each bounded by code. Nearly 1,500 automated tests, all open source."
+### 2:12 to 2:34: 5. How Meta's models fit (the judges' beat)
+- **Screen:** [CARD] `card-architecture.png`. Then [PC] the repo for two seconds.
+- **Say:** "Cuatro modelos de Meta, cada uno en su lugar: Spark lee, Voice escucha, Wonder edita, Image muestra. Y ninguno manda: una sola escena medida es la fuente de verdad, y el 3D, el AR, los materiales y el DXF salen de ahí. Más de mil quinientos tests automáticos, y todo open source."
+- **Subtitle:** "Four Meta models, each in its place: Spark reads, Voice listens, Wonder edits, Image shows. And none of them is in charge: one measured scene is the source of truth, and 3D, AR, materials and DXF all derive from it. More than 1,500 automated tests, all open source."
 
-### 2:38 to 2:50: close
-- **Screen:** logo, tagline, repo URL, and "Preliminary. Never a structural certification."
-- **Say:** "Todo es preliminar, y lo dice. Sigue validar las reglas y recetas con constructores y programas de vivienda. Maqet: un técnico puede ayudar a muchas más familias."
-- **Subtitle:** "Everything is preliminary, and says so. Next: validating rules and recipes with builders and housing programs. Maqet: one technician can help many more families."
+### 2:34 to 2:50: close
+- **Screen:** [HANDS] the sketch next to the phone with the finished home, two seconds. Then [CARD] `card-close.png`.
+- **Say:** "Todo es preliminar, y lo dice. Maqet no reemplaza al arquitecto: le da a quien nunca pudo pagarlo un primer proyecto medido, desde el día uno. Sigue validarlo con constructores y programas de vivienda."
+- **Subtitle:** "Everything is preliminary, and says so. Maqet doesn't replace the architect: it gives people who could never afford one a first measured project, from day one. Next: validating it with builders and housing programs."
 
-Beats add up to 170 s (11 + 19 + 23 + 37 + 18 + 30 + 20 + 12).
-
-**Changes from the earlier script.**
-- Added the 2:18 "How it is built" beat, which answers technical depth and use of Meta models directly.
-- Design no longer has its own beat. The bed check is the first thing to add back only if a take runs short.
-- The second-floor request raises the flag **and applies the edit** (`server/agent/executor.py`, `add_room`), so the script undoes it on camera instead of claiming the agent refuses.
-- The demo home is the 3x8 m one-room sketch, so the request names a side instead of "next to the kitchen".
-- Rosa is introduced as an illustrative family.
-
-Confirmed in the first live rehearsal (2026-11-03): the flags, undo, renders, AR and downloads work. Still to confirm on the phone after the layout fixes: the second floor in 3D, a second turn on the same variant, and the sketch reading with the new prompt. Rewrite any line the app does not back up.
+Beats add up to 170 s (11 + 22 + 9 + 18 + 32 + 15 + 25 + 22 + 16).
 
 **Time check.** Timings come from a word count at about 2.5 words per second, not from a read-through. Time them aloud in the dry run and trim the words, not the screen shots.
+
+## How to record
+
+**Output:** 1920x1080, 30 fps, H.264. The phone is vertical, so it sits inside a stage frame (`docs/video/frame-*.png`) that names the stage and its model. Hands and PC shots run full screen.
+
+**Sources**
+
+| Tag | Device | How |
+|---|---|---|
+| [PHONE] | The Android demo phone | Built-in screen recorder, Do Not Disturb on. Mic on only for the Reform takes. |
+| [HANDS] | A second phone, or the laptop webcam | Landscape, on a stack of books or a tripod, by a window. Top-down for the sketch, over the shoulder for the AR table. |
+| [PC] | The laptop | Win+G (Game Bar) at 1080p. DXF opened in a local viewer such as LibreCAD; never upload it. |
+| Voice | Phone or earbuds mic, 15 cm from the mouth | A quiet room with soft surfaces. Three takes per beat, recorded apart from the screen. |
+
+**Order of work**
+
+1. Rehearse: read the script aloud with a stopwatch and fix the words.
+2. Record the voice first. It sets the timing of the cut.
+3. Record [PHONE] end to end in one continuous session, live, so the same home runs from sketch to DXF. Repeat until a take is clean.
+4. Record [HANDS] and [PC] using the same sketch and the DXF from that session.
+5. Cut the picture to the voice: put the frame on the bottom track and scale the phone video to 960 px high over the dark slot.
+6. Import `subtitles.en.srt`, re-time it to the cut, and place it in the free area of the frame, lower right. On full-screen shots it goes at the bottom.
+
+**Editing rules**
+
+- Jump cuts only: no animated zooms, wipes or pop effects. A static crop is fine when something is hard to read.
+- Cut the waits for the model, and say so: the frames carry "Waits trimmed". Never speed up or alter a result.
+- Music optional: instrumental, low, under the voice. Voice around -14 LUFS.
+- Check every frame before export: no `.env`, keys, notifications or browser certificate warnings on screen.
 
 ## Pre-flight (the day of recording)
 

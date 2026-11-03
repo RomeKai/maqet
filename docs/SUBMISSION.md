@@ -86,9 +86,9 @@ Kickoff was 2026-10-26 12:00 GMT-5 = 14:00 ART.
       the README.
 - [ ] **Product built in the window.** Every product commit starts at `33d3db3` (2026-10-26 14:35 ART, after kickoff).
       Check `git log --reverse` on the final commit and make sure no history was rewritten or imported.
-- [ ] **Synthetic sample generator rewritten after kickoff (point 4), in progress.** `samples/tools/make_samples.py` first
-      appears in `2cb8896` (14:44 ART). Done when the rewrite lands: update the README line in "Built during the
-      hackathon" and tick this item. The README says "in progress" until then.
+- [x] **Synthetic sample generator rewritten after kickoff (point 4).** `samples/tools/make_samples.py` first
+      appears in `2cb8896` (14:44 ART). Compared with the pre-event `make_plans.py` from the backup bundle: 5 of 399
+      substantive lines shared. The README says so.
 - [ ] **Video opens with the required line (point 3).** Wording in [`DEMO.md`](DEMO.md) at 0:00: *"Before the event:
       planning docs, agent skills and my open-source MME harness. Everything you'll see in Maqet was built this week."*
       Keep it in sync with the README section.
@@ -164,4 +164,3 @@ Kickoff was 2026-10-26 12:00 GMT-5 = 14:00 ART.
 
 1. Did anyone answer the questions on non-Meta coding assistants and AI disclosure? If not, `AI_USAGE.md` says the rules
    are silent.
-2. When does the sample-generator rewrite land? Then update the README and tick the item above.
