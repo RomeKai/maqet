@@ -421,5 +421,5 @@
 
 /* Very short viewports (split screen, keyboard open): the dock wins over the hero. */
 @media (max-height: 560px) {
-  .stage-screen .agent-card { min-height: 0; }
+  .stage-screen .agent-card { flex-basis: 0; min-height: 0; }
 }
