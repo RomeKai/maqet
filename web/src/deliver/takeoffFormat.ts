@@ -188,3 +188,22 @@ export function downloadCsv(csv: string, filename: string): void {
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
 }
+
+/**
+ * Display-only grouping inside one stage: rows with the same label, unit and estimated state (and note, so made-to-size
+ * openings of different widths stay apart) become one row with the summed quantity. The CSV keeps the raw rows.
+ */
+export function groupLines(lines: readonly TakeoffLine[], locale: Locale): TakeoffLine[] {
+  const groups = new Map<string, TakeoffLine>();
+  for (const line of lines) {
+    const key = JSON.stringify([lineName(line, locale), line.unit, line.estimated, lineNote(line, locale)]);
+    const seen = groups.get(key);
+    if (seen === undefined) {
+      groups.set(key, { ...line });
+      continue;
+    }
+    const quantity = seen.quantity + line.quantity;
+    groups.set(key, { ...seen, quantity, purchase_quantity: purchaseQuantity(quantity, seen.unit) });
+  }
+  return [...groups.values()];
+}

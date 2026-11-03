@@ -3,7 +3,7 @@ import { ChevronDown, TriangleAlert } from "lucide-react";
 import type { Locale } from "../i18n";
 import { Banner, Button, Chip, cn } from "../ui";
 import { getDeliverStrings, unitLabel, type DeliverStrings } from "./deliver.i18n";
-import { buildTakeoffCsv, downloadCsv, flagLabel, formatQuantity, lineName, lineNote, orderedStages, uniqueFlagCodes } from "./takeoffFormat";
+import { buildTakeoffCsv, downloadCsv, flagLabel, formatQuantity, groupLines, lineName, lineNote, orderedStages, uniqueFlagCodes } from "./takeoffFormat";
 import type { Takeoff, TakeoffLine, TakeoffStage } from "./takeoffTypes";
 
 const CSV_FILENAME = "maqet-takeoff.csv";
@@ -82,7 +82,8 @@ export function TakeoffView({ takeoff, locale }: TakeoffViewProps): React.JSX.El
       {stages.length === 0 && <p className="text-[15px] text-muted-foreground">{t["empty"]}</p>}
 
       <ul className="space-y-2">
-        {stages.map(({ stage, lines }) => {
+        {stages.map(({ stage, lines: rawLines }) => {
+          const lines = groupLines(rawLines, locale);
           const open = openStage === stage;
           const guessed = lines.filter((l) => l.estimated).length;
           return (
