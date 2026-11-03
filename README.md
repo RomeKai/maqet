@@ -138,7 +138,7 @@ certificate warning. HTTPS is required for AR measuring (WebXR `immersive-ar`), 
 
 ### Try it
 
-- **Any phone or desktop:** Capture → *Try a sample* loads a recorded plan or hand sketch from [`samples/plans/`](samples/plans)
+- **Any phone or desktop:** *Start capture* → *Photograph a sketch* → *Try a sample* loads a recorded plan or hand sketch from [`samples/plans/`](samples/plans)
   through the real intake path (`POST /intake`), then correct walls, mark doors and windows, confirm the scale, export
   the DXF.
 - **Android Chrome with Google Play Services for AR:** Capture → AR measure (mode A). iPhone Safari has no WebXR; the UI
