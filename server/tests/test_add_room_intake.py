@@ -126,7 +126,7 @@ def test_requested_3x4_is_not_clamped_to_the_wall_length(intake_scene: Scene) ->
 def test_prompt_tells_the_model_not_to_clamp_the_size() -> None:
     from pathlib import Path
 
-    text = " ".join(Path("server/agent/prompts/reform_v1.md").read_text(encoding="utf-8").split())
+    text = " ".join((Path(__file__).resolve().parents[1] / "agent/prompts/reform_v1.md").read_text(encoding="utf-8").split())
     assert "never shrink a side to the wall length" in text
 
 
