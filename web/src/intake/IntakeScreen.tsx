@@ -67,7 +67,7 @@ export function IntakeScreen({ locale, initialScene, arSupported, startInAr = fa
   // Mode A entry before any photo (ADR-025): auto-detect WebXR immersive-ar
   // support on mount; the test seam overrides detection.
   const [arAvailable, setArAvailable] = useState<boolean>(arSupported ?? false);
-  const [kindChips, setKindChips] = useState<IntakeKind>("plan");
+  const [kindChips, setKindChips] = useState<IntakeKind>("sketch");
   /** Mode A finished in this visit: show the hand-off card instead of the upload step. */
   const [arCaptured, setArCaptured] = useState(false);
 
