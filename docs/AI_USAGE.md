@@ -5,7 +5,7 @@ Rows marked `manual` were added by hand for AI use outside the MME harness.
 
 | When | Kind | Harness | Provider | Model | Policy | Reason |
 |---|---|---|---|---|---|---|
-| 2026-10-26 | manual | claude-code (outside gateway) | anthropic | Claude | meta-first | Planning, research and documentation (product pivot, ADR-022..024); not used by the product at runtime |
+| 2026-10-26 to 2026-11-04 | manual | claude-code (outside gateway) | anthropic | Claude | meta-first | Planning, research, documentation, code, debugging and video materials across the project; not used by the product at runtime |
 | 2026-10-26 14:09 | interactive | gateway | meta | muse-spark-1.3-contributor | meta-first | - |
 | 2026-10-26 15:41 | interactive | gateway | meta | muse-spark-1.3-contributor | meta-first | - |
 | 2026-10-26 19:22 | interactive | gateway | meta | muse-spark-1.3-contributor | meta-first | - |
@@ -15,3 +15,5 @@ Rows marked `manual` were added by hand for AI use outside the MME harness.
 | 2026-10-27 14:19 | interactive | gateway | meta | muse-spark-1.3-contributor | meta-first | - |
 | 2026-10-27 14:50 | interactive | gateway | meta | muse-spark-1.3-contributor | meta-first | - |
 | 2026-10-27 14:55 | interactive | gateway | meta | muse-spark-1.3-contributor | meta-first | - |
+| 2026-10-29 15:48 | interactive | gateway | meta | muse-spark-1.3-contributor | meta-first | - |
+| 2026-10-29 15:53 | interactive | gateway | meta | muse-spark-1.3-contributor | meta-first | - |
