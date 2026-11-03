@@ -22,7 +22,7 @@ export function Stepper({ locale, stage, onSelect }: StepperProps) {
   const t = getStrings(locale);
   const current = STAGES.indexOf(stage);
   return (
-    <nav aria-label={t["stage.nav"]} className="shrink-0 border-b border-border bg-background px-2 pb-2 pt-2.5 font-sans">
+    <nav aria-label={t["stage.nav"]} className="stepper shrink-0 border-b border-border bg-background px-2 pb-2 pt-2.5 font-sans">
       <ol className="flex" role="tablist">
         {STAGES.map((key, i) => {
           const done = i < current;
@@ -33,7 +33,7 @@ export function Stepper({ locale, stage, onSelect }: StepperProps) {
               {i > 0 && (
                 <span
                   aria-hidden
-                  className={cn("absolute top-[18px] h-[3px] -translate-y-1/2", i <= current ? "bg-success" : "bg-border")}
+                  className={cn("stepper-line absolute top-[18px] h-[3px] -translate-y-1/2", i <= current ? "bg-success" : "bg-border")}
                   style={{ left: "-50%", width: "100%" }}
                 />
               )}
@@ -47,7 +47,7 @@ export function Stepper({ locale, stage, onSelect }: StepperProps) {
               >
                 <span
                   className={cn(
-                    "flex size-8 items-center justify-center rounded-full text-[15px] font-extrabold",
+                    "stepper-dot flex size-8 items-center justify-center rounded-full text-[15px] font-extrabold",
                     active && "bg-primary text-primary-foreground ring-4 ring-primary/25",
                     done && "bg-success text-primary-foreground",
                     !active && !done && "border-2 bg-card text-foreground",

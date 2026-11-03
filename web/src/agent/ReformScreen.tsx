@@ -73,14 +73,14 @@ export function ReformScreen(props: ReformScreenProps): React.JSX.Element {
         ) : null}
         <button
           type="button"
-          className="absolute bottom-2 right-2 flex min-h-12 items-center gap-2 rounded-full border-2 border-foreground bg-card px-4 text-[15px] font-bold"
+          className="absolute bottom-2 right-2 flex size-12 items-center justify-center rounded-full border-2 border-foreground bg-card"
+          aria-label={t["edit.open"]}
           onClick={() => {
             setEditError(null);
             setEditing({ wallId: null });
           }}
         >
           <Ruler className="size-5" aria-hidden />
-          {t["edit.open"]}
         </button>
         <button
           type="button"

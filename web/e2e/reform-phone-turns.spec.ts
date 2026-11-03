@@ -3,8 +3,9 @@ import { expect, test, type Page } from "@playwright/test";
 
 // Real phone viewports (Chrome bars included): the composer and Next stay on screen after a long agent reply.
 const SIZES = [
-  { width: 360, height: 650 },
-  { width: 375, height: 812 },
+  { width: 360, height: 707, minCard: 190 },
+  { width: 360, height: 650, minCard: 160 },
+  { width: 375, height: 812, minCard: 190 },
 ] as const;
 
 const SHOT_DIR = process.env.PHONEPASS_SHOTS ?? "";
@@ -38,6 +39,8 @@ async function openReform(page: Page): Promise<void> {
   await page.getByText("Photograph a sketch").click();
   await page.getByText("Try a sample").click();
   await page.locator("button", { hasText: "Reform" }).click();
+  await expect(page.getByTestId("variant-tabs")).toBeVisible(); // variants loaded, as for a human who waits for the screen
+  await page.waitForTimeout(1000);
 }
 
 async function shot(page: Page, name: string): Promise<void> {
@@ -47,7 +50,7 @@ async function shot(page: Page, name: string): Promise<void> {
   }
 }
 
-for (const { width, height } of SIZES) {
+for (const { width, height, minCard } of SIZES) {
   test(`reform keeps composer and Next on screen after long replies at ${width}x${height}`, async ({ page }) => {
     await page.setViewportSize({ width, height });
     await openReform(page);
@@ -58,6 +61,7 @@ for (const { width, height } of SIZES) {
       await send.click();
       await expect(page.locator(".agent-message[data-role='assistant']")).toHaveCount(i + 1);
     }
+    await page.waitForTimeout(800); // let the demand-driven WebGL canvas draw
     await shot(page, `reform-${width}x${height}-${process.env.PHONEPASS_TAG ?? "run"}`);
 
     const footer = await page.locator(".sheet").boundingBox();
@@ -79,7 +83,7 @@ for (const { width, height } of SIZES) {
     });
     expect(lastOk).toBe(true);
     const card = await page.locator(".agent-card").boundingBox();
-    expect(card?.height ?? 0).toBeGreaterThanOrEqual(120);
+    expect(card?.height ?? 0).toBeGreaterThanOrEqual(minCard);
     expect((footer?.y ?? 0) + (footer?.height ?? 0)).toBeLessThanOrEqual(height + 1);
 
     // A second turn on the same variant works without forking.
@@ -90,3 +94,23 @@ for (const { width, height } of SIZES) {
     await expect(input).toBeEnabled();
   });
 }
+
+test("an agent error notice stays visible and clear of the sheet at 360x707", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 707 });
+  await openReform(page);
+  await page.unroute("**/api/agent/turn");
+  await page.route("**/api/agent/turn", (route) => route.fulfill({ status: 500, json: { detail: "The assistant is unavailable right now" } }));
+  await page.getByLabel("Message to the assistant").fill("add a room");
+  await page.getByRole("button", { name: "Send" }).click();
+  const notice = page.locator(".agent-error-box");
+  await expect(notice).toBeVisible();
+  await page.waitForTimeout(800);
+  await shot(page, `error-360x707-${process.env.PHONEPASS_TAG ?? "run"}`);
+  const n = (await notice.boundingBox())!;
+  const sheet = (await page.locator(".agent-sheet").boundingBox())!;
+  const foot = (await page.locator(".sheet").boundingBox())!;
+  expect(n.y).toBeGreaterThanOrEqual(sheet.y + sheet.height - 1);
+  expect(n.y + n.height).toBeLessThanOrEqual(foot.y + 1);
+  const input = (await page.getByLabel("Message to the assistant").boundingBox())!;
+  expect(input.y + input.height).toBeLessThanOrEqual(n.y + 1);
+});

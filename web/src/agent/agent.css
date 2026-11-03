@@ -393,8 +393,33 @@
 
 .agent-message.agent-pending { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
 
+/* Short phones (real Chrome viewport ~360x707): the 3D hero is the demo, so the chrome above it gets slimmer.
+   Touch targets: stepper tabs are 44 px (the rest stay 48 px). */
+@media (max-height: 760px) {
+  .app > header { padding-block: 4px; }
+  .app > .stepper { padding-block: 4px 2px; }
+  .stepper .stage-skip-note { display: none; }
+  .stepper .stepper-dot { width: 28px; height: 28px; }
+  .stepper .stepper-line { top: 14px; }
+  .stepper button[role="tab"] { min-height: 44px; gap: 2px; }
+  .stage-screen .variant-bar { padding-block: 2px; }
+  [data-testid="pro-banner"] { margin-top: 4px; }
+}
+
+/* Hero first: it keeps a real height (the model must be readable); the message list gives way before it does. */
+@media (max-height: 900px) {
+  .stage-screen .agent-card { flex: 1 1 190px; min-height: 190px; }
+}
+@media (max-height: 699px) {
+  .stage-screen .agent-card { flex-basis: 160px; min-height: 160px; }
+}
+
+/* An error notice takes room under the sheet: the hero gives it back (it never overlaps the sheet). */
+@media (max-height: 900px) {
+  .stage-screen:has(.agent-error-box) .agent-card { flex-basis: 110px; min-height: 110px; }
+}
+
 /* Very short viewports (split screen, keyboard open): the dock wins over the hero. */
 @media (max-height: 560px) {
   .stage-screen .agent-card { min-height: 0; }
-  .stage-screen .agent-sheet .agent-messages { min-height: 2rem; }
 }
