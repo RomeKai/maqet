@@ -31,3 +31,19 @@ describe("compact chat Next button on short phones", () => {
     expect(min).toBeGreaterThanOrEqual(48);
   });
 });
+
+describe("Reform/Design stage keeps the dock on screen", () => {
+  it("never lets the stage scroll or the dock refuse to shrink (composer and Next would slip under the footer)", async () => {
+    const css = await loadCss();
+    const rules = [...css.matchAll(/([^{}@]+)\{([^}]*)\}/g)].map((r) => ({ selector: r[1].trim(), body: r[2] }));
+    const stageScroll = rules.filter((r) => /(^|,)\s*(\.app:has\([^)]*\)\s+)?\.stage-screen\s*$/.test(r.selector) && /overflow-y:\s*auto/.test(r.body));
+    expect(stageScroll).toEqual([]);
+    const rigid = rules.filter((r) => /\.stage-screen \.agent-sheet\s*$/.test(r.selector) && /min-height:\s*min-content/.test(r.body));
+    expect(rigid).toEqual([]);
+  });
+
+  it("lets the 3D hero shrink to a floor instead of a fixed share of the viewport", async () => {
+    const css = await loadCss();
+    expect(/\.stage-screen \.agent-card\s*\{[^}]*min-height:/.test(css)).toBe(true);
+  });
+});

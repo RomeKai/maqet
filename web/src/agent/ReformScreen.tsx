@@ -59,7 +59,7 @@ export function ReformScreen(props: ReformScreenProps): React.JSX.Element {
 
   return (
     <main className="stage-screen flex min-h-0 flex-1 flex-col overflow-hidden font-sans" aria-label={t["chat.title"]} data-testid="reform-screen">
-      <div className="agent-card relative mx-3 mt-2 min-h-[38dvh] flex-1 overflow-hidden rounded-2xl border-2 border-foreground bg-card">
+      <div className="agent-card relative mx-3 mt-2overflow-hidden rounded-2xl border-2 border-foreground bg-card">
         {scene !== null && (scene.walls?.length ?? 0) > 0 ? (
           <SceneView scene={scene} selectedWallId={props.selectedWallId} onSelectWall={selectWall} wallNumbers />
         ) : null}

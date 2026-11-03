@@ -25,7 +25,7 @@ describe("agent chat dock layout (phone width)", () => {
   });
 
   it("keeps the dock at content size and honours the safe-area inset", () => {
-    expect(rule(".stage-screen .agent-sheet")).toMatch(/flex:\s*1\s+1\s+auto/);
+    expect(rule(".stage-screen .agent-sheet")).toMatch(/flex:\s*0\s+1\s+auto/);
     expect(rule(".agent-sheet")).toMatch(/safe-area-inset-bottom/);
   });
 });
@@ -57,7 +57,7 @@ describe("agent chat dock layout (landscape phone)", () => {
 
 describe("error notice below the dock (rehearsal)", () => {
   it("never lets the squeezed sheet overflow into the notice under it", () => {
-    // min-height: 0 let the dock shrink the sheet below its content; its overflow then painted over the notice.
-    expect(rule(".stage-screen .agent-sheet")).toMatch(/min-height:\s*min-content/);
+    // The sheet may shrink (only the message list gives way, down to its 3rem floor); min-height: min-content kept the dock rigid and pushed the composer under the footer.
+    expect(rule(".stage-screen .agent-sheet")).toMatch(/min-height:\s*0/);
   });
 });

@@ -298,11 +298,22 @@
   text-align: center;
 }
 
-/* Reform/Design layout contract: the 3D card is the hero (>= 38dvh, grows into free space);
-   the dock is content-sized (chips, input, mic) and only the message list scrolls. */
+/* Reform/Design layout contract (the stage never scrolls): the dock (chips/Next row, input, mic) keeps its size and the
+   message list is the only part of it that shrinks and scrolls; the 3D hero takes whatever is left, never below a floor.
+   Do not give the sheet min-height: min-content or let the stage scroll: both pushed the composer under the footer. */
+.stage-screen .agent-card {
+  flex: 1 1 0;
+  min-height: 7.5rem;
+}
+
+.stage-screen .agent-dock {
+  flex: 0 1 auto;
+  min-height: 0;
+}
+
 .stage-screen .agent-sheet {
-  flex: 1 1 auto;
-  min-height: min-content;
+  flex: 0 1 auto;
+  min-height: 0;
   max-height: 46dvh;
   margin-top: 4px;
   overflow: visible;
@@ -382,17 +393,8 @@
 
 .agent-message.agent-pending { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
 
-/* A reply taller than the squeezed list (ChatSheet sets data-tall): on a phone tall enough to afford it, the stage
-   scrolls and the reply keeps a readable height instead of being cut to a sliver under the hero, banner and chips.
-   Short replies, and screens under 700 px, keep the one-screen dock (the list then scrolls on its own). */
-@media (min-height: 700px) {
-  .app:has(.agent-sheet[data-tall="true"]) .stage-screen {
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
-
-  .app:has(.agent-sheet[data-tall="true"]) .stage-screen .agent-sheet .agent-messages {
-    flex: 1 0 auto;
-    min-height: 6.5rem;
-  }
+/* Very short viewports (split screen, keyboard open): the dock wins over the hero. */
+@media (max-height: 560px) {
+  .stage-screen .agent-card { min-height: 0; }
+  .stage-screen .agent-sheet .agent-messages { min-height: 2rem; }
 }
