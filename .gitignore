@@ -26,3 +26,6 @@ web/e2e/screenshots/hunt/*
 !web/e2e/screenshots/hunt/edge-offline-turn.png
 !web/e2e/screenshots/hunt/edge-turn-slow-pending.png
 !web/e2e/screenshots/hunt/edge-rotate-landscape.png
+
+/maqet.db
+/node_modules/
