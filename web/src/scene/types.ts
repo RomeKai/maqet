@@ -1,6 +1,6 @@
 /**
  * GENERATED — do not edit.
- * Source: snapshot C:\Users\lenovo\Desktop\kit\maqet\web\openapi.snapshot.json
+ * Source: snapshot web/openapi.snapshot.json
  * Regenerate: npm run gen:types (from web/)
  */
 

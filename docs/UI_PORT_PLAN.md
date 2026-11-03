@@ -8,7 +8,7 @@ Done when the Mode C demo path (Home > Method > Photo > Walls > Openings > Check
 matches the design closely, and the whole web suite and tsc are green.
 
 ## Sources
-- **Design (read-only):** `C:\Users\lenovo\Desktop\kit\captur-ref`
+- **Design (read-only):** local `captur-ref` checkout (not in this repo)
   - Stack: Next 16, Tailwind v4, lucide, shadcn and base-ui. Live at https://captur-iota.vercel.app (mobile).
   - Tokens and fonts: `app/globals.css`, with Archivo (sans), JetBrains Mono (numbers) and Caveat (handwritten)
     from `app/layout.tsx`.

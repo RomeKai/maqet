@@ -7,7 +7,7 @@ technical assistant help many more of them: measure the home, design the next ro
 their own table, and leave a construction takeoff they can buy stage by stage.
 
 > **Demo video (3 min):** [watch on YouTube](https://www.youtube.com/watch?v=H9fffIhcALY) · **Built for** the Meta Global AI Developer Hackathon, Indie track
-> · Demo script: [`docs/DEMO.md`](docs/DEMO.md) · Submission checklist: [`docs/SUBMISSION.md`](docs/SUBMISSION.md)
+> · Demo script: [`docs/DEMO.md`](docs/DEMO.md)
 
 **Reads a hand sketch for a tenth of a cent.** In our test set, Muse Spark transcribed the written measurements on all
 six inputs (clean plans, phone photos and a hand sketch) and found every door and window on the drawn plans, at about
@@ -90,7 +90,7 @@ the input a family really has, a hand sketch, not only clean plans.
 ## What you can run today
 
 Status as of 2026-11-03. This table is updated as features land; the demo script
-([`docs/DEMO.md`](docs/DEMO.md)) lists what the video will show.
+([`docs/DEMO.md`](docs/DEMO.md)) lists what the video shows.
 
 | You want to | Status |
 |---|---|
