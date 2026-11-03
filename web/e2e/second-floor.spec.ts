@@ -1,0 +1,32 @@
+import { mkdirSync } from "node:fs";
+import { expect, test } from "@playwright/test";
+
+const SHOT_DIR = process.env.PHONEPASS_SHOTS ?? "";
+
+// View-only check: a level-2 room must render upstairs. Needs WebGL; skipped where the browser has none.
+test("a level-2 room renders as a second floor", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.route("**/api/agent/turn", async (route) => {
+    const body = route.request().postDataJSON() as { scene: { walls: { a: [number, number] }[]; rooms?: unknown[] } };
+    const [x, y] = body.scene.walls[0].a;
+    const rooms = [...(body.scene.rooms ?? []), { id: "upper", name: "Second floor", polygon: [[x, y], [x + 3, y], [x + 3, y + 3], [x, y + 3]], level: 2 }];
+    await route.fulfill({
+      json: { reply: "Added a 3x3 second floor.", scene: { ...body.scene, rooms }, ops_applied: [], history: [], professional_flags: ["second_floor"], tool_errors: [], tool_warnings: [] },
+    });
+  });
+  await page.goto("/");
+  await page.getByText("Start capture").click();
+  await page.getByText("Photograph a sketch").click();
+  await page.getByText("Try a sample").click();
+  await page.locator("button", { hasText: "Reform" }).click();
+  const webgl = await page.evaluate(() => !!document.createElement("canvas").getContext("webgl2") || !!document.createElement("canvas").getContext("webgl"));
+  test.skip(!webgl, "no WebGL in this browser");
+  await page.getByLabel("Message to the assistant").fill("add a 3x3 second floor");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(page.locator(".agent-message[data-role='assistant']")).toHaveCount(1);
+  await page.waitForTimeout(800);
+  if (SHOT_DIR) {
+    mkdirSync(SHOT_DIR, { recursive: true });
+    await page.screenshot({ path: `${SHOT_DIR}/second-floor-375x812-${process.env.PHONEPASS_TAG ?? "run"}.png` });
+  }
+});

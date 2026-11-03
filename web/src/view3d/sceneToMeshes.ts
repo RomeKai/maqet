@@ -438,6 +438,27 @@ export function floorMesh(room: Room, color?: string): FloorMesh | null {
   };
 }
 
+/** One storey: the tallest ground wall, else the scene ceiling, else 2.6 m. */
+export function storeyHeightM(scene: Scene): number {
+  let tallest = 0;
+  for (const wall of scene.walls ?? []) tallest = Math.max(tallest, wallHeightM(wall, scene));
+  return tallest > 0 ? tallest : (scene.ceiling_height_m ?? DEFAULT_CEILING_HEIGHT_M);
+}
+
+export function roomLevel(room: Room): number {
+  return Number.isFinite(room.level) ? Math.floor(room.level as number) : 1;
+}
+
+/** Highest point of any upper storey above the ground, or 0 when there is none. */
+function upperTopM(scene: Scene): number {
+  const storey = storeyHeightM(scene);
+  let top = 0;
+  for (const room of scene.rooms ?? []) {
+    if (roomLevel(room) >= 2 && floorMesh(room) !== null) top = Math.max(top, roomLevel(room) * storey);
+  }
+  return top;
+}
+
 /** Whole-Scene mapping. Never throws on empty/partial scenes. */
 export function sceneToMeshes(scene: Scene): SceneMeshes {
   const walls: WallSegment[] = [];
@@ -498,6 +519,7 @@ export function sceneBoundingBox(scene: Scene): SceneBoundingBox | null {
     found = true;
   }
   if (!found) return null;
+  maxZ = Math.max(maxZ, upperTopM(scene)); // view-only upper storeys
   if (
     !(
       Number.isFinite(minX) &&

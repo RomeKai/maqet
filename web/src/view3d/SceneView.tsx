@@ -14,6 +14,7 @@ import {
   furnitureMeshes,
   surfaceOverlays,
 } from "./sceneToMeshes";
+import { upperLevelMeshes } from "./upperLevel";
 
 interface SceneViewProps {
   scene: Scene;
@@ -52,6 +53,9 @@ export function SceneMeshesView({
   labels = true,
 }: SceneViewProps): React.JSX.Element {
   const meshes = useMemo(() => sceneToMeshes(scene), [scene]);
+  // Level >= 2 rooms sit on top of the ground-floor wall height; view-only, the Scene is not changed.
+  const upper = useMemo(() => upperLevelMeshes(scene), [scene]);
+  const upperGeometries = useMemo(() => upper.floors.map((f) => upperFloorGeometry(f.points)), [upper]);
   const furniture = useMemo(() => furnitureMeshes(scene), [scene]);
   const overlays = useMemo(() => surfaceOverlays(scene), [scene]);
   const floorGeometries = useMemo(
@@ -156,6 +160,16 @@ export function SceneMeshesView({
           </group>
         );
       })}
+      {upper.walls.map((wall) => (
+        <mesh
+          key={wall.id}
+          position={planToThree([wall.center[0], wall.center[1]], wall.center[2])}
+          rotation={[0, wall.rotationZ, 0]}
+        >
+          <boxGeometry args={[wall.size[0], wall.size[2], wall.size[1]]} />
+          <meshStandardMaterial color="#a89c8c" />
+        </mesh>
+      ))}
       {labels ? <FurnitureLabels items={furniture} /> : null}
       {wallNumbers ? <WallBadges scene={scene} /> : null}
       {meshes.floors.map((floor, i) => (
@@ -167,8 +181,20 @@ export function SceneMeshesView({
           <meshStandardMaterial color={floor.color ?? "#e8e2d8"} side={THREE.DoubleSide} />
         </mesh>
       ))}
+      {upper.floors.map((floor, i) => (
+        <mesh key={floor.id} geometry={upperGeometries[i]} rotation={[-Math.PI / 2, 0, 0]} position={[0, floor.elevationM, 0]}>
+          <meshStandardMaterial color={floor.color ?? "#d9d2c5"} side={THREE.DoubleSide} />
+        </mesh>
+      ))}
     </group>
   );
+}
+
+function upperFloorGeometry(points: readonly (readonly [number, number])[]): THREE.ShapeGeometry {
+  const shape = new THREE.Shape();
+  points.forEach(([x, y], i) => (i === 0 ? shape.moveTo(x, y) : shape.lineTo(x, y)));
+  shape.closePath();
+  return new THREE.ShapeGeometry(shape);
 }
 
 function labelTexture(text: string): THREE.CanvasTexture {
