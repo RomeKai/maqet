@@ -607,7 +607,7 @@ export function CornerEditor({
           : step === "openings"
             ? t["intake.opening.tapPrompt"]
             : checks.length === 0
-              ? t["intake.checks.none"]
+              ? null // the list itself already says "Nothing to check"
               : t["intake.checks.tapHint"];
 
   return (

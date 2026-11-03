@@ -199,12 +199,19 @@ describe("Mode C path through the real components", () => {
     expect(winHtml).not.toMatch(/\{(width|length|n)\}/);
   });
 
-  it("Check: lists the reading warnings, offers Looks right, shows no leftover placement hint or placeholder", () => {
+  it("Check: lists the translated reading warnings, offers Looks right, shows no leftover placement hint or placeholder", () => {
     const html = editor("check", ["opening: wall 4 door width 1.50 m from written label, verify with human"]);
     expect(html).toContain(t["intake.looksRight"]);
-    expect(html).toContain("verify with human");
+    expect(html).toContain(t["intake.warn.opening"]);
+    expect(html).not.toContain("verify with human");
     expect(html).not.toContain(t["intake.opening.tapPrompt"]);
     expect(html).not.toMatch(/\{(width|length|n)\}/);
+  });
+
+  it("Check: an empty list says \"Nothing to check\" once, not twice", () => {
+    const html = editor("check", []);
+    const none = t["intake.checks.none"];
+    expect(html.split(none).length - 1).toBeLessThanOrEqual(1);
   });
 
   it("Reform, Design, Present, Deliver render their stage with the Preliminary notice", () => {
