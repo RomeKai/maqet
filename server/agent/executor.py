@@ -268,6 +268,7 @@ def _commit_room(
                     "added_ids": [rid],
                     "added_wall_ids": [w.id for w in new_walls],
                     "added_opening_ids": [door.id] if door is not None else [],
+                    "flags_before": list(scene.professional_flags),
                 },
             },
         )
@@ -535,6 +536,7 @@ def _handle_undo(scene: Scene, history: list, args: dict) -> tuple[Scene, ToolRe
                     "rooms": [r for r in scene.rooms if r.id not in dropped],
                     "walls": [w for w in scene.walls if w.id not in dead_walls],
                     "openings": [o for o in scene.openings if o.id not in dead_openings],
+                    "professional_flags": snap.get("flags_before", scene.professional_flags),
                 }
             )
             dropped = dropped | dead_walls | dead_openings

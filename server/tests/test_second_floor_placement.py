@@ -98,3 +98,21 @@ def test_undo_removes_the_second_floor() -> None:
     scene, undo = execute(scene, history, "reform", "undo", {})
     assert undo.ok, undo.errors
     assert [r.id for r in scene.rooms] == [r.id for r in house.rooms]
+
+
+def test_undo_clears_the_flag_of_the_undone_storey_and_keeps_earlier_flags() -> None:
+    history: list = []
+    with_bedroom, res = execute(
+        _house(), history, "reform", "add_room", {"function": "bedroom", "next_to": "ROOM", "size_m": [3, 4]}
+    )
+    assert res.ok, res.errors
+    before = list(with_bedroom.professional_flags)
+    upstairs, res = execute(with_bedroom, history, "reform", "add_room", {"function": "bedroom", "level": 2})
+    assert res.ok, res.errors
+    assert PRO_FLAG_SECOND_FLOOR in upstairs.professional_flags
+
+    undone, res = execute(upstairs, history, "reform", "undo", {})
+
+    assert res.ok, res.errors
+    assert PRO_FLAG_SECOND_FLOOR not in undone.professional_flags
+    assert undone.professional_flags == before
