@@ -13,3 +13,10 @@ def test_prompt_keeps_one_wall_across_a_door_gap() -> None:
     prompt = SYSTEM_PROMPT.lower()
     assert "one straight wall across the gap" in prompt
     assert "width of the opening" in prompt
+
+
+def test_prompt_describes_how_a_window_is_drawn() -> None:
+    prompt = SYSTEM_PROMPT.lower()
+    assert "windows:" in prompt
+    assert "double line" in prompt
+    assert "short measurement beside a long wall" in prompt
