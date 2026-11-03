@@ -66,9 +66,9 @@ def test_mode_b_goes_through_the_shared_solver(
     calls: list[dict[int, float]] = []
     real = cleanup.solve_vertices
 
-    def spy(verts, wall_vids, targets_m, warnings):  # type: ignore[no-untyped-def]
+    def spy(verts, wall_vids, targets_m, warnings, *classes):  # type: ignore[no-untyped-def]
         calls.append(dict(targets_m))
-        return real(verts, wall_vids, targets_m, warnings)
+        return real(verts, wall_vids, targets_m, warnings, *classes)
 
     monkeypatch.setattr(cleanup, "solve_vertices", spy)
     build_tapped_plan(OUTLINE, ALL_TAPS, 1000, 1000)

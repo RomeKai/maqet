@@ -24,6 +24,8 @@ def solve_vertices(
     wall_vids: list[tuple[int, int]],
     targets_m: dict[int, float],
     warnings: list[str],
+    x_class: list[int] | None = None,
+    y_class: list[int] | None = None,
 ) -> list[tuple[float, float]]:
     """Move shared vertices so measured walls hit their measured lengths.
 
@@ -32,36 +34,55 @@ def solve_vertices(
     shared vertices and stay estimated. Large leftover residuals mean
     contradictory measures and are flagged to the technician by appending to
     ``warnings`` -- never silently averaged. ``verts_m`` is not mutated.
+
+    ``x_class`` / ``y_class`` (optional, one id per vertex) tie vertices to a
+    shared coordinate: vertices with the same x class always keep the same x
+    (a vertical wall), same for y (a horizontal wall). Each class starts at
+    the mean of its members. Without them every vertex is free, as before.
     """
-    pos = [list(v) for v in verts_m]
-    if not targets_m:
+    if not targets_m and x_class is None and y_class is None:
         return verts_m
+    n = len(verts_m)
+    xc = list(x_class) if x_class is not None else list(range(n))
+    yc = list(y_class) if y_class is not None else list(range(n))
+    xs: dict[int, list[float]] = {}
+    ys: dict[int, list[float]] = {}
+    for i, (px, py) in enumerate(verts_m):
+        xs.setdefault(xc[i], []).append(px)
+        ys.setdefault(yc[i], []).append(py)
+    cx = {k: sum(v) / len(v) for k, v in xs.items()}
+    cy = {k: sum(v) / len(v) for k, v in ys.items()}
+
+    def at(i: int) -> tuple[float, float]:
+        return cx[xc[i]], cy[yc[i]]
+
     for _ in range(MAX_SWEEPS):
         sweep_max = 0.0
         for j, target in targets_m.items():
             u, v = wall_vids[j]
-            dx, dy = pos[v][0] - pos[u][0], pos[v][1] - pos[u][1]
+            (ux0, uy0), (vx0, vy0) = at(u), at(v)
+            dx, dy = vx0 - ux0, vy0 - uy0
             dist = math.hypot(dx, dy)
             if dist <= 0:
                 continue
             err = target - dist
             sweep_max = max(sweep_max, abs(err))
             ux, uy = dx / dist, dy / dist
-            pos[u][0] -= ux * err / 2
-            pos[u][1] -= uy * err / 2
-            pos[v][0] += ux * err / 2
-            pos[v][1] += uy * err / 2
+            cx[xc[u]] -= ux * err / 2
+            cy[yc[u]] -= uy * err / 2
+            cx[xc[v]] += ux * err / 2
+            cy[yc[v]] += uy * err / 2
         if sweep_max < CONVERGED_M:
             break
     for j, target in targets_m.items():
         u, v = wall_vids[j]
-        residual = abs(math.dist(pos[u], pos[v]) - target)
+        residual = abs(math.dist(at(u), at(v)) - target)
         if residual > max(CONTRADICTION_ABS_M, CONTRADICTION_REL * target):
             warnings.append(
                 f"contradiction: wall {j + 1} measures disagree "
                 f"(residual {residual:.2f} m), verify with human"
             )
-    return [(p[0], p[1]) for p in pos]
+    return [at(i) for i in range(n)]
 
 
 __all__ = ["solve_vertices"]

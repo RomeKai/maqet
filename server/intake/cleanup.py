@@ -362,6 +362,44 @@ def _orthogonal_snap(
     return snapped
 
 
+# A snapped wall is axis-aligned when its direction is this close to an axis
+# (unit-vector component); real diagonals are >= 15 deg off, far above it.
+_AXIS_EPS = 1e-4
+
+
+def _axis_classes(
+    fused: list[tuple[tuple[float, float], tuple[float, float], str]],
+    wall_vids: list[tuple[int, int]],
+    n_verts: int,
+) -> tuple[list[int], list[int]]:
+    """Tie the corners of every axis-aligned wall to ONE shared coordinate.
+
+    ``_orthogonal_snap`` straightens walls one at a time, so two walls meeting
+    at a corner each move it a different way and clustering then averages them
+    back into a tilted corner. Here a horizontal wall forces both its corners
+    to share y and a vertical wall to share x (union-find over vertices); the
+    solver then moves whole classes, so the corners stay exactly orthogonal
+    while the written lengths are applied. Diagonal walls tie nothing.
+    """
+    def make() -> list[int]:
+        return list(range(n_verts))
+
+    def find(parent: list[int], i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    px, py = make(), make()
+    for ((ax, ay), (bx, by), _kind), (u, v) in zip(fused, wall_vids):
+        ux, uy = _unit(bx - ax, by - ay)
+        if abs(uy) <= _AXIS_EPS:  # horizontal: same y
+            py[find(py, u)] = find(py, v)
+        elif abs(ux) <= _AXIS_EPS:  # vertical: same x
+            px[find(px, u)] = find(px, v)
+    return [find(px, i) for i in range(n_verts)], [find(py, i) for i in range(n_verts)]
+
+
 def _drop_zero_and_duplicate(
     walls: list[tuple[tuple[float, float], tuple[float, float], str | None]],
     tol: float,
@@ -709,11 +747,14 @@ def build_scaled_plan(
             )
 
     verts_norm, wall_vids = _cluster_vertices(fused, tol)
+    x_class, y_class = _axis_classes(fused, wall_vids, len(verts_norm))
     verts_guess = [
         (px * image_w * m_per_px, (1.0 - py) * image_h * m_per_px)
         for px, py in verts_norm
     ]
-    solved = solve_vertices(verts_guess, wall_vids, targets_m, warnings)
+    solved = solve_vertices(
+        verts_guess, wall_vids, targets_m, warnings, x_class, y_class
+    )
     min_x = min((p[0] for p in solved), default=0.0)
     min_y = min((p[1] for p in solved), default=0.0)
 
