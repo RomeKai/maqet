@@ -192,46 +192,25 @@ Replays offline via server/tests/test_reform_demo.py (MME_MODE=replay).
 
 ### How mme.client records
 
-All Meta calls go through mme.client (server/agent/loop.py, server/intake/read_plan.py) with a stable
-prompt_cache_key + tag. When MME_MODE is not replay the harness records each response to
-samples/replay/; in MME_MODE=replay a missing fixture raises ReplayMiss (mapped to 409 by
-server/api.py). The pattern is the same as the intake replay fixtures in samples/replay/intake-*.json
-driven by server/intake/replay.py.
+All Meta calls go through mme.client with a content-hash cache in `.mme/cache/` (gitignored), not in `samples/replay/`.
+A request is served for $0 only when it is byte-identical. For the agent, the hash covers the current scene and the
+conversation, so a recorded turn only replays on the same scene after the same turns. New voice audio never matches, so
+`MME_MODE=replay` misses (409) on anything not recorded this way.
 
-### OPS: record the 4 turns live once
+`server/tests/test_reform_demo.py` uses a scripted fake client: it passes with or without a recording and proves nothing
+about the cache. `samples/replay/` only holds the intake fixtures loaded by `server/intake/replay.py`.
 
-Run from the repo root in the OPS terminal (with .env loaded, MME_MODE unset so the harness records):
+### OPS: rehearse and film in live
+
+Run from the repo root in the OPS terminal. `.env` already sets `MME_MODE=live`.
 
 ```bash
-# 1. Ensure the base scene and script are on the current branch
-ls samples/plans/croquis_3x8_door_window.truth.json samples/demo/reform_script.json
-
-# 2. Run the recorder (one invocation records all 4 turns)
-python -c "
-import json, pathlib
-from server.scene.models import Scene
-from server.agent.loop import run_turn
-from mme.client import client
-
-truth = pathlib.Path('samples/plans/croquis_3x8_door_window.truth.json').read_text()
-scene = Scene.model_validate_json(truth)
-script = json.loads(pathlib.Path('samples/demo/reform_script.json').read_text())
-history = []
-for turn in script['turns']:
-    result = run_turn(scene, history, script['stage'], turn['user_text'], client())
-    scene = result.scene
-    print(turn['user_text'], '->', result.reply[:80])
-print('done, version', scene.version)
-"
-
-# 3. Verify the harness wrote a replay fixture (filename depends on harness version;
-#    look for a new file under samples/replay/ not present before)
-ls samples/replay/
-
-# 4. Confirm the demo runs offline
-MME_MODE=replay python -m pytest server/tests/test_reform_demo.py -q
+source .venv/Scripts/activate
+set -a; source .env; set +a
+mme credits
+uvicorn server.api:app --host 0.0.0.0 --port 8000
 ```
 
-Commit samples/replay/ after recording. If the harness writes to a different path,
-move the file to samples/replay/ and keep the intake-like naming (e.g. reform-demo-*.json).
-
+In a second terminal: `cd web && npm run dev`. Open `https://<laptop-ip>:5173` on the phone and run the script in
+[`DEMO.md`](DEMO.md). In the ledger so far, one Muse Wonder call averages about $0.04 and one *In real life* tap costs
+about $0.03, so a full run should cost well under $1. Check `mme credits` afterwards.

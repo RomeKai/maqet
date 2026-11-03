@@ -5,7 +5,7 @@ Source of truth for the recorded video. Product: [`PRODUCT.md`](PRODUCT.md). Dec
 
 **Format.** Spoken in Spanish, English subtitles (the jury reads English; the family speaks Spanish). The app UI is in
 English by default (ADR-026); the es-AR switch is shown once, in the Reform beat. The narration lines below are the
-subtitle text. Record in `MME_MODE=replay` so the take is reproducible and costs $0.
+subtitle text. Record with the server in live mode: voice takes never hash the same, so a replay take would miss on every new recording. Identical requests are served from the MME cache for $0 (see RUNBOOK, "Record the Reform demo").
 
 **Rules for the take**
 - The video **opens** with one line stating what was pre-existing and what was built this week (organizers' reply, saved in
@@ -17,35 +17,78 @@ subtitle text. Record in `MME_MODE=replay` so the take is reproducible and costs
 
 ## Timeline
 
-| Time | Stage | On screen | Narration (English subtitles) |
-|---|---|---|---|
-| 0:00 to 0:10 | Opening line (mandatory) | Black card with the line (nothing before it), then the app logo. The line is spoken **and** on screen for the whole beat | "Before the event: planning docs, agent skills and my open-source MME harness. Everything you'll see in Maqet was built this week." |
-| 0:10 to 0:22 | Hook | Rosa's house, photographed. Quick cut to the **end product**: the staged material list and the DXF open in a CAD viewer | "Rosa saved for two years to add a room. About four million people in Argentina build their homes like this, one stage at a time. This is what she leaves with today." |
-| 0:22 to 0:52 | **1. Capture, Mode C** (primary) | `croquis_nonproportional.png` on the phone, Spark's proposed walls, per-wall lengths applied, one wall flagged *estimated*. The technician taps *Looks right* on the Check step | "The technician starts from the family's hand sketch. Each wall takes its own written length, because real sketches are never to scale. Nothing is guessed: what is estimated says so." |
-| 0:52 to 1:32 | **2. Reform** (hero beat) | Hold the mic, say it in Spanish: *"agregá un dormitorio para mi hija al lado de la cocina"*. Transcript appears, tool calls scroll (`add_room`, `add_opening`), the 3D view grows the room. A rule warning shows (ventilation or minimum side). Then: *"y agregá un segundo piso"* returns the **needs a licensed professional** flag, no edit applied. One tap flips the UI to es-AR | "She just asks, in her own language. The agent can only change the home through validated tools, checked against construction rules. And when something needs an engineer, it says so and refuses to guess." |
-| 1:32 to 1:40 | **3. Design** (light; cut first if over time) | Ask the agent to furnish the new room: a bed appears in the 3D view and it fits | "A basic usability check: does the bed fit in the room." |
-| 1:40 to 2:05 | **4. Present** | The *In real life* render of the room, labelled as a render. Then the phone on a table: the AR maquette of the home with the new room | "Rosa sees a picture of how the room could look, and her extension on her own table." |
-| 2:05 to 2:40 | **5. Deliver** | Staged takeoff table: foundations, walls, bond beams and roof, openings, finishes, with bricks, cement bags, sand, steel, sheets. Estimated quantities labelled. CSV download. DXF opened in a CAD viewer: AIA layers, measured dimensions | "The design becomes a shopping list per construction stage, so the family buys as it saves. And a measured DXF for the professional who will sign." |
-| 2:40 to 3:00 | Limits and roadmap | Takeoff screen with the **Preliminary** banner; title card with roadmap | "Maqet is preliminary. It never certifies structure and never ships prices. Next: rules reviewed per jurisdiction, recipes validated with builders, a version for NGO and municipal programs." |
+Target 2:50, hard cap 3:00. "Say" is the spoken Spanish; "Subtitle" is burned in. Rosa is an illustrative family, and the
+video says so ("Pensá en Rosa"): no real family, house or address appears.
 
-Beats add up to 180 s (10 + 12 + 30 + 40 + 8 + 25 + 35 + 20).
+### 0:00 to 0:11: opening line (mandatory, nothing before it)
+- **Screen:** black card with the line, on screen for the whole beat.
+- **Say:** "Antes del evento: documentos de planificación, skills de agentes y mi harness open source MME. Todo lo que van a ver de Maqet se construyó esta semana."
+- **Subtitle:** "Before the event: planning docs, agent skills and my open-source MME harness. Everything you'll see in Maqet was built this week."
 
-**Deviation from `PRODUCT.md`.** The product doc places Reform at 1:00 and Present at 1:45, with AR measuring as the primary capture. This script starts Reform at 0:52,
-opens on the end product at 0:10 so the agent and a deliverable appear before the one-minute mark (HARDENING D1), and uses Mode C because it works on any phone.
-Tradeoff: Capture gets 30 s instead of 35 s. If it needs more air, take it from Design, not from Reform.
+### 0:11 to 0:30: the problem, and where it ends
+- **Screen:** a paper sketch on a table. Hard cut to the staged material list, then the DXF in a CAD viewer.
+- **Say:** "Cuatro millones de personas en Argentina construyen su casa solas, por etapas, a medida que ahorran. Hay muy pocos técnicos para ayudarlas. Pensá en Rosa: quiere sumar un dormitorio, y todo lo que tiene es este dibujo. Con Maqet, un técnico le deja esto, en una sola visita."
+- **Subtitle:** "Four million people in Argentina build their own homes, in stages, as they save. There are too few technicians to help them. Picture Rosa: she wants to add a bedroom, and all she has is this drawing. With Maqet, a technician leaves her this, in one visit."
+
+### 0:30 to 0:53: 1. Capture, Mode C (the door, not the product)
+- **Screen:** the phone photographs the paper sketch. Caption: "Muse Spark 1.3". Proposed walls appear with their lengths and provenance. Tap a wall, correct its length. Show one *estimated* flag. Tap *Looks right*.
+- **Say:** "El técnico saca una foto. Muse Spark lee el dibujo y las medidas escritas, por una décima de centavo de dólar. Pero los croquis nunca están a escala, así que cada pared toma su propia medida. Y lo que es estimado, dice que es estimado. El técnico corrige y confirma: la IA propone, la persona decide."
+- **Subtitle:** "The technician takes a photo. Muse Spark reads the drawing and the written measurements, for a tenth of a cent. But sketches are never to scale, so each wall takes its own length. What is estimated says so. The technician corrects and confirms: the AI proposes, a person decides."
+
+### 0:53 to 1:30: 2. Reform (hero beat, the longest)
+- **Screen:** hold the mic and say the first request. Caption: "Muse Voice Transcribe, Muse Wonder". The transcript appears, the validated operations show in the chat, the 3D view grows the room, a rule warning shows.
+- **Request 1:** "Agregá un dormitorio de tres por cuatro para mi hija, del lado norte."
+- **Say:** "Rosa lo pide en su idioma, con su voz. El agente no dibuja: solo puede cambiar la casa con herramientas validadas, y cada cambio pasa por reglas de construcción escritas en código, no en un prompt."
+- **Subtitle:** "Rosa asks in her own language, with her own voice. The agent doesn't draw: it can only change the home through validated tools, and every change goes through construction rules written in code, not in a prompt."
+- **Expect a flag already here:** the existing 8 m wall exceeds the 4 m span rule of thumb, so the banner shows one professional flag after this request. That is the rule working, not a bug. It goes up to two on request 2.
+- **Request 2:** "Y agregá un segundo piso." The red **needs a licensed professional** flag appears. Then "Deshacé eso", and the home goes back.
+- **Say:** "Y esto es lo más importante: cuando algo necesita a un profesional, lo dice. Maqet nunca certifica una estructura."
+- **Subtitle:** "And this matters most: when something needs a professional, it says so. Maqet never certifies a structure."
+
+### 1:30 to 1:48: 3. Present
+- **Screen:** the *In real life* views, labelled as renders. Caption: "Muse Image". Then the phone on a real table: the AR maquette with the new room.
+- **Say:** "Rosa ve cómo podría quedar el cuarto, y ve su ampliación sobre su propia mesa. La imagen sale de la geometría medida, no de la imaginación del modelo."
+- **Subtitle:** "Rosa sees how the room could look, and sees her extension on her own table. The image starts from the measured geometry, not from the model's imagination."
+
+### 1:48 to 2:18: 4. Deliver (what no pretty-picture app gives you)
+- **Screen:** scroll the staged takeoff: foundations, walls, bond beams and roof, openings, finishes. Hold on bricks and cement. Show the *Preliminary* label. Then the DXF in a CAD viewer, with its layers.
+- **Say:** "Y ahora lo que ninguna app de imágenes te da. Una lista de materiales por etapa, para comprar a medida que ahorra: ladrillos, cemento, arena, hierro. Y un DXF con medidas reales, para el profesional que va a revisarlo y firmarlo. Ningún modelo escribe estos números: salen de la geometría medida, con código determinista."
+- **Subtitle:** "And now what no image app gives you. A material list by stage, to buy as she saves: bricks, cement, sand, steel. And a DXF with real measurements, for the professional who will review and sign it. No model writes these numbers: they come from the measured geometry, through deterministic code."
+
+### 2:18 to 2:38: 5. How it is built (the judges' beat)
+- **Screen:** one card: a single measured Scene in the center, with 3D, AR, render, takeoff and DXF derived from it; four Meta models around it, each with its bound. Then the repo for two seconds.
+- **Say:** "Una sola escena medida es la fuente de verdad: el 3D, el AR, el render, los materiales y el DXF salen de ahí. Cuatro modelos de Meta trabajan alrededor, cada uno limitado por código. Casi mil quinientos tests automáticos, y todo open source."
+- **Subtitle:** "One measured scene is the source of truth: 3D, AR, render, materials and DXF all derive from it. Four Meta models work around it, each bounded by code. Nearly 1,500 automated tests, all open source."
+
+### 2:38 to 2:50: close
+- **Screen:** logo, tagline, repo URL, and "Preliminary. Never a structural certification."
+- **Say:** "Todo es preliminar, y lo dice. Sigue validar las reglas y recetas con constructores y programas de vivienda. Maqet: un técnico puede ayudar a muchas más familias."
+- **Subtitle:** "Everything is preliminary, and says so. Next: validating rules and recipes with builders and housing programs. Maqet: one technician can help many more families."
+
+Beats add up to 170 s (11 + 19 + 23 + 37 + 18 + 30 + 20 + 12).
+
+**Changes from the earlier script.**
+- Added the 2:18 "How it is built" beat, which answers technical depth and use of Meta models directly.
+- Design no longer has its own beat. The bed check is the first thing to add back only if a take runs short.
+- The second-floor request raises the flag **and applies the edit** (`server/agent/executor.py`, `add_room`), so the script undoes it on camera instead of claiming the agent refuses.
+- The demo home is the 3x8 m one-room sketch, so the request names a side instead of "next to the kitchen".
+- Rosa is introduced as an illustrative family.
+
+Confirmed in the first live rehearsal (2026-11-03): the flags, undo, renders, AR and downloads work. Still to confirm on the phone after the layout fixes: the second floor in 3D, a second turn on the same variant, and the sketch reading with the new prompt. Rewrite any line the app does not back up.
+
+**Time check.** Timings come from a word count at about 2.5 words per second, not from a read-through. Time them aloud in the dry run and trim the words, not the screen shots.
 
 ## Pre-flight (the day of recording)
 
 1. `git status` clean on `main`, `mme gate` green (the human runs it).
-2. Server in replay: `MME_MODE=replay uvicorn server.api:app --host 0.0.0.0 --port 8000`.
+2. Server in live, from the OPS terminal with `.env` loaded: `uvicorn server.api:app --host 0.0.0.0 --port 8000`.
 3. Web over HTTPS: `cd web && npm run dev`; open `https://<laptop-ip>:5173` on the Android phone and accept the
    certificate. WebXR `immersive-ar` needs a secure context (ADR-025, HARDENING I14).
 4. Update Google Play Services for AR and Chrome on the demo phone, then confirm the AR maquette on a table. WebXR works; Scene Viewer failed on our test phone.
 5. Confirm the upload works from the phone browser (HARDENING I17: one HTTPS origin, `/api` proxy).
-6. Confirm replay fixtures exist for every Meta call in the script (intake, transcribe, reform, render). A replay miss
-   returns a loud 409; fix it before recording, never during.
+6. Do one full live rehearsal of every Meta call in the script (intake, transcribe, reform, render) before the takes.
 7. UI locale is `en`; the es-AR switch works; no missing keys. Do not press Cancel during a take: the server may still store a cancelled turn.
-8. Inputs ready in [`samples/`](../samples): `plans/croquis_nonproportional.png` (Mode C cutaway),
+8. Inputs ready: the paper sketch of the 3x8 m home; in [`samples/`](../samples), the *Try a sample* path as fallback,
    `audio/reform_es.wav` (voice fallback if the live mic is noisy), `plans/plano_48m_1ambiente.png` (backup).
 9. Opening-line card rendered; subtitle file (SRT) matches the table above.
 10. Do one full dry run with a stopwatch. Target 2:50, never above 3:00.
@@ -64,8 +107,8 @@ Tradeoff: Capture gets 30 s instead of 35 s. If it needs more air, take it from 
 
 ## If a beat is not ready
 
-As of 2026-11-02 all beats exist in `main`. Still to confirm on the demo phone: *In real life* with the guide image, and the replay
-fixtures for the agent turns in this script. Rule: **anything that fails on the phone is rewritten, not faked.** In order of preference: shorten the beat, replace it with the closest working output (3D view
+As of 2026-11-02 all beats exist in `main`. Still to confirm on the demo phone: *In real life* with the guide image, and the
+agent turns in this script, live. Rule: **anything that fails on the phone is rewritten, not faked.** In order of preference: shorten the beat, replace it with the closest working output (3D view
 instead of AR maquette), or state it as roadmap in the 2:40 beat. The product's non-negotiables are, in order: per-wall
 measured capture, the agent with rules and professional flags, the AR maquette, the staged takeoff and the DXF.
 
