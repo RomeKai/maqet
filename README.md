@@ -1,5 +1,17 @@
 # Maqet: measured technical assistance for families who build their own homes
 
+[![Demo video](https://img.shields.io/badge/Demo-YouTube-FF0000?style=flat-square&logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=H9fffIhcALY)
+[![Meta Global AI Developer Hackathon](https://img.shields.io/badge/Meta%20AI%20Hackathon-Indie%20track-0866FF?style=flat-square&logo=meta&logoColor=white)](docs/DEMO.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
+![Tests](https://img.shields.io/badge/tests-1500%2B%20offline-2EA44F?style=flat-square)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![React](https://img.shields.io/badge/React-20232A?style=flat-square&logo=react&logoColor=61DAFB)
+![Three.js](https://img.shields.io/badge/Three.js-000000?style=flat-square&logo=threedotjs&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=flat-square&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
+![WebXR](https://img.shields.io/badge/WebXR-AR-6E40C9?style=flat-square)
+![PWA](https://img.shields.io/badge/PWA-phone--first-5A0FC8?style=flat-square&logo=pwa&logoColor=white)
+
 From a hand-drawn sketch to a staged shopping list of bricks, in one visit.
 
 **About 4 million people in Argentina build their homes themselves, room by room, as they save.** Maqet lets one
